@@ -12,7 +12,7 @@
     --bg-dark: #050A14;
     --bg-card-dark: rgba(15, 23, 42, 0.4);
     
-    /* Variables par défaut (Thème Or) */
+    /* Thème par défaut (Or) */
     --gold: #D4AF37;
     --gold-light: #F4EBD6;
     --gold-dark: #A6833C;
@@ -68,14 +68,21 @@
   .header h2 { font-size: 1.5rem; color: #fff; }
   .btn-logout { background: none; border: none; color: var(--text-light); font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
 
-  /* Filtre Propriétaire */
-  .owner-filter { display: flex; gap: 10px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 5px; }
+  /* Filtres */
+  .filters-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;}
+  .owner-filter { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; }
   .owner-btn {
     background: transparent; border: 1px solid rgba(255,255,255,0.1);
-    color: var(--text-light); padding: 8px 20px; border-radius: 30px; font-size: 0.85rem; font-weight: 500;
+    color: var(--text-light); padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; font-weight: 500;
     cursor: pointer; transition: all 0.3s; white-space: nowrap;
   }
   .owner-btn.active { background: var(--gold); color: var(--bg-dark); border-color: var(--gold); box-shadow: var(--glow); }
+  
+  .pro-toggle {
+    display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--text-light); cursor: pointer;
+    background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);
+  }
+  .pro-toggle input { accent-color: var(--gold); }
 
   /* --- CARTES --- */
   .card { 
@@ -174,68 +181,18 @@
   const SUPABASE_KEY = 'sb_publishable_AsJvkk-erLkE5-pUbxiNnw_h2mmuuRN';
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  const EXCEL_DATA = [
-    { owner: 'Aubin', envelope: 'Compte Courant / Livret', account_name: 'Compte courant TR', category: 'Livrets', value_eur: 15000, is_liability: false },
-    { owner: 'Aubin', envelope: 'PEA', account_name: 'ETF actions', category: 'Actions', value_eur: 248567, is_liability: false },
-    { owner: 'Aubin', envelope: 'PEA-PME', account_name: 'Fonds IE Europe small', category: 'Actions', value_eur: 2800, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Linxea Spirit 2', category: 'Actions', value_eur: 22650, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Linxea Spirit 2', category: 'Fonds euros', value_eur: 1890, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Linxea Spirit 2', category: 'SCPI', value_eur: 76400, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Linxea Spirit 2', category: 'Private equity', value_eur: 10850, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Linxea Spirit 2', category: 'Fonds diversifiés', value_eur: 1450, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Ramify', category: 'Actions', value_eur: 8970, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Ramify', category: 'Fonds euros', value_eur: 1850, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Ramify', category: 'SCPI', value_eur: 1670, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Ramify', category: 'Private equity', value_eur: 2220, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Ramify', category: 'Obligataire', value_eur: 1970, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'CNP Lucya', category: 'Actions', value_eur: 6200, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'CNP Lucya', category: 'Fonds euros', value_eur: 4000, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Louve infinity', category: 'Actions', value_eur: 6500, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Louve infinity', category: 'Fonds euros', value_eur: 950, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Louve infinity', category: 'SCPI', value_eur: 2700, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Corum life', category: 'Fonds euros', value_eur: 2700, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Corum life', category: 'SCPI', value_eur: 5500, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Corum life', category: 'Obligataire', value_eur: 2200, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Boursobank', category: 'Fonds euros', value_eur: 8100, is_liability: false },
-    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Fortuneo', category: 'Fonds euros', value_eur: 2000, is_liability: false },
-    { owner: 'Aubin', envelope: 'CTO', account_name: 'MEXEM', category: 'Actions', value_eur: 14500, is_liability: false },
-    { owner: 'Aubin', envelope: 'CTO', account_name: 'TRADE REPUBLIC', category: 'Actions', value_eur: 1500, is_liability: false },
-    { owner: 'Aubin', envelope: 'Entreprise', account_name: 'Trésorerie Pro', category: 'Livrets', value_eur: 15000, is_liability: false },
-    { owner: 'Aubin', envelope: 'Entreprise', account_name: 'Usufruit de SCPI', category: 'SCPI', value_eur: 56000, is_liability: false },
-    { owner: 'Aubin', envelope: 'Crédit', account_name: 'Prêt Conso', category: 'Dettes Conso', value_eur: -20288, is_liability: true },
-    { owner: 'Aubin', envelope: 'Immobilier', account_name: 'Résidence Principale', category: 'Immobilier Brut', value_eur: 290000, is_liability: false },
-    { owner: 'Aubin', envelope: 'Immobilier', account_name: 'Crédit RP', category: 'Dette Immobilière', value_eur: -208525, is_liability: true },
-    { owner: 'Aubin', envelope: 'PER', account_name: 'PER', category: 'Actions', value_eur: 14100, is_liability: false },
-    { owner: 'Oliwia', envelope: 'Compte Courant', account_name: 'LCL', category: 'Livrets', value_eur: 23750, is_liability: false },
-    { owner: 'Oliwia', envelope: 'Compte Bancaire', account_name: 'PKO / mBank', category: 'Livrets', value_eur: 6575, is_liability: false },
-    { owner: 'Oliwia', envelope: 'Compte Courant', account_name: 'Revolut', category: 'Livrets', value_eur: 774, is_liability: false },
-    { owner: 'Oliwia', envelope: 'PEA', account_name: 'Fortuneo', category: 'Actions', value_eur: 13000, is_liability: false },
-    { owner: 'Oliwia', envelope: 'Assurance-Vie', account_name: 'Linxea spirit 2', category: 'Actions', value_eur: 1175, is_liability: false },
-    { owner: 'Oliwia', envelope: 'Assurance-Vie', account_name: 'Linxea spirit 2', category: 'Fonds euros', value_eur: 1850, is_liability: false },
-    { owner: 'Oliwia', envelope: 'Assurance-Vie', account_name: 'Linxea spirit 2', category: 'SCPI', value_eur: 2260, is_liability: false },
-    { owner: 'Oliwia', envelope: 'Assurance-Vie', account_name: 'Fortuneo', category: 'Fonds euros', value_eur: 2000, is_liability: false },
-    { owner: 'Oliwia', envelope: 'PEE', account_name: 'CIC', category: 'Actions', value_eur: 9687, is_liability: false }
-  ];
-
-  // Composants isolés (Memo)
-  const HistoryChart = memo(({ total, color }) => {
+  // Composant Graphique Historique
+  const HistoryChart = memo(({ history, color }) => {
     const chartRef = useRef(null);
 
     useEffect(() => {
-        if (!chartRef.current) return;
+        if (!chartRef.current || !history || history.length === 0) return;
         const ctx = chartRef.current.getContext('2d');
         const existing = Chart.getChart(ctx.canvas);
         if (existing) existing.destroy();
 
-        // NOTE: Ceci est un faux graphique pour le design. Il sera remplacé par l'historique réel.
-        const labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct'];
-        const dataPoints = [];
-        let current = total * 0.85; 
-        for(let i=0; i<labels.length - 1; i++) {
-            current = current * (1 + (Math.random() * 0.04 - 0.01));
-            dataPoints.push(current);
-        }
-        dataPoints.push(total);
+        const labels = history.map(h => new Date(h.snapshot_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }));
+        const dataPoints = history.map(h => Number(h.total_net));
 
         const gradient = ctx.createLinearGradient(0, 0, 0, 180);
         gradient.addColorStop(0, `${color}44`); 
@@ -244,35 +201,44 @@
         new Chart(ctx, {
             type: 'line',
             data: {
-                labels: labels,
+                labels,
                 datasets: [{
                     data: dataPoints,
                     borderColor: color,
                     borderWidth: 2,
                     backgroundColor: gradient,
                     fill: true,
-                    tension: 0.4,
-                    pointRadius: 0,
+                    tension: 0.3,
+                    pointRadius: history.length === 1 ? 4 : 0,
+                    pointHoverRadius: 5,
                 }]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
                 animation: false,
-                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                interaction: { intersect: false, mode: 'index' },
+                plugins: { 
+                    legend: { display: false }, 
+                    tooltip: { 
+                        enabled: true,
+                        callbacks: { label: (ctx) => `${ctx.parsed.y.toLocaleString('fr-FR')} €` }
+                    } 
+                },
                 scales: { x: { display: false }, y: { display: false } },
                 layout: { padding: { top: 10, bottom: 0, left: 0, right: 0 } }
             }
         });
-    }, [total, color]);
+    }, [history, color]);
 
     return <div className="history-chart-container"><canvas ref={chartRef}></canvas></div>;
   });
 
+  // Composant Donut
   const DonutChart = memo(({ sortedData, colors }) => {
     const chartRef = useRef(null);
 
     useEffect(() => {
-        if (!chartRef.current) return;
+        if (!chartRef.current || sortedData.length === 0) return;
         const ctx = chartRef.current.getContext('2d');
         const existing = Chart.getChart(ctx.canvas);
         if (existing) existing.destroy();
@@ -307,8 +273,13 @@
       const [loading, setLoading] = useState(false);
       
       const [positions, setPositions] = useState([]);
+      const [historyData, setHistoryData] = useState([]);
+      const [timeRange, setTimeRange] = useState('YTD');
+      
       const [view, setView] = useState('dashboard');
       const [ownerFilter, setOwnerFilter] = useState('Tous');
+      const [showPro, setShowPro] = useState(false); // Par défaut, on cache le pro
+      
       const [formValues, setFormValues] = useState({});
       const [expandedEnv, setExpandedEnv] = useState(null);
       const [syncLoading, setSyncLoading] = useState(false);
@@ -318,15 +289,67 @@
       }, []);
 
       useEffect(() => {
-          if (session) fetchPositions();
-      }, [session]);
+          if (session) {
+              fetchPositions();
+              fetchHistory();
+          }
+      }, [session, ownerFilter]); // On recharge l'historique si on change de propriétaire
 
-      const filteredPositions = positions.filter(p => ownerFilter === 'Tous' || p.owner === ownerFilter);
+      async function fetchPositions() {
+          setLoading(true);
+          // On utilise la VUE SQL optimisée
+          const { data, error } = await supabase.from('latest_positions').select('*');
+          
+          if (error) {
+              console.error(error);
+          } else if (data) {
+              setPositions(data);
+              const initialForm = {};
+              data.forEach(p => initialForm[p.id] = p.value_eur);
+              setFormValues(initialForm);
+          }
+          setLoading(false);
+      }
+
+      async function fetchHistory() {
+          // On appelle la fonction RPC créée dans Supabase
+          const { data, error } = await supabase.rpc('get_wealth_history', { p_owner: ownerFilter });
+          if (!error && data) {
+              setHistoryData(data);
+          }
+      }
+
+      // Filtrage local (Pro/Perso et Propriétaire)
+      const filteredPositions = positions.filter(p => {
+          const matchOwner = ownerFilter === 'Tous' || p.owner === ownerFilter;
+          const matchPro = showPro || !p.is_professional;
+          return matchOwner && matchPro;
+      });
 
       const totalActifs = filteredPositions.filter(p => p.value_eur > 0).reduce((sum, p) => sum + p.value_eur, 0);
       const totalPassifs = filteredPositions.filter(p => p.value_eur < 0).reduce((sum, p) => sum + p.value_eur, 0);
       const totalNet = totalActifs + totalPassifs;
 
+      // Filtrage temporel de l'historique
+      const filteredHistory = useMemo(() => {
+          if (!historyData.length) return [];
+          const now = new Date();
+          const cutoff = new Date();
+          switch (timeRange) {
+              case '7J': cutoff.setDate(now.getDate() - 7); break;
+              case '1M': cutoff.setMonth(now.getMonth() - 1); break;
+              case '3M': cutoff.setMonth(now.getMonth() - 3); break;
+              case '6M': cutoff.setMonth(now.getMonth() - 6); break;
+              case 'YTD': cutoff.setMonth(0, 1); cutoff.setHours(0,0,0,0); break;
+              case '1A': cutoff.setFullYear(now.getFullYear() - 1); break;
+              case 'TOUT': default: return historyData;
+          }
+          const cutoffStr = cutoff.toISOString().split('T')[0];
+          const result = historyData.filter(d => d.snapshot_date >= cutoffStr);
+          return result.length >= 2 ? result : historyData.slice(-2);
+      }, [historyData, timeRange]);
+
+      // Préparation du Donut (Net)
       const sortedChartData = useMemo(() => {
           const chartData = {};
           filteredPositions.forEach(p => {
@@ -337,22 +360,25 @@
                   chartData[cat] = (chartData[cat] || 0) + p.value_eur;
               }
           });
-          const debtImmo = filteredPositions.find(p => p.category === 'Dette Immobilière')?.value_eur || 0;
+          const debtImmo = filteredPositions.filter(p => p.category === 'Dette Immobilière').reduce((sum, p) => sum + p.value_eur, 0);
           if (chartData['Immobilier']) chartData['Immobilier'] += debtImmo;
           return Object.entries(chartData).sort((a, b) => b[1] - a[1]);
       }, [filteredPositions]);
 
+      // THEMES
       const isOliwia = ownerFilter === 'Oliwia';
+      
+      // Palette Terre Pastel pour Oliwia / Or pour Aubin
       const chartColors = isOliwia 
-          ? ['#F472B6', '#C084FC', '#FB7185', '#A78BFA', '#FDE047', '#F97316', '#E879F9'] 
+          ? ['#E07A5F', '#81B29A', '#F2CC8F', '#3D405B', '#E9C46A', '#F4A261', '#E76F51'] 
           : ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
 
       const themeStyle = isOliwia ? {
-          '--gold': '#F472B6',
-          '--gold-light': '#FCE7F3',
-          '--gold-dark': '#BE185D',
-          '--gold-trans': 'rgba(244, 114, 182, 0.15)',
-          '--glow': '0 0 15px rgba(244, 114, 182, 0.3)'
+          '--gold': '#E07A5F', /* Terracotta */
+          '--gold-light': '#F4F1DE', /* Sable clair */
+          '--gold-dark': '#B05A42',
+          '--gold-trans': 'rgba(224, 122, 95, 0.15)',
+          '--glow': '0 0 15px rgba(224, 122, 95, 0.3)'
       } : {
           '--gold': '#D4AF37',
           '--gold-light': '#F4EBD6',
@@ -361,51 +387,14 @@
           '--glow': '0 0 15px rgba(212, 175, 55, 0.2)'
       };
 
-      async function fetchPositions() {
-          setLoading(true);
-          // CORRECTION ICI : on trie par date PUIS par date de création pour avoir la vraie dernière version
-          const { data, error } = await supabase
-              .from('positions')
-              .select('*')
-              .order('date', { ascending: false })
-              .order('created_at', { ascending: false });
-          
-          if (data && data.length > 0) {
-              const latest = [];
-              const seen = new Set();
-              data.forEach(p => {
-                  const key = `${p.owner}-${p.envelope}-${p.account_name}-${p.category}`;
-                  if (!seen.has(key)) {
-                      seen.add(key);
-                      latest.push(p);
-                  }
-              });
-              setPositions(latest);
-              
-              const initialForm = {};
-              latest.forEach(p => initialForm[p.id] = p.value_eur);
-              setFormValues(initialForm);
-          }
-          setLoading(false);
-      }
-
-      async function handleSeedDatabase() {
-          setLoading(true);
-          const today = new Date().toISOString().split('T')[0];
-          const dataToInsert = EXCEL_DATA.map(p => ({ ...p, date: today }));
-          const { error } = await supabase.from('positions').insert(dataToInsert);
-          if (error) alert("Erreur : " + error.message);
-          else fetchPositions();
-          setLoading(false);
-      }
-
       async function syncYahooPEA() {
           setSyncLoading(true);
           try {
-              const proxy = 'https://api.codetabs.com/v1/proxy?quest=';
+              // Nouveau proxy plus fiable
+              const proxy = 'https://corsproxy.io/?';
               const [resPUST, resWPEA] = await Promise.all([
-                  fetch(proxy + 'https://query1.finance.yahoo.com/v8/finance/chart/PUST.PA'),
-                  fetch(proxy + 'https://query1.finance.yahoo.com/v8/finance/chart/WPEA.PA')
+                  fetch(proxy + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/PUST.PA')),
+                  fetch(proxy + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/WPEA.PA'))
               ]);
               const dataPUST = await resPUST.json();
               const dataWPEA = await resWPEA.json();
@@ -424,7 +413,6 @@
           setSyncLoading(false);
       }
 
-      // --- NOUVELLE FONCTION D'EXPORT CSV ---
       function exportToCSV() {
           const headers = ['Proprietaire', 'Enveloppe', 'Nom du compte', 'Categorie', 'Valeur (EUR)'];
           const rows = filteredPositions.map(p => [
@@ -432,11 +420,11 @@
               p.envelope, 
               p.account_name, 
               p.category || '', 
-              p.value_eur.toString().replace('.', ',') // Format européen
+              p.value_eur.toString().replace('.', ',')
           ]);
           
           const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
-          const blob = new Blob(["\ufeff"+csvContent], { type: 'text/csv;charset=utf-8;' }); // \ufeff pour Excel
+          const blob = new Blob(["\ufeff"+csvContent], { type: 'text/csv;charset=utf-8;' });
           const link = document.createElement("a");
           const url = URL.createObjectURL(blob);
           link.setAttribute("href", url);
@@ -461,13 +449,34 @@
           e.preventDefault();
           setLoading(true);
           const today = new Date().toISOString().split('T')[0];
+          
           const newPositions = Object.keys(formValues).map(id => {
               const original = positions.find(p => p.id === id);
-              return { date: today, owner: original.owner, envelope: original.envelope, account_name: original.account_name, category: original.category, value_eur: parseFloat(formValues[id]), is_liability: original.is_liability };
+              return { 
+                  date: today, 
+                  owner: original.owner, 
+                  envelope: original.envelope, 
+                  account_name: original.account_name, 
+                  category: original.category || '', // Evite les erreurs de nullité
+                  value_eur: Number(formValues[id] ?? 0), 
+                  is_liability: original.is_liability,
+                  is_professional: original.is_professional || false
+              };
           });
-          const { error } = await supabase.from('positions').insert(newPositions);
-          if (error) alert("Erreur : " + error.message);
-          else { alert("Mise à jour enregistrée !"); setView('dashboard'); fetchPositions(); }
+
+          // On utilise UPSERT au lieu de INSERT pour éviter les doublons le même jour
+          const { error } = await supabase
+            .from('positions')
+            .upsert(newPositions, { onConflict: 'date,owner,envelope,account_name,category' });
+            
+          if (error) {
+              alert("Erreur : " + error.message);
+          } else { 
+              alert("Mise à jour enregistrée !"); 
+              setView('dashboard'); 
+              fetchPositions(); 
+              fetchHistory();
+          }
           setLoading(false);
       }
 
@@ -504,27 +513,33 @@
                   {view === 'dashboard' ? (
                       positions.length > 0 ? (
                           <div>
-                              <div className="owner-filter">
-                                  {['Tous', 'Aubin', 'Oliwia'].map(owner => (
-                                      <button key={owner} className={`owner-btn ${ownerFilter === owner ? 'active' : ''}`} onClick={() => setOwnerFilter(owner)}>{owner}</button>
-                                  ))}
+                              <div className="filters-container">
+                                  <div className="owner-filter">
+                                      {['Tous', 'Aubin', 'Oliwia'].map(owner => (
+                                          <button key={owner} className={`owner-btn ${ownerFilter === owner ? 'active' : ''}`} onClick={() => setOwnerFilter(owner)}>{owner}</button>
+                                      ))}
+                                  </div>
+                                  <label className="pro-toggle">
+                                      <input type="checkbox" checked={showPro} onChange={(e) => setShowPro(e.target.checked)} />
+                                      Inclure le Pro
+                                  </label>
                               </div>
 
                               <div className="card">
                                   <div className="ap-label">Patrimoine net</div>
                                   <div className="total-amount">{totalNet.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</div>
                                   
-                                  <HistoryChart total={totalNet} color={isOliwia ? '#F472B6' : '#D4AF37'} />
+                                  <HistoryChart history={filteredHistory} color={isOliwia ? '#E07A5F' : '#D4AF37'} />
                                   
                                   <div className="time-filters">
-                                      <button className="time-btn">1J</button>
-                                      <button className="time-btn">7J</button>
-                                      <button className="time-btn">1M</button>
-                                      <button className="time-btn">3M</button>
-                                      <button className="time-btn">6M</button>
-                                      <button className="time-btn active">YTD</button>
-                                      <button className="time-btn">1A</button>
-                                      <button className="time-btn">TOUT</button>
+                                      <button className={`time-btn ${timeRange === '1J' ? 'active' : ''}`} onClick={() => setTimeRange('1J')}>1J</button>
+                                      <button className={`time-btn ${timeRange === '7J' ? 'active' : ''}`} onClick={() => setTimeRange('7J')}>7J</button>
+                                      <button className={`time-btn ${timeRange === '1M' ? 'active' : ''}`} onClick={() => setTimeRange('1M')}>1M</button>
+                                      <button className={`time-btn ${timeRange === '3M' ? 'active' : ''}`} onClick={() => setTimeRange('3M')}>3M</button>
+                                      <button className={`time-btn ${timeRange === '6M' ? 'active' : ''}`} onClick={() => setTimeRange('6M')}>6M</button>
+                                      <button className={`time-btn ${timeRange === 'YTD' ? 'active' : ''}`} onClick={() => setTimeRange('YTD')}>YTD</button>
+                                      <button className={`time-btn ${timeRange === '1A' ? 'active' : ''}`} onClick={() => setTimeRange('1A')}>1A</button>
+                                      <button className={`time-btn ${timeRange === 'TOUT' ? 'active' : ''}`} onClick={() => setTimeRange('TOUT')}>TOUT</button>
                                   </div>
 
                                   <div className="actifs-passifs">
@@ -584,7 +599,7 @@
                       ) : (
                           <div className="card" style={{textAlign: 'center', padding: '40px 20px'}}>
                               <p style={{color: 'var(--text-light)', marginBottom: '20px'}}>Base de données vide.</p>
-                              <button onClick={handleSeedDatabase} disabled={loading} className="btn-gold">Initialiser avec mon Excel</button>
+                              <button onClick={() => alert("Fonction désactivée : utilise Supabase pour ajouter des données.")} className="btn-gold">Initialiser avec mon Excel</button>
                           </div>
                       )
                   ) : (
@@ -607,7 +622,13 @@
                                       <p>{p.account_name}</p>
                                       <p>{p.owner} • {p.category}</p>
                                   </div>
-                                  <input type="number" value={formValues[p.id] || ''} onChange={e => setFormValues({...formValues, [p.id]: e.target.value})} className="input-field" />
+                                  <input 
+                                    type="number" 
+                                    step="any"
+                                    value={formValues[p.id] ?? ''} 
+                                    onChange={e => setFormValues(prev => ({...prev, [p.id]: e.target.value}))} 
+                                    className="input-field" 
+                                  />
                               </div>
                           ))}
                           
