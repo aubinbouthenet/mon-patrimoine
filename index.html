@@ -65,17 +65,13 @@
   .btn-logout { background: none; border: none; color: #64748B; font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
 
   /* Filtre Propriétaire */
-  .owner-filter {
-    display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;
-  }
+  .owner-filter { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
   .owner-btn {
     background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
     color: #94A3B8; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600;
     cursor: pointer; transition: all 0.3s;
   }
-  .owner-btn.active {
-    background: var(--gold); color: #0F172A; border-color: var(--gold); box-shadow: var(--glow);
-  }
+  .owner-btn.active { background: var(--gold); color: #0F172A; border-color: var(--gold); box-shadow: var(--glow); }
 
   /* --- CARTES 3D PREMIUM --- */
   .card { 
@@ -91,14 +87,29 @@
   }
 
   /* Graphiques */
-  .chart-container { position: relative; height: 220px; width: 100%; margin-top: 15px; }
-  .chart-container-small { position: relative; height: 150px; width: 100%; margin-top: 10px; }
+  .chart-container { position: relative; height: 250px; width: 100%; margin-top: 15px; }
 
-  /* Barres de progression Enveloppes */
-  .envelope-row { margin-bottom: 15px; }
-  .envelope-info { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 5px; color: var(--text-light); }
-  .envelope-bar-bg { height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
-  .envelope-bar-fill { height: 100%; background: linear-gradient(90deg, #D4AF37, #F4EBD6); border-radius: 4px; }
+  /* Accordéon Enveloppes */
+  .envelope-accordion { border-bottom: 1px solid rgba(255,255,255,0.05); padding: 15px 0; cursor: pointer; }
+  .envelope-accordion:last-child { border-bottom: none; }
+  .envelope-header { display: flex; justify-content: space-between; align-items: center; }
+  .envelope-title { font-weight: 600; font-size: 0.95rem; color: #fff; }
+  .envelope-value { font-weight: 600; color: var(--gold); }
+  .envelope-details { margin-top: 15px; padding-left: 15px; border-left: 2px solid rgba(212, 175, 55, 0.3); display: none; }
+  .envelope-details.open { display: block; animation: fadeIn 0.3s ease; }
+  .account-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-light); margin-bottom: 8px; }
+  .account-row:last-child { margin-bottom: 0; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Bouton Synchronisation */
+  .btn-sync {
+    background: rgba(212, 175, 55, 0.1); border: 1px solid var(--gold); color: var(--gold);
+    padding: 10px; border-radius: 8px; width: 100%; margin-top: 15px; font-size: 0.85rem;
+    font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;
+    transition: all 0.3s;
+  }
+  .btn-sync:hover { background: rgba(212, 175, 55, 0.2); }
 
   /* Formulaire */
   .input-group { 
@@ -137,6 +148,7 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -149,9 +161,10 @@
   const SUPABASE_KEY = 'sb_publishable_AsJvkk-erLkE5-pUbxiNnw_h2mmuuRN';
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+  // Données corrigées avec catégories propres et dettes séparées
   const EXCEL_DATA = [
     { owner: 'Aubin', envelope: 'Compte Courant / Livret', account_name: 'Compte courant TR', category: 'Livrets', value_eur: 15000, is_liability: false },
-    { owner: 'Aubin', envelope: 'PEA', account_name: 'ETF actions', category: 'Actions', value_eur: 248567, is_liability: false },
+    { owner: 'Aubin', envelope: 'PEA', account_name: 'ETF actions', category: 'Actions', value_eur: 248567, is_liability: false }, // Sera mis à jour par Yahoo
     { owner: 'Aubin', envelope: 'PEA-PME', account_name: 'Fonds IE Europe small', category: 'Actions', value_eur: 2800, is_liability: false },
     { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Linxea Spirit 2', category: 'Actions', value_eur: 22650, is_liability: false },
     { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Linxea Spirit 2', category: 'Fonds euros', value_eur: 1890, is_liability: false },
@@ -177,9 +190,9 @@
     { owner: 'Aubin', envelope: 'CTO', account_name: 'TRADE REPUBLIC', category: 'Actions', value_eur: 1500, is_liability: false },
     { owner: 'Aubin', envelope: 'Entreprise', account_name: 'Trésorerie Pro', category: 'Livrets', value_eur: 15000, is_liability: false },
     { owner: 'Aubin', envelope: 'Entreprise', account_name: 'Usufruit de SCPI', category: 'SCPI', value_eur: 56000, is_liability: false },
-    { owner: 'Aubin', envelope: 'Crédit', account_name: 'Prêt Conso', category: 'Dettes', value_eur: -20288, is_liability: true },
-    { owner: 'Aubin', envelope: 'Immobilier', account_name: 'Résidence Principale', category: 'Immobilier', value_eur: 290000, is_liability: false },
-    { owner: 'Aubin', envelope: 'Immobilier', account_name: 'Crédit RP', category: 'Dettes', value_eur: -208525, is_liability: true },
+    { owner: 'Aubin', envelope: 'Crédit', account_name: 'Prêt Conso', category: 'Dettes Conso', value_eur: -20288, is_liability: true },
+    { owner: 'Aubin', envelope: 'Immobilier', account_name: 'Résidence Principale', category: 'Immobilier Brut', value_eur: 290000, is_liability: false },
+    { owner: 'Aubin', envelope: 'Immobilier', account_name: 'Crédit RP', category: 'Dette Immobilière', value_eur: -208525, is_liability: true },
     { owner: 'Aubin', envelope: 'PER', account_name: 'PER', category: 'Actions', value_eur: 14100, is_liability: false },
     { owner: 'Oliwia', envelope: 'Compte Courant', account_name: 'LCL', category: 'Livrets', value_eur: 23750, is_liability: false },
     { owner: 'Oliwia', envelope: 'Compte Bancaire', account_name: 'PKO / mBank', category: 'Livrets', value_eur: 6575, is_liability: false },
@@ -200,11 +213,12 @@
       
       const [positions, setPositions] = useState([]);
       const [view, setView] = useState('dashboard');
-      const [ownerFilter, setOwnerFilter] = useState('Tous'); // 'Tous', 'Aubin', 'Oliwia'
+      const [ownerFilter, setOwnerFilter] = useState('Tous');
       const [formValues, setFormValues] = useState({});
+      const [expandedEnv, setExpandedEnv] = useState(null);
+      const [syncLoading, setSyncLoading] = useState(false);
       
       const categoryChartRef = useRef(null);
-      const ownerChartRef = useRef(null);
 
       useEffect(() => {
           supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -214,67 +228,46 @@
           if (session) fetchPositions();
       }, [session]);
 
-      // Filtrer les données selon le propriétaire sélectionné
       const filteredPositions = positions.filter(p => ownerFilter === 'Tous' || p.owner === ownerFilter);
 
-      useEffect(() => {
-          if (view === 'dashboard' && filteredPositions.length > 0) {
-              renderCharts();
+      // Calcul du total net : on additionne tout (les dettes sont déjà en négatif)
+      const totalNet = filteredPositions.reduce((sum, p) => sum + p.value_eur, 0);
+
+      // Préparation des données pour le graphique (avec nettoyage immo/dette)
+      const chartData = {};
+      filteredPositions.forEach(p => {
+          let cat = p.category;
+          // On regroupe l'immobilier brut et la dette immobilière sous "Immobilier (Net)"
+          if (cat === 'Immobilier Brut') cat = 'Immobilier Net';
+          if (cat === 'Dette Immobilière') return; // On l'ignore, elle est déjà déduite par le calcul net
+          
+          if (p.value_eur > 0 || cat === 'Immobilier Net') {
+              chartData[cat] = (chartData[cat] || 0) + p.value_eur;
           }
-      }, [view, filteredPositions]);
+      });
 
-      function renderCharts() {
-          // 1. Graphique Catégories
-          const byCategory = {};
-          filteredPositions.forEach(p => {
-              if(p.value_eur > 0) {
-                  byCategory[p.category] = (byCategory[p.category] || 0) + p.value_eur;
-              }
-          });
+      // Correction spécifique pour l'immobilier net (ajout de la dette négative au brut)
+      const debtImmo = filteredPositions.find(p => p.category === 'Dette Immobilière')?.value_eur || 0;
+      if (chartData['Immobilier Net']) {
+          chartData['Immobilier Net'] += debtImmo;
+      }
 
-          if (categoryChartRef.current) {
+      useEffect(() => {
+          if (view === 'dashboard' && filteredPositions.length > 0 && categoryChartRef.current) {
               const ctx = categoryChartRef.current.getContext('2d');
               const existing = Chart.getChart(ctx.canvas);
               if (existing) existing.destroy();
 
+              // Plugin pour afficher les pourcentages dans la légende
+              Chart.register(ChartDataLabels);
+
               new Chart(ctx, {
                   type: 'doughnut',
                   data: {
-                      labels: Object.keys(byCategory),
+                      labels: Object.keys(chartData),
                       datasets: [{
-                          data: Object.values(byCategory),
+                          data: Object.values(chartData),
                           backgroundColor: ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'],
-                          borderWidth: 2,
-                          borderColor: '#0F172A'
-                      }]
-                  },
-                  options: {
-                      responsive: true, maintainAspectRatio: false, cutout: '75%',
-                      plugins: {
-                          legend: { position: 'right', labels: { boxWidth: 10, color: '#CBD5E1', font: {size: 10} } }
-                      }
-                  }
-              });
-          }
-
-          // 2. Graphique Propriétaires (on ne l'affiche que si le filtre est sur "Tous")
-          if (ownerChartRef.current && ownerFilter === 'Tous') {
-              const byOwner = {};
-              positions.forEach(p => {
-                  byOwner[p.owner] = (byOwner[p.owner] || 0) + p.value_eur;
-              });
-
-              const ctx = ownerChartRef.current.getContext('2d');
-              const existing = Chart.getChart(ctx.canvas);
-              if (existing) existing.destroy();
-
-              new Chart(ctx, {
-                  type: 'doughnut',
-                  data: {
-                      labels: Object.keys(byOwner),
-                      datasets: [{
-                          data: Object.values(byOwner),
-                          backgroundColor: ['#F4EBD6', '#3B82F6'],
                           borderWidth: 2,
                           borderColor: '#0F172A'
                       }]
@@ -282,12 +275,36 @@
                   options: {
                       responsive: true, maintainAspectRatio: false, cutout: '70%',
                       plugins: {
-                          legend: { position: 'right', labels: { boxWidth: 10, color: '#CBD5E1', font: {size: 10} } }
+                          legend: { 
+                              position: 'right', 
+                              labels: { boxWidth: 10, color: '#CBD5E1', font: {size: 10} },
+                              // Affichage du % dans la légende
+                              generateLabels: (chart) => {
+                                  const data = chart.data;
+                                  if (data.labels.length && data.datasets.length) {
+                                      const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                      return data.labels.map((label, i) => {
+                                          const value = data.datasets[0].data[i];
+                                          const percentage = ((value / total) * 100).toFixed(1);
+                                          return {
+                                              text: `${label} (${percentage}%)`,
+                                              fillStyle: data.datasets[0].backgroundColor[i],
+                                              strokeStyle: data.datasets[0].backgroundColor[i],
+                                              lineWidth: 0,
+                                              hidden: isNaN(data.datasets[0].data[i]) || chart.getDatasetMeta(0).data[i].hidden,
+                                              index: i
+                                          };
+                                      });
+                                  }
+                                  return [];
+                              }
+                          },
+                          datalabels: { display: false } // On cache les labels sur le donut
                       }
                   }
               });
           }
-      }
+      }, [view, filteredPositions]);
 
       async function fetchPositions() {
           setLoading(true);
@@ -325,6 +342,42 @@
               fetchPositions();
           }
           setLoading(false);
+      }
+
+      // --- FONCTION SYNCHRONISATION YAHOO FINANCE ---
+      async function syncYahooPEA() {
+          setSyncLoading(true);
+          try {
+              // On utilise un proxy CORS car GitHub Pages est bloqué par Yahoo
+              const proxy = 'https://api.allorigins.win/raw?url=';
+              const [resPUST, resWPEA] = await Promise.all([
+                  fetch(proxy + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/PUST.PA')),
+                  fetch(proxy + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/WPEA.PA'))
+              ]);
+
+              const dataPUST = await resPUST.json();
+              const dataWPEA = await resWPEA.json();
+
+              const pricePUST = dataPUST.chart.result[0].meta.regularMarketPrice;
+              const priceWPEA = dataWPEA.chart.result[0].meta.regularMarketPrice;
+
+              // Tes quantités exactes d'après ton Excel
+              const QTY_PUST = 1343;
+              const QTY_WPEA = 14543;
+
+              const newPEAValue = (QTY_PUST * pricePUST) + (QTY_WPEA * priceWPEA);
+              
+              // Mise à jour du formulaire
+              const peaPosition = positions.find(p => p.envelope === 'PEA' && p.owner === 'Aubin');
+              if (peaPosition) {
+                  setFormValues(prev => ({ ...prev, [peaPosition.id]: Math.round(newPEAValue) }));
+                  alert(`PEA mis à jour : ${Math.round(newPEAValue).toLocaleString('fr-FR')} €\n(PUST: ${pricePUST.toFixed(2)}€, WPEA: ${priceWPEA.toFixed(2)}€)\n\nN'oublie pas d'enregistrer tes modifications !`);
+              }
+
+          } catch (err) {
+              alert("Erreur de connexion à Yahoo Finance. Réessaie plus tard ou vérifie tes tickers.");
+          }
+          setSyncLoading(false);
       }
 
       async function handleLogin(e) {
@@ -390,18 +443,16 @@
           );
       }
 
-      const totalNet = filteredPositions.reduce((sum, p) => sum + p.value_eur, 0);
-      const hasData = positions.length > 0;
-
-      // Préparation du Top Enveloppes (sur les données filtrées)
-      const byEnvelope = {};
+      // Préparation de l'affichage groupé par enveloppe pour l'accordéon
+      const groupedByEnvelope = {};
       filteredPositions.forEach(p => {
-          if (p.value_eur > 0) { 
-             byEnvelope[p.envelope] = (byEnvelope[p.envelope] || 0) + p.value_eur;
+          if (!groupedByEnvelope[p.envelope]) {
+              groupedByEnvelope[p.envelope] = { total: 0, accounts: [] };
           }
+          groupedByEnvelope[p.envelope].total += p.value_eur;
+          groupedByEnvelope[p.envelope].accounts.push(p);
       });
-      const topEnvelopes = Object.entries(byEnvelope).sort((a, b) => b[1] - a[1]).slice(0, 5);
-      const maxEnvelopeValue = topEnvelopes.length > 0 ? topEnvelopes[0][1] : 1;
+      const sortedEnvelopes = Object.entries(groupedByEnvelope).sort((a, b) => b[1].total - a[1].total);
 
       return (
           <div className="app-container">
@@ -412,9 +463,8 @@
 
               <main>
                   {view === 'dashboard' ? (
-                      hasData ? (
+                      positions.length > 0 ? (
                           <div>
-                              {/* Filtre Propriétaire */}
                               <div className="owner-filter">
                                   {['Tous', 'Aubin', 'Oliwia'].map(owner => (
                                       <button 
@@ -427,7 +477,6 @@
                                   ))}
                               </div>
 
-                              {/* Total */}
                               <div className="card" style={{borderBottom: '3px solid var(--gold)'}}>
                                   <div className="card-header">
                                       {ownerFilter === 'Tous' ? 'Patrimoine Net Total (Couple)' : `Patrimoine de ${ownerFilter}`}
@@ -437,17 +486,6 @@
                                   </div>
                               </div>
 
-                              {/* Répartition Propriétaires (Visible seulement sur 'Tous') */}
-                              {ownerFilter === 'Tous' && (
-                                  <div className="card">
-                                      <div className="card-header" style={{textAlign: 'center'}}>Répartition Familiale</div>
-                                      <div className="chart-container-small">
-                                          <canvas ref={ownerChartRef}></canvas>
-                                      </div>
-                                  </div>
-                              )}
-
-                              {/* Allocation par Catégorie */}
                               <div className="card">
                                   <div className="card-header" style={{textAlign: 'center'}}>Allocation d'Actifs {ownerFilter !== 'Tous' && `(${ownerFilter})`}</div>
                                   <div className="chart-container">
@@ -455,17 +493,21 @@
                                   </div>
                               </div>
 
-                              {/* Top Enveloppes */}
                               <div className="card">
-                                  <div className="card-header" style={{marginBottom: '20px'}}>Top Enveloppes</div>
-                                  {topEnvelopes.map(([name, value], index) => (
-                                      <div className="envelope-row" key={name}>
-                                          <div className="envelope-info">
-                                              <span>{name}</span>
-                                              <span>{value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span>
+                                  <div className="card-header" style={{marginBottom: '5px'}}>Détail des Enveloppes</div>
+                                  {sortedEnvelopes.map(([name, data]) => (
+                                      <div key={name} className="envelope-accordion" onClick={() => setExpandedEnv(expandedEnv === name ? null : name)}>
+                                          <div className="envelope-header">
+                                              <span className="envelope-title">{name} {expandedEnv === name ? '−' : '+'}</span>
+                                              <span className="envelope-value">{data.total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span>
                                           </div>
-                                          <div className="envelope-bar-bg">
-                                              <div className="envelope-bar-fill" style={{width: `${(value / maxEnvelopeValue) * 100}%`}}></div>
+                                          <div className={`envelope-details ${expandedEnv === name ? 'open' : ''}`}>
+                                              {data.accounts.map(acc => (
+                                                  <div key={acc.id} className="account-row">
+                                                      <span>{acc.account_name} {acc.category ? `(${acc.category})` : ''}</span>
+                                                      <span>{acc.value_eur.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span>
+                                                  </div>
+                                              ))}
                                           </div>
                                       </div>
                                   ))}
@@ -497,7 +539,7 @@
                               </div>
                           ))}
                           
-                          {hasData && (
+                          {positions.length > 0 && (
                               <button type="submit" disabled={loading} className="btn-gold" style={{marginTop: '30px'}}>
                                   {loading ? "Enregistrement..." : "Enregistrer la mise à jour"}
                               </button>
