@@ -9,16 +9,12 @@
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700&family=Inter:wght@400;500;600;700&display=swap');
 
   :root {
-    --bg-base: #EAE3D9;
     --bg-dark: #080E1A;
     --bg-card-dark: rgba(15, 23, 42, 0.6);
-    --gold: #C5A059;
-    --gold-light: #F4EBD6;
-    --text-main: #1E293B;
+    --gold: #F5C242; /* Or éclatant */
+    --gold-light: #FFDF73;
     --text-light: #CBD5E1;
-    --navy: #0F172A;
     --red: #E11D48;
-    --green: #10B981;
     --shadow-3d: 0 30px 60px -15px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 
@@ -27,14 +23,13 @@
   body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-dark);
-    background-image: radial-gradient(circle at 50% 0%, rgba(197, 160, 89, 0.15) 0%, transparent 60%);
+    background-image: radial-gradient(circle at 50% 0%, rgba(245, 194, 66, 0.15) 0%, transparent 60%);
     color: #fff;
     min-height: 100vh;
     overflow-x: hidden;
   }
 
   h1, h2, h3, .serif { font-family: 'Playfair Display', serif; }
-  .gold-text { color: var(--gold); }
 
   /* --- ECRAN DE CONNEXION --- */
   .login-screen {
@@ -42,7 +37,7 @@
   }
   .login-card {
     background: var(--bg-card-dark); backdrop-filter: blur(16px);
-    border: 1px solid rgba(197, 160, 89, 0.4); padding: 50px 30px;
+    border: 1px solid rgba(245, 194, 66, 0.4); padding: 50px 30px;
     border-radius: 20px; width: 100%; max-width: 400px; text-align: center;
     box-shadow: var(--shadow-3d);
   }
@@ -55,9 +50,9 @@
   }
   .login-input:focus { border-color: var(--gold); }
   .btn-gold {
-    width: 100%; padding: 15px; background: linear-gradient(135deg, #D4AF37, #B8860B);
-    color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 1rem;
-    cursor: pointer; box-shadow: 0 4px 15px rgba(184, 134, 11, 0.3); transition: transform 0.2s;
+    width: 100%; padding: 15px; background: linear-gradient(135deg, #F5C242, #D4AF37);
+    color: #0F172A; border: none; border-radius: 10px; font-weight: 700; font-size: 1rem;
+    cursor: pointer; box-shadow: 0 4px 20px rgba(245, 194, 66, 0.4); transition: transform 0.2s;
   }
   .btn-gold:active { transform: scale(0.98); }
   
@@ -77,7 +72,10 @@
   }
   .card-header { font-size: 0.8rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; font-weight: 600;}
   
-  .total-amount { font-size: 3rem; font-family: 'Playfair Display', serif; font-weight: 600; color: #fff; line-height: 1.1; text-shadow: 0 4px 20px rgba(0,0,0,0.5);}
+  .total-amount { 
+    font-size: 3.2rem; font-family: 'Playfair Display', serif; font-weight: 600; color: var(--gold-light); 
+    line-height: 1.1; text-shadow: 0 0 25px rgba(245, 194, 66, 0.4);
+  }
 
   /* Graphique */
   .chart-container { position: relative; height: 250px; width: 100%; margin-top: 15px; }
@@ -91,8 +89,8 @@
   .input-label p:first-child { font-weight: 600; color: #fff; font-size: 0.95rem; margin-bottom: 4px; }
   .input-label p:last-child { font-size: 0.75rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.05em; }
   .input-field {
-    width: 120px; padding: 12px; border-radius: 8px; border: 1px solid rgba(197, 160, 89, 0.3);
-    text-align: right; font-weight: 600; font-size: 1rem; color: #fff;
+    width: 120px; padding: 12px; border-radius: 8px; border: 1px solid rgba(245, 194, 66, 0.3);
+    text-align: right; font-weight: 600; font-size: 1rem; color: var(--gold-light);
     background: rgba(0,0,0,0.2); outline: none; transition: border 0.3s;
   }
   .input-field:focus { border-color: var(--gold); }
@@ -132,12 +130,48 @@
   const SUPABASE_KEY = 'sb_publishable_AsJvkk-erLkE5-pUbxiNnw_h2mmuuRN';
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Données de secours
-  const DEMO_DATA = [
-    { id: '1', owner: 'Aubin', envelope: 'PEA', account_name: 'ETF actions', category: 'Actions', value_eur: 248567 },
-    { id: '2', owner: 'Aubin', envelope: 'Immobilier', account_name: 'Résidence Principale', category: 'RP', value_eur: 290000 },
-    { id: '3', owner: 'Aubin', envelope: 'Immobilier', account_name: 'Crédit RP', category: 'RP', value_eur: -208525 },
-    { id: '4', owner: 'Oliwia', envelope: 'Compte Bancaire', account_name: 'PKO / mBank', category: 'Livrets', value_eur: 6575 },
+  // Données de ton Excel pour initialiser la base si elle est vide
+  const EXCEL_DATA = [
+    { owner: 'Aubin', envelope: 'Compte Courant / Livret', account_name: 'Compte courant TR', category: '', value_eur: 15000, is_liability: false },
+    { owner: 'Aubin', envelope: 'PEA', account_name: 'ETF actions', category: 'Actions', value_eur: 248567, is_liability: false },
+    { owner: 'Aubin', envelope: 'PEA-PME', account_name: 'Fonds IE Europe small', category: 'Actions', value_eur: 2800, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Linxea Spirit 2', category: 'Actions', value_eur: 22650, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Linxea Spirit 2', category: 'Fonds euros', value_eur: 1890, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Linxea Spirit 2', category: 'SCPI', value_eur: 76400, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Linxea Spirit 2', category: 'Private equity', value_eur: 10850, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Linxea Spirit 2', category: 'Fonds diversifiés', value_eur: 1450, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Ramify', category: 'Actions', value_eur: 8970, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Ramify', category: 'Fonds euros', value_eur: 1850, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Ramify', category: 'SCPI', value_eur: 1670, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Ramify', category: 'Private equity', value_eur: 2220, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Ramify', category: 'Obligataire', value_eur: 1970, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'CNP Lucya', category: 'Actions', value_eur: 6200, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'CNP Lucya', category: 'Fonds euros', value_eur: 4000, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Louve infinity', category: 'Actions', value_eur: 6500, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Louve infinity', category: 'Fonds euros', value_eur: 950, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Louve infinity', category: 'SCPI', value_eur: 2700, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Corum life', category: 'Fonds euros', value_eur: 2700, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Corum life', category: 'SCPI', value_eur: 5500, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Corum life', category: 'Obligataire', value_eur: 2200, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Boursobank', category: 'Fonds euros', value_eur: 8100, is_liability: false },
+    { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Fortuneo', category: 'Fonds euros', value_eur: 2000, is_liability: false },
+    { owner: 'Aubin', envelope: 'CTO 1', account_name: 'MEXEM', category: '', value_eur: 14500, is_liability: false },
+    { owner: 'Aubin', envelope: 'CTO 2', account_name: 'TRADE REPUBLIC', category: '', value_eur: 1500, is_liability: false },
+    { owner: 'Aubin', envelope: 'EI à l\'IS', account_name: 'Trésorerie Professionnelle', category: '', value_eur: 15000, is_liability: false },
+    { owner: 'Aubin', envelope: 'EI à l\'IS', account_name: 'Usufruit de SCPI', category: 'SCPI', value_eur: 56000, is_liability: false },
+    { owner: 'Aubin', envelope: 'Crédit Personnel', account_name: 'Prêt Conso Personnel', category: '', value_eur: -20288, is_liability: true },
+    { owner: 'Aubin', envelope: 'Immobilier', account_name: 'Résidence Principale', category: 'RP', value_eur: 290000, is_liability: false },
+    { owner: 'Aubin', envelope: 'Immobilier', account_name: 'Crédit RP', category: 'RP', value_eur: -208525, is_liability: true },
+    { owner: 'Aubin', envelope: 'PER', account_name: 'Ramify + linxea spirit + CA', category: '', value_eur: 14100, is_liability: false },
+    { owner: 'Oliwia', envelope: 'Compte Courant/Livret', account_name: 'LCL', category: '', value_eur: 23750, is_liability: false },
+    { owner: 'Oliwia', envelope: 'Compte Bancaire Polonais', account_name: 'PKO / mBank', category: '', value_eur: 6575, is_liability: false },
+    { owner: 'Oliwia', envelope: 'Compte courant', account_name: 'Revolut', category: '', value_eur: 774, is_liability: false },
+    { owner: 'Oliwia', envelope: 'PEA', account_name: 'Fortuneo', category: 'Actions', value_eur: 13000, is_liability: false },
+    { owner: 'Oliwia', envelope: 'Assurance-Vie', account_name: 'Linxea spirit 2', category: 'Actions', value_eur: 1175, is_liability: false },
+    { owner: 'Oliwia', envelope: 'Assurance-Vie', account_name: 'Linxea spirit 2', category: 'Fonds euros', value_eur: 1850, is_liability: false },
+    { owner: 'Oliwia', envelope: 'Assurance-Vie', account_name: 'Linxea spirit 2', category: 'SCPI', value_eur: 2260, is_liability: false },
+    { owner: 'Oliwia', envelope: 'Assurance-Vie', account_name: 'Fortuneo', category: 'Fonds euros', value_eur: 2000, is_liability: false },
+    { owner: 'Oliwia', envelope: 'PEE', account_name: 'CIC', category: '', value_eur: 9687, is_liability: false }
   ];
 
   function App() {
@@ -173,7 +207,8 @@
                   }
               });
 
-              const colors = ['#C5A059', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
+              // Couleurs avec un Or beaucoup plus vif
+              const colors = ['#F5C242', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
 
               new Chart(ctx, {
                   type: 'doughnut',
@@ -222,7 +257,7 @@
           const { data, error } = await supabase.from('positions').select('*').order('date', { ascending: false });
           
           if (error) {
-              console.error("Erreur Supabase:", error);
+              console.error(error);
           } else if (data && data.length > 0) {
               const latest = [];
               const seen = new Set();
@@ -238,6 +273,23 @@
               const initialForm = {};
               latest.forEach(p => initialForm[p.id] = p.value_eur);
               setFormValues(initialForm);
+          }
+          setLoading(false);
+      }
+
+      // --- INITIALISATION DE LA BASE VIDE AVEC TON EXCEL ---
+      async function handleSeedDatabase() {
+          setLoading(true);
+          const today = new Date().toISOString().split('T')[0];
+          const dataToInsert = EXCEL_DATA.map(p => ({ ...p, date: today }));
+          
+          const { error } = await supabase.from('positions').insert(dataToInsert);
+          
+          if (error) {
+              alert("Erreur d'initialisation : " + error.message);
+          } else {
+              alert("Base initialisée avec tes 39 comptes !");
+              fetchPositions();
           }
           setLoading(false);
       }
@@ -280,9 +332,9 @@
           const { error } = await supabase.from('positions').insert(newPositions);
           
           if (error) {
-              alert("Erreur lors de la sauvegarde : " + error.message);
+              alert("Erreur : " + error.message);
           } else {
-              alert("Mise à jour enregistrée avec succès !");
+              alert("Mise à jour enregistrée !");
               setView('dashboard');
               fetchPositions();
           }
@@ -324,7 +376,7 @@
               <main>
                   {view === 'dashboard' ? (
                       <div>
-                          <div className="card">
+                          <div className="card" style={{borderBottom: '3px solid var(--gold)'}}>
                               <div className="card-header">Patrimoine Net Total</div>
                               <div className="total-amount">
                                   {hasData 
@@ -343,15 +395,10 @@
                           ) : (
                               <div className="card" style={{textAlign: 'center', padding: '40px 20px'}}>
                                   <p style={{color: 'var(--text-light)', marginBottom: '20px', lineHeight: '1.6'}}>
-                                      Aucune donnée trouvée dans votre compte Supabase. Soit la base est vide, soit le script SQL n'a pas été exécuté.
+                                      Ta base de données est prête, mais elle est vide. Clique sur le bouton ci-dessous pour injecter tes données Excel actuelles et démarrer !
                                   </p>
-                                  <button onClick={() => {
-                                      setPositions(DEMO_DATA);
-                                      const init = {};
-                                      DEMO_DATA.forEach(p => init[p.id] = p.value_eur);
-                                      setFormValues(init);
-                                  }} className="btn-gold" style={{maxWidth: '250px', margin: '0 auto'}}>
-                                      Afficher des données de test
+                                  <button onClick={handleSeedDatabase} disabled={loading} className="btn-gold">
+                                      {loading ? "Initialisation..." : "Initialiser avec mon Excel"}
                                   </button>
                               </div>
                           )}
@@ -359,7 +406,7 @@
                   ) : (
                       <form onSubmit={handleSave}>
                           <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px', lineHeight: '1.6'}}>
-                              Mettez à jour vos valeurs ci-dessous. L'enregistrement créera une photo (snapshot) de votre patrimoine à la date du jour.
+                              Mets à jour tes valeurs. L'enregistrement créera un nouvel historique.
                           </p>
                           
                           {positions.map(p => (
