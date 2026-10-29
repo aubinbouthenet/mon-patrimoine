@@ -134,6 +134,12 @@
   
   .btn-sync {
     background: var(--gold-trans); border: 1px solid var(--gold); color: var(--gold);
+    padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 10px; font-size: 0.9rem;
+    font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;
+  }
+
+  .btn-export {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #CBD5E1;
     padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 20px; font-size: 0.9rem;
     font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;
   }
@@ -221,6 +227,7 @@
         const existing = Chart.getChart(ctx.canvas);
         if (existing) existing.destroy();
 
+        // NOTE: Ceci est un faux graphique pour le design. Il sera remplacé par l'historique réel.
         const labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct'];
         const dataPoints = [];
         let current = total * 0.85; 
@@ -231,7 +238,6 @@
         dataPoints.push(total);
 
         const gradient = ctx.createLinearGradient(0, 0, 0, 180);
-        // Utilisation de la couleur dynamique avec opacité
         gradient.addColorStop(0, `${color}44`); 
         gradient.addColorStop(1, `${color}00`);
 
@@ -336,19 +342,15 @@
           return Object.entries(chartData).sort((a, b) => b[1] - a[1]);
       }, [filteredPositions]);
 
-      // --- GESTION DU THEME ---
       const isOliwia = ownerFilter === 'Oliwia';
-      
-      // Palette de couleurs pour les graphiques
       const chartColors = isOliwia 
-          ? ['#F472B6', '#C084FC', '#FB7185', '#A78BFA', '#FDE047', '#F97316', '#E879F9'] // Palette féminine
-          : ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B']; // Palette Or classique
+          ? ['#F472B6', '#C084FC', '#FB7185', '#A78BFA', '#FDE047', '#F97316', '#E879F9'] 
+          : ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
 
-      // Variables CSS dynamiques
       const themeStyle = isOliwia ? {
-          '--gold': '#F472B6', /* Rose vif */
-          '--gold-light': '#FCE7F3', /* Rose très clair */
-          '--gold-dark': '#BE185D', /* Rose foncé */
+          '--gold': '#F472B6',
+          '--gold-light': '#FCE7F3',
+          '--gold-dark': '#BE185D',
           '--gold-trans': 'rgba(244, 114, 182, 0.15)',
           '--glow': '0 0 15px rgba(244, 114, 182, 0.3)'
       } : {
@@ -361,7 +363,12 @@
 
       async function fetchPositions() {
           setLoading(true);
-          const { data, error } = await supabase.from('positions').select('*').order('date', { ascending: false });
+          // CORRECTION ICI : on trie par date PUIS par date de création pour avoir la vraie dernière version
+          const { data, error } = await supabase
+              .from('positions')
+              .select('*')
+              .order('date', { ascending: false })
+              .order('created_at', { ascending: false });
           
           if (data && data.length > 0) {
               const latest = [];
@@ -417,6 +424,28 @@
           setSyncLoading(false);
       }
 
+      // --- NOUVELLE FONCTION D'EXPORT CSV ---
+      function exportToCSV() {
+          const headers = ['Proprietaire', 'Enveloppe', 'Nom du compte', 'Categorie', 'Valeur (EUR)'];
+          const rows = filteredPositions.map(p => [
+              p.owner, 
+              p.envelope, 
+              p.account_name, 
+              p.category || '', 
+              p.value_eur.toString().replace('.', ',') // Format européen
+          ]);
+          
+          const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
+          const blob = new Blob(["\ufeff"+csvContent], { type: 'text/csv;charset=utf-8;' }); // \ufeff pour Excel
+          const link = document.createElement("a");
+          const url = URL.createObjectURL(blob);
+          link.setAttribute("href", url);
+          link.setAttribute("download", `Patrimoine_${ownerFilter}_${new Date().toISOString().split('T')[0]}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+      }
+
       async function handleLogin(e) {
           e.preventDefault();
           setLoading(true);
@@ -465,7 +494,6 @@
       const sortedEnvelopes = Object.entries(groupedByEnvelope).sort((a, b) => b[1].total - a[1].total);
 
       return (
-          // On applique le thème dynamique ici
           <div className="app-container" style={themeStyle}>
               <header className="header">
                   <h2 className="serif">Mon Patrimoine</h2>
@@ -486,7 +514,6 @@
                                   <div className="ap-label">Patrimoine net</div>
                                   <div className="total-amount">{totalNet.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</div>
                                   
-                                  {/* Le graphique prend la couleur dynamique */}
                                   <HistoryChart total={totalNet} color={isOliwia ? '#F472B6' : '#D4AF37'} />
                                   
                                   <div className="time-filters">
@@ -515,7 +542,6 @@
                               <div className="card">
                                   <div className="ap-label" style={{marginBottom: '15px'}}>Allocation d'Actifs</div>
                                   <div className="allocation-container">
-                                      {/* Le donut prend la palette dynamique */}
                                       <DonutChart sortedData={sortedChartData} colors={chartColors} />
                                       <div className="legend-custom">
                                           {sortedChartData.map(([name, value], i) => {
@@ -569,6 +595,10 @@
                           
                           <button type="button" onClick={syncYahooPEA} disabled={syncLoading} className="btn-sync">
                               {syncLoading ? "⏳ Connexion à Yahoo..." : "⟳ Actualiser le PEA via Yahoo"}
+                          </button>
+                          
+                          <button type="button" onClick={exportToCSV} className="btn-export">
+                              📥 Exporter en CSV
                           </button>
 
                           {positions.map(p => (
