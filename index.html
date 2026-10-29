@@ -11,11 +11,12 @@
   :root {
     --bg-dark: #080E1A;
     --bg-card-dark: rgba(15, 23, 42, 0.6);
-    --gold: #F5C242; /* Or éclatant */
-    --gold-light: #FFDF73;
+    --gold: #D4AF37; /* Or noble */
+    --gold-light: #F4EBD6; /* Champagne */
     --text-light: #CBD5E1;
     --red: #E11D48;
     --shadow-3d: 0 30px 60px -15px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    --glow: 0 0 20px rgba(212, 175, 55, 0.25); /* Halo lumineux */
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -23,7 +24,7 @@
   body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-dark);
-    background-image: radial-gradient(circle at 50% 0%, rgba(245, 194, 66, 0.15) 0%, transparent 60%);
+    background-image: radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.1) 0%, transparent 60%);
     color: #fff;
     min-height: 100vh;
     overflow-x: hidden;
@@ -37,22 +38,22 @@
   }
   .login-card {
     background: var(--bg-card-dark); backdrop-filter: blur(16px);
-    border: 1px solid rgba(245, 194, 66, 0.4); padding: 50px 30px;
+    border: 1px solid rgba(212, 175, 55, 0.3); padding: 50px 30px;
     border-radius: 20px; width: 100%; max-width: 400px; text-align: center;
-    box-shadow: var(--shadow-3d);
+    box-shadow: var(--shadow-3d), var(--glow);
   }
   .login-card h1 { font-size: 2.2rem; color: #fff; margin-bottom: 5px; }
-  .login-card p { color: var(--gold); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 30px; }
+  .login-card p { color: var(--gold); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 30px; text-shadow: var(--glow);}
   .login-input {
-    width: 100%; padding: 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    width: 100%; padding: 15px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
     border-radius: 10px; color: #fff; text-align: center; font-size: 1.2rem; letter-spacing: 0.2em; margin-bottom: 20px;
     outline: none; transition: border 0.3s;
   }
-  .login-input:focus { border-color: var(--gold); }
+  .login-input:focus { border-color: var(--gold); box-shadow: var(--glow);}
   .btn-gold {
-    width: 100%; padding: 15px; background: linear-gradient(135deg, #F5C242, #D4AF37);
+    width: 100%; padding: 15px; background: linear-gradient(135deg, #D4AF37, #A6833C);
     color: #0F172A; border: none; border-radius: 10px; font-weight: 700; font-size: 1rem;
-    cursor: pointer; box-shadow: 0 4px 20px rgba(245, 194, 66, 0.4); transition: transform 0.2s;
+    cursor: pointer; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3); transition: transform 0.2s;
   }
   .btn-gold:active { transform: scale(0.98); }
   
@@ -61,7 +62,7 @@
   
   .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 25px 0; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 20px;}
   .header h2 { font-size: 1.8rem; color: #fff; }
-  .btn-logout { background: none; border: none; color: #94A3B8; font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
+  .btn-logout { background: none; border: none; color: #64748B; font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
 
   /* --- CARTES 3D PREMIUM --- */
   .card { 
@@ -74,7 +75,7 @@
   
   .total-amount { 
     font-size: 3.2rem; font-family: 'Playfair Display', serif; font-weight: 600; color: var(--gold-light); 
-    line-height: 1.1; text-shadow: 0 0 25px rgba(245, 194, 66, 0.4);
+    line-height: 1.1; text-shadow: var(--glow);
   }
 
   /* Graphique */
@@ -83,30 +84,30 @@
   /* Formulaire de saisie */
   .input-group { 
     display: flex; justify-content: space-between; align-items: center; 
-    background: rgba(255, 255, 255, 0.03); padding: 15px; border-radius: 12px; 
+    background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 12px; 
     margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05);
   }
   .input-label p:first-child { font-weight: 600; color: #fff; font-size: 0.95rem; margin-bottom: 4px; }
   .input-label p:last-child { font-size: 0.75rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.05em; }
   .input-field {
-    width: 120px; padding: 12px; border-radius: 8px; border: 1px solid rgba(245, 194, 66, 0.3);
+    width: 120px; padding: 12px; border-radius: 8px; border: 1px solid rgba(212, 175, 55, 0.3);
     text-align: right; font-weight: 600; font-size: 1rem; color: var(--gold-light);
     background: rgba(0,0,0,0.2); outline: none; transition: border 0.3s;
   }
-  .input-field:focus { border-color: var(--gold); }
+  .input-field:focus { border-color: var(--gold); box-shadow: var(--glow);}
 
   /* Navigation basse */
   .bottom-nav {
     position: fixed; bottom: 0; left: 0; right: 0; height: 75px;
-    background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(15px);
+    background: rgba(8, 14, 26, 0.9); backdrop-filter: blur(15px);
     border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: center; gap: 50px;
     align-items: center; z-index: 100;
   }
   .nav-item {
     display: flex; flex-direction: column; align-items: center; gap: 5px;
-    background: none; border: none; cursor: pointer; color: #64748B; transition: color 0.3s;
+    background: none; border: none; cursor: pointer; color: #475569; transition: color 0.3s;
   }
-  .nav-item.active { color: var(--gold); }
+  .nav-item.active { color: var(--gold); text-shadow: var(--glow);}
   .nav-icon { font-size: 1.4rem; }
   .nav-text { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em;}
 
@@ -130,7 +131,7 @@
   const SUPABASE_KEY = 'sb_publishable_AsJvkk-erLkE5-pUbxiNnw_h2mmuuRN';
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Données de ton Excel pour initialiser la base si elle est vide
+  // Données de ton Excel
   const EXCEL_DATA = [
     { owner: 'Aubin', envelope: 'Compte Courant / Livret', account_name: 'Compte courant TR', category: '', value_eur: 15000, is_liability: false },
     { owner: 'Aubin', envelope: 'PEA', account_name: 'ETF actions', category: 'Actions', value_eur: 248567, is_liability: false },
@@ -207,8 +208,8 @@
                   }
               });
 
-              // Couleurs avec un Or beaucoup plus vif
-              const colors = ['#F5C242', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
+              // Palette de couleurs basée sur la nouvelle DA (Or, Bleu Nuit, Sable)
+              const colors = ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
 
               new Chart(ctx, {
                   type: 'doughnut',
@@ -277,7 +278,6 @@
           setLoading(false);
       }
 
-      // --- INITIALISATION DE LA BASE VIDE AVEC TON EXCEL ---
       async function handleSeedDatabase() {
           setLoading(true);
           const today = new Date().toISOString().split('T')[0];
@@ -286,9 +286,9 @@
           const { error } = await supabase.from('positions').insert(dataToInsert);
           
           if (error) {
-              alert("Erreur d'initialisation : " + error.message);
+              alert("Erreur : " + error.message);
           } else {
-              alert("Base initialisée avec tes 39 comptes !");
+              alert("Base initialisée avec succès !");
               fetchPositions();
           }
           setLoading(false);
