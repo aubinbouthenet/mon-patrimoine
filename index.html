@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Mon Patrimoine - Private Wealth</title>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700&family=Inter:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg-base: #EAE3D9;
+            --bg-gradient: radial-gradient(circle at 50% 0%, #FDFCFA 0%, #D4C4B7 100%);
+            --bg-dark: #080E1A;
+            --card-bg: rgba(255, 255, 255, 0.7);
+            --card-border: rgba(255, 255, 255, 0.9);
+            --text-main: #1E293B;
+            --text-muted: #475569;
+            --gold: #C5A059;
+            --gold-dark: #A6833C;
+            --navy: #0F172A;
+            --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            --shadow-3d: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, .serif { font-family: 'Playfair Display', serif; }
+        .gold-text { color: var(--gold-dark); }
+
+        /* Écran de connexion */
+        .login-screen {
+            min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .login-card {
+            background: var(--bg-dark); padding: 50px 30px; border-radius: 20px;
+            text-align: center; width: 100%; max-width: 400px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.1);
+            border: 1px solid rgba(197, 160, 89, 0.4);
+            background-image: radial-gradient(circle at 50% 0%, rgba(197, 160, 89, 0.15) 0%, transparent 60%);
+        }
+        .login-card h1 { color: #fff; font-size: 2rem; margin-bottom: 10px; font-weight: 500; }
+        .login-card p { color: var(--gold); font-size: 0.85rem; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 0.1em; }
+        .login-input {
+            width: 100%; padding: 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px; color: #fff; text-align: center; font-size: 1.2rem; letter-spacing: 0.2em; margin-bottom: 20px;
+            outline: none; transition: border 0.3s;
+        }
+        .login-input:focus { border-color: var(--gold); }
+        .btn-gold {
+            width: 100%; padding: 15px; background: linear-gradient(135deg, #D4AF37, #B8860B);
+            color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 1rem;
+            cursor: pointer; box-shadow: 0 4px 15px rgba(184, 134, 11, 0.3); transition: transform 0.2s;
+        }
+        .btn-gold:active { transform: scale(0.98); }
+
+        /* Application Layout */
+        .app-container { max-width: 800px; margin: 0 auto; padding: 20px 20px 100px 20px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 25px 0; }
+        .header h2 { font-size: 1.8rem; color: var(--navy); font-weight: 600; letter-spacing: -0.02em;}
+        .btn-logout { background: none; border: none; color: var(--text-muted); font-size: 0.85rem; text-decoration: underline; cursor: pointer; }
+
+        /* Cartes 3D */
+        .card { 
+            background: var(--card-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-radius: 16px; padding: 25px; box-shadow: var(--shadow-md); 
+            border: 1px solid var(--card-border); margin-bottom: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:active { transform: scale(0.99); }
+        .card-dark {
+            background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #fff;
+            border: 1px solid rgba(255,255,255,0.1); box-shadow: var(--shadow-3d);
+        }
+
+        /* Dashboard Total */
+        .total-title { font-size: 1rem; color: var(--gold-light); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+        .total-amount { font-size: 3rem; font-family: 'Playfair Display', serif; font-weight: 600; color: #fff; text-shadow: 0 0 20px rgba(197,160,89,0.3); line-height: 1.1; }
+        .total-sub { font-size: 0.85rem; color: #94A3B8; margin-top: 10px; }
+
+        /* Formulaire de saisie */
+        .form-intro { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+        .input-group { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: rgba(255, 255, 255, 0.6); padding: 15px 20px; border-radius: 12px; 
+            margin-bottom: 10px; border: 1px solid #fff; box-shadow: var(--shadow-sm);
+        }
+        .input-label p:first-child { font-weight: 700; color: var(--navy); font-size: 0.95rem; margin-bottom: 4px; }
+        .input-label p:last-child { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .input-field {
+            width: 130px; padding: 12px; border-radius: 8px; border: 1px solid #CBD5E1;
+            text-align: right; font-weight: 600; font-size: 1rem; color: var(--navy);
+            background: #fff; outline: none; transition: border 0.3s;
+        }
+        .input-field:focus { border-color: var(--gold); }
+
+        /* Navigation */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0; height: 75px;
+            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            border-top: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: center; gap: 40px;
+            align-items: center; z-index: 100; box-shadow: 0 -10px 30px rgba(0,0,0,0.05);
+        }
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
+            background: none; border: none; cursor: pointer; color: #94A3B8; transition: color 0.3s;
+        }
+        .nav-item.active { color: var(--gold-dark); }
+        .nav-icon { font-size: 1.4rem; }
+        .nav-text { font-size: 0.75rem; font-weight: 600; }
+
+        /* Chart container */
+        .chart-container { position: relative; height: 280px; width: 100%; margin-top: 15px; }
+    </style>
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- CONFIGURATION ---
+        const SUPABASE_URL = 'https://geykxuqyspwzocvwzqjj.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_AsJvkk-erLkE5-pUbxiNnw_h2mmuuRN';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        function App() {
+            const [session, setSession] = useState(null);
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+            const [loading, setLoading] = useState(false);
+            
+            const [positions, setPositions] = useState([]);
+            const [view, setView] = useState('dashboard');
+            const [formValues, setFormValues] = useState({});
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+            }, []);
+
+            useEffect(() => {
+                if (session) fetchPositions();
+            }, [session]);
+
+            // Gestion du graphique Chart.js
+            useEffect(() => {
+                if (view === 'dashboard' && positions.length > 0 && chartRef.current) {
+                    const ctx = chartRef.current.getContext('2d');
+                    
+                    const existingChart = Chart.getChart(ctx.canvas);
+                    if (existingChart) existingChart.destroy();
+
+                    const byCategory = {};
+                    positions.forEach(p => {
+                        if(p.value_eur > 0) {
+                            const cat = p.category || p.envelope;
+                            byCategory[cat] = (byCategory[cat] || 0) + p.value_eur;
+                        }
+                    });
+
+                    // Palette de couleurs premium (Or, Bleu Nuit, etc.)
+                    const colors = ['#0F172A', '#B8860B', '#3B82F6', '#10B981', '#E2C792', '#64748B', '#E11D48', '#8B5CF6'];
+
+                    new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: Object.keys(byCategory),
+                            datasets: [{
+                                data: Object.values(byCategory),
+                                backgroundColor: colors,
+                                borderWidth: 2,
+                                borderColor: '#ffffff',
+                                hoverOffset: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            cutout: '70%',
+                            plugins: {
+                                legend: { 
+                                    position: 'bottom', 
+                                    labels: { 
+                                        boxWidth: 12, 
+                                        font: { family: 'Inter', size: 11 },
+                                        color: '#475569'
+                                    } 
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.label || '';
+                                            if (label) label += ' : ';
+                                            label += new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(context.raw);
+                                            return label;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }, [view, positions]);
+
+            async function fetchPositions() {
+                setLoading(true);
+                const { data } = await supabase.from('positions').select('*').order('date', { ascending: false });
+                
+                if (data) {
+                    const latest = [];
+                    const seen = new Set();
+                    data.forEach(p => {
+                        const key = `${p.owner}-${p.envelope}-${p.account_name}-${p.category}`;
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            latest.push(p);
+                        }
+                    });
+                    setPositions(latest);
+                    
+                    const initialForm = {};
+                    latest.forEach(p => initialForm[p.id] = p.value_eur);
+                    setFormValues(initialForm);
+                }
+                setLoading(false);
+            }
+
+            async function handleLogin(e) {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+                const { error } = await supabase.auth.signInWithPassword({
+                    email: 'admin@patrimoine.app',
+                    password: password
+                });
+                if (error) setError('Mot de passe incorrect');
+                setLoading(false);
+            }
+
+            async function handleLogout() {
+                await supabase.auth.signOut();
+                setSession(null);
+            }
+
+            async function handleSave(e) {
+                e.preventDefault();
+                setLoading(true);
+                const today = new Date().toISOString().split('T')[0];
+                
+                const newPositions = Object.keys(formValues).map(id => {
+                    const original = positions.find(p => p.id === id);
+                    return {
+                        date: today,
+                        owner: original.owner,
+                        envelope: original.envelope,
+                        account_name: original.account_name,
+                        category: original.category,
+                        value_eur: parseFloat(formValues[id]),
+                        is_liability: original.is_liability
+                    };
+                });
+
+                const { error } = await supabase.from('positions').insert(newPositions);
+                
+                if (error) {
+                    alert("Erreur lors de la sauvegarde");
+                } else {
+                    alert("Mise à jour enregistrée avec succès !");
+                    setView('dashboard');
+                    fetchPositions();
+                }
+                setLoading(false);
+            }
+
+            // --- ECRAN DE CONNEXION ---
+            if (!session) {
+                return (
+                    <div className="login-screen">
+                        <form onSubmit={handleLogin} className="login-card">
+                            <div style={{color: 'var(--gold)', fontSize: '2rem', marginBottom: '10px'}}>✦</div>
+                            <h1>Mon Patrimoine</h1>
+                            <p>Private Wealth</p>
+                            {error && <p style={{color: '#E11D48', marginBottom: '15px'}}>{error}</p>}
+                            <input 
+                                type="password" 
+                                placeholder="••••••••" 
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                                className="login-input"
+                            />
+                            <button type="submit" disabled={loading} className="btn-gold">
+                                {loading ? "Connexion..." : "Accéder au portefeuille"}
+                            </button>
+                        </form>
+                    </div>
+                );
+            }
+
+            // --- CALCULS ---
+            const totalNet = positions.reduce((sum, p) => sum + p.value_eur, 0);
+
+            // --- RENDU PRINCIPAL ---
+            return (
+                <div className="app-container">
+                    <header className="header">
+                        <h2 className="serif">Patrimoine</h2>
+                        <button onClick={handleLogout} className="btn-logout">Déconnexion</button>
+                    </header>
+
+                    <main>
+                        {view === 'dashboard' ? (
+                            <div>
+                                {/* Carte Total */}
+                                <div className="card card-dark">
+                                    <p className="total-title">Patrimoine Net Total</p>
+                                    <h2 className="total-amount">
+                                        {totalNet.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                                    </h2>
+                                    <p className="total-sub">Dernière mise à jour enregistrée</p>
+                                </div>
+
+                                {/* Carte Graphique */}
+                                <div className="card">
+                                    <h3 className="serif" style={{textAlign: 'center', color: 'var(--navy)', fontSize: '1.2rem', marginBottom: '10px'}}>
+                                        Allocation d'Actifs
+                                    </h3>
+                                    <div className="chart-container">
+                                        <canvas ref={chartRef}></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <form onSubmit={handleSave}>
+                                <p className="form-intro">Mettez à jour vos valeurs ci-dessous. L'enregistrement créera une photo (snapshot) de votre patrimoine à la date d'aujourd'hui.</p>
+                                
+                                {positions.map(p => (
+                                    <div key={p.id} className="input-group">
+                                        <div className="input-label">
+                                            <p>{p.account_name}</p>
+                                            <p>{p.owner} • {p.category || p.envelope}</p>
+                                        </div>
+                                        <input 
+                                            type="number" 
+                                            value={formValues[p.id] || ''}
+                                            onChange={e => setFormValues({...formValues, [p.id]: e.target.value})}
+                                            className="input-field"
+                                        />
+                                    </div>
+                                ))}
+                                
+                                <button type="submit" disabled={loading} className="btn-gold" style={{marginTop: '20px'}}>
+                                    {loading ? "Enregistrement..." : "Enregistrer la mise à jour"}
+                                </button>
+                            </form>
+                        )}
+                    </main>
+
+                    {/* Navigation */}
+                    <nav className="bottom-nav">
+                        <button onClick={() => setView('dashboard')} className={`nav-item ${view === 'dashboard' ? 'active' : ''}`}>
+                            <span className="nav-icon">📊</span>
+                            <span className="nav-text">Tableau de bord</span>
+                        </button>
+                        <button onClick={() => setView('saisie')} className={`nav-item ${view === 'saisie' ? 'active' : ''}`}>
+                            <span className="nav-icon">✏️</span>
+                            <span className="nav-text">Mise à jour</span>
+                        </button>
+                    </nav>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
