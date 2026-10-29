@@ -11,12 +11,14 @@
   :root {
     --bg-dark: #080E1A;
     --bg-card-dark: rgba(15, 23, 42, 0.6);
-    --gold: #D4AF37; /* Or noble */
-    --gold-light: #F4EBD6; /* Champagne */
+    --gold: #D4AF37;
+    --gold-light: #F4EBD6;
     --text-light: #CBD5E1;
     --red: #E11D48;
+    --blue: #3B82F6;
+    --green: #10B981;
     --shadow-3d: 0 30px 60px -15px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    --glow: 0 0 20px rgba(212, 175, 55, 0.25); /* Halo lumineux */
+    --glow: 0 0 20px rgba(212, 175, 55, 0.25);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -33,9 +35,7 @@
   h1, h2, h3, .serif { font-family: 'Playfair Display', serif; }
 
   /* --- ECRAN DE CONNEXION --- */
-  .login-screen {
-    height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
-  }
+  .login-screen { height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
   .login-card {
     background: var(--bg-card-dark); backdrop-filter: blur(16px);
     border: 1px solid rgba(212, 175, 55, 0.3); padding: 50px 30px;
@@ -60,16 +60,28 @@
   /* --- APPLICATION LAYOUT --- */
   .app-container { max-width: 600px; margin: 0 auto; padding: 20px 20px 100px 20px; }
   
-  .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 25px 0; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 20px;}
+  .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 25px 0; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;}
   .header h2 { font-size: 1.8rem; color: #fff; }
   .btn-logout { background: none; border: none; color: #64748B; font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
+
+  /* Filtre Propriétaire */
+  .owner-filter {
+    display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;
+  }
+  .owner-btn {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    color: #94A3B8; padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600;
+    cursor: pointer; transition: all 0.3s;
+  }
+  .owner-btn.active {
+    background: var(--gold); color: #0F172A; border-color: var(--gold); box-shadow: var(--glow);
+  }
 
   /* --- CARTES 3D PREMIUM --- */
   .card { 
     background: var(--bg-card-dark); backdrop-filter: blur(16px);
     border-radius: 16px; padding: 25px; box-shadow: var(--shadow-3d);
     border: 1px solid rgba(255,255,255,0.08); margin-bottom: 20px;
-    transition: transform 0.2s;
   }
   .card-header { font-size: 0.8rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; font-weight: 600;}
   
@@ -78,10 +90,17 @@
     line-height: 1.1; text-shadow: var(--glow);
   }
 
-  /* Graphique */
-  .chart-container { position: relative; height: 250px; width: 100%; margin-top: 15px; }
+  /* Graphiques */
+  .chart-container { position: relative; height: 220px; width: 100%; margin-top: 15px; }
+  .chart-container-small { position: relative; height: 150px; width: 100%; margin-top: 10px; }
 
-  /* Formulaire de saisie */
+  /* Barres de progression Enveloppes */
+  .envelope-row { margin-bottom: 15px; }
+  .envelope-info { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 5px; color: var(--text-light); }
+  .envelope-bar-bg { height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; }
+  .envelope-bar-fill { height: 100%; background: linear-gradient(90deg, #D4AF37, #F4EBD6); border-radius: 4px; }
+
+  /* Formulaire */
   .input-group { 
     display: flex; justify-content: space-between; align-items: center; 
     background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 12px; 
@@ -126,14 +145,12 @@
 <script type="text/babel">
   const { useState, useEffect, useRef } = React;
 
-  // --- CONFIGURATION ---
   const SUPABASE_URL = 'https://geykxuqyspwzocvwzqjj.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_AsJvkk-erLkE5-pUbxiNnw_h2mmuuRN';
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Données de ton Excel
   const EXCEL_DATA = [
-    { owner: 'Aubin', envelope: 'Compte Courant / Livret', account_name: 'Compte courant TR', category: '', value_eur: 15000, is_liability: false },
+    { owner: 'Aubin', envelope: 'Compte Courant / Livret', account_name: 'Compte courant TR', category: 'Livrets', value_eur: 15000, is_liability: false },
     { owner: 'Aubin', envelope: 'PEA', account_name: 'ETF actions', category: 'Actions', value_eur: 248567, is_liability: false },
     { owner: 'Aubin', envelope: 'PEA-PME', account_name: 'Fonds IE Europe small', category: 'Actions', value_eur: 2800, is_liability: false },
     { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Linxea Spirit 2', category: 'Actions', value_eur: 22650, is_liability: false },
@@ -156,23 +173,23 @@
     { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Corum life', category: 'Obligataire', value_eur: 2200, is_liability: false },
     { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Boursobank', category: 'Fonds euros', value_eur: 8100, is_liability: false },
     { owner: 'Aubin', envelope: 'Assurance-Vie', account_name: 'Fortuneo', category: 'Fonds euros', value_eur: 2000, is_liability: false },
-    { owner: 'Aubin', envelope: 'CTO 1', account_name: 'MEXEM', category: '', value_eur: 14500, is_liability: false },
-    { owner: 'Aubin', envelope: 'CTO 2', account_name: 'TRADE REPUBLIC', category: '', value_eur: 1500, is_liability: false },
-    { owner: 'Aubin', envelope: 'EI à l\'IS', account_name: 'Trésorerie Professionnelle', category: '', value_eur: 15000, is_liability: false },
-    { owner: 'Aubin', envelope: 'EI à l\'IS', account_name: 'Usufruit de SCPI', category: 'SCPI', value_eur: 56000, is_liability: false },
-    { owner: 'Aubin', envelope: 'Crédit Personnel', account_name: 'Prêt Conso Personnel', category: '', value_eur: -20288, is_liability: true },
-    { owner: 'Aubin', envelope: 'Immobilier', account_name: 'Résidence Principale', category: 'RP', value_eur: 290000, is_liability: false },
-    { owner: 'Aubin', envelope: 'Immobilier', account_name: 'Crédit RP', category: 'RP', value_eur: -208525, is_liability: true },
-    { owner: 'Aubin', envelope: 'PER', account_name: 'Ramify + linxea spirit + CA', category: '', value_eur: 14100, is_liability: false },
-    { owner: 'Oliwia', envelope: 'Compte Courant/Livret', account_name: 'LCL', category: '', value_eur: 23750, is_liability: false },
-    { owner: 'Oliwia', envelope: 'Compte Bancaire Polonais', account_name: 'PKO / mBank', category: '', value_eur: 6575, is_liability: false },
-    { owner: 'Oliwia', envelope: 'Compte courant', account_name: 'Revolut', category: '', value_eur: 774, is_liability: false },
+    { owner: 'Aubin', envelope: 'CTO', account_name: 'MEXEM', category: 'Actions', value_eur: 14500, is_liability: false },
+    { owner: 'Aubin', envelope: 'CTO', account_name: 'TRADE REPUBLIC', category: 'Actions', value_eur: 1500, is_liability: false },
+    { owner: 'Aubin', envelope: 'Entreprise', account_name: 'Trésorerie Pro', category: 'Livrets', value_eur: 15000, is_liability: false },
+    { owner: 'Aubin', envelope: 'Entreprise', account_name: 'Usufruit de SCPI', category: 'SCPI', value_eur: 56000, is_liability: false },
+    { owner: 'Aubin', envelope: 'Crédit', account_name: 'Prêt Conso', category: 'Dettes', value_eur: -20288, is_liability: true },
+    { owner: 'Aubin', envelope: 'Immobilier', account_name: 'Résidence Principale', category: 'Immobilier', value_eur: 290000, is_liability: false },
+    { owner: 'Aubin', envelope: 'Immobilier', account_name: 'Crédit RP', category: 'Dettes', value_eur: -208525, is_liability: true },
+    { owner: 'Aubin', envelope: 'PER', account_name: 'PER', category: 'Actions', value_eur: 14100, is_liability: false },
+    { owner: 'Oliwia', envelope: 'Compte Courant', account_name: 'LCL', category: 'Livrets', value_eur: 23750, is_liability: false },
+    { owner: 'Oliwia', envelope: 'Compte Bancaire', account_name: 'PKO / mBank', category: 'Livrets', value_eur: 6575, is_liability: false },
+    { owner: 'Oliwia', envelope: 'Compte Courant', account_name: 'Revolut', category: 'Livrets', value_eur: 774, is_liability: false },
     { owner: 'Oliwia', envelope: 'PEA', account_name: 'Fortuneo', category: 'Actions', value_eur: 13000, is_liability: false },
     { owner: 'Oliwia', envelope: 'Assurance-Vie', account_name: 'Linxea spirit 2', category: 'Actions', value_eur: 1175, is_liability: false },
     { owner: 'Oliwia', envelope: 'Assurance-Vie', account_name: 'Linxea spirit 2', category: 'Fonds euros', value_eur: 1850, is_liability: false },
     { owner: 'Oliwia', envelope: 'Assurance-Vie', account_name: 'Linxea spirit 2', category: 'SCPI', value_eur: 2260, is_liability: false },
     { owner: 'Oliwia', envelope: 'Assurance-Vie', account_name: 'Fortuneo', category: 'Fonds euros', value_eur: 2000, is_liability: false },
-    { owner: 'Oliwia', envelope: 'PEE', account_name: 'CIC', category: '', value_eur: 9687, is_liability: false }
+    { owner: 'Oliwia', envelope: 'PEE', account_name: 'CIC', category: 'Actions', value_eur: 9687, is_liability: false }
   ];
 
   function App() {
@@ -183,8 +200,11 @@
       
       const [positions, setPositions] = useState([]);
       const [view, setView] = useState('dashboard');
+      const [ownerFilter, setOwnerFilter] = useState('Tous'); // 'Tous', 'Aubin', 'Oliwia'
       const [formValues, setFormValues] = useState({});
-      const chartRef = useRef(null);
+      
+      const categoryChartRef = useRef(null);
+      const ownerChartRef = useRef(null);
 
       useEffect(() => {
           supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -194,22 +214,28 @@
           if (session) fetchPositions();
       }, [session]);
 
+      // Filtrer les données selon le propriétaire sélectionné
+      const filteredPositions = positions.filter(p => ownerFilter === 'Tous' || p.owner === ownerFilter);
+
       useEffect(() => {
-          if (view === 'dashboard' && positions.length > 0 && chartRef.current) {
-              const ctx = chartRef.current.getContext('2d');
-              const existingChart = Chart.getChart(ctx.canvas);
-              if (existingChart) existingChart.destroy();
+          if (view === 'dashboard' && filteredPositions.length > 0) {
+              renderCharts();
+          }
+      }, [view, filteredPositions]);
 
-              const byCategory = {};
-              positions.forEach(p => {
-                  if(p.value_eur > 0) {
-                      const cat = p.category || p.envelope;
-                      byCategory[cat] = (byCategory[cat] || 0) + p.value_eur;
-                  }
-              });
+      function renderCharts() {
+          // 1. Graphique Catégories
+          const byCategory = {};
+          filteredPositions.forEach(p => {
+              if(p.value_eur > 0) {
+                  byCategory[p.category] = (byCategory[p.category] || 0) + p.value_eur;
+              }
+          });
 
-              // Palette de couleurs basée sur la nouvelle DA (Or, Bleu Nuit, Sable)
-              const colors = ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
+          if (categoryChartRef.current) {
+              const ctx = categoryChartRef.current.getContext('2d');
+              const existing = Chart.getChart(ctx.canvas);
+              if (existing) existing.destroy();
 
               new Chart(ctx, {
                   type: 'doughnut',
@@ -217,49 +243,57 @@
                       labels: Object.keys(byCategory),
                       datasets: [{
                           data: Object.values(byCategory),
-                          backgroundColor: colors,
+                          backgroundColor: ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'],
                           borderWidth: 2,
-                          borderColor: '#0F172A',
-                          hoverOffset: 4
+                          borderColor: '#0F172A'
                       }]
                   },
                   options: {
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      cutout: '75%',
+                      responsive: true, maintainAspectRatio: false, cutout: '75%',
                       plugins: {
-                          legend: { 
-                              position: 'bottom', 
-                              labels: { 
-                                  boxWidth: 10, 
-                                  padding: 20,
-                                  font: { family: 'Inter', size: 11 },
-                                  color: '#CBD5E1'
-                              } 
-                          },
-                          tooltip: {
-                              callbacks: {
-                                  label: function(context) {
-                                      let label = context.label || '';
-                                      if (label) label += ' : ';
-                                      label += new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(context.raw);
-                                      return label;
-                                  }
-                              }
-                          }
+                          legend: { position: 'right', labels: { boxWidth: 10, color: '#CBD5E1', font: {size: 10} } }
                       }
                   }
               });
           }
-      }, [view, positions]);
+
+          // 2. Graphique Propriétaires (on ne l'affiche que si le filtre est sur "Tous")
+          if (ownerChartRef.current && ownerFilter === 'Tous') {
+              const byOwner = {};
+              positions.forEach(p => {
+                  byOwner[p.owner] = (byOwner[p.owner] || 0) + p.value_eur;
+              });
+
+              const ctx = ownerChartRef.current.getContext('2d');
+              const existing = Chart.getChart(ctx.canvas);
+              if (existing) existing.destroy();
+
+              new Chart(ctx, {
+                  type: 'doughnut',
+                  data: {
+                      labels: Object.keys(byOwner),
+                      datasets: [{
+                          data: Object.values(byOwner),
+                          backgroundColor: ['#F4EBD6', '#3B82F6'],
+                          borderWidth: 2,
+                          borderColor: '#0F172A'
+                      }]
+                  },
+                  options: {
+                      responsive: true, maintainAspectRatio: false, cutout: '70%',
+                      plugins: {
+                          legend: { position: 'right', labels: { boxWidth: 10, color: '#CBD5E1', font: {size: 10} } }
+                      }
+                  }
+              });
+          }
+      }
 
       async function fetchPositions() {
           setLoading(true);
           const { data, error } = await supabase.from('positions').select('*').order('date', { ascending: false });
           
-          if (error) {
-              console.error(error);
-          } else if (data && data.length > 0) {
+          if (data && data.length > 0) {
               const latest = [];
               const seen = new Set();
               data.forEach(p => {
@@ -288,7 +322,6 @@
           if (error) {
               alert("Erreur : " + error.message);
           } else {
-              alert("Base initialisée avec succès !");
               fetchPositions();
           }
           setLoading(false);
@@ -348,13 +381,7 @@
                       <h1 className="serif">Patrimoine</h1>
                       <p>Private Wealth</p>
                       {error && <p className="error-msg">{error}</p>}
-                      <input 
-                          type="password" 
-                          placeholder="••••••••" 
-                          value={password}
-                          onChange={e => setPassword(e.target.value)}
-                          className="login-input"
-                      />
+                      <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="login-input" />
                       <button type="submit" disabled={loading} className="btn-gold">
                           {loading ? "Connexion..." : "Accéder au portefeuille"}
                       </button>
@@ -363,8 +390,18 @@
           );
       }
 
-      const totalNet = positions.reduce((sum, p) => sum + p.value_eur, 0);
+      const totalNet = filteredPositions.reduce((sum, p) => sum + p.value_eur, 0);
       const hasData = positions.length > 0;
+
+      // Préparation du Top Enveloppes (sur les données filtrées)
+      const byEnvelope = {};
+      filteredPositions.forEach(p => {
+          if (p.value_eur > 0) { 
+             byEnvelope[p.envelope] = (byEnvelope[p.envelope] || 0) + p.value_eur;
+          }
+      });
+      const topEnvelopes = Object.entries(byEnvelope).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      const maxEnvelopeValue = topEnvelopes.length > 0 ? topEnvelopes[0][1] : 1;
 
       return (
           <div className="app-container">
@@ -375,34 +412,75 @@
 
               <main>
                   {view === 'dashboard' ? (
-                      <div>
-                          <div className="card" style={{borderBottom: '3px solid var(--gold)'}}>
-                              <div className="card-header">Patrimoine Net Total</div>
-                              <div className="total-amount">
-                                  {hasData 
-                                    ? totalNet.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
-                                    : "0 €"}
+                      hasData ? (
+                          <div>
+                              {/* Filtre Propriétaire */}
+                              <div className="owner-filter">
+                                  {['Tous', 'Aubin', 'Oliwia'].map(owner => (
+                                      <button 
+                                          key={owner} 
+                                          className={`owner-btn ${ownerFilter === owner ? 'active' : ''}`}
+                                          onClick={() => setOwnerFilter(owner)}
+                                      >
+                                          {owner}
+                                      </button>
+                                  ))}
                               </div>
-                          </div>
 
-                          {hasData ? (
-                              <div className="card">
-                                  <div className="card-header" style={{textAlign: 'center'}}>Allocation d'Actifs</div>
-                                  <div className="chart-container">
-                                      <canvas ref={chartRef}></canvas>
+                              {/* Total */}
+                              <div className="card" style={{borderBottom: '3px solid var(--gold)'}}>
+                                  <div className="card-header">
+                                      {ownerFilter === 'Tous' ? 'Patrimoine Net Total (Couple)' : `Patrimoine de ${ownerFilter}`}
+                                  </div>
+                                  <div className="total-amount">
+                                      {totalNet.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
                                   </div>
                               </div>
-                          ) : (
-                              <div className="card" style={{textAlign: 'center', padding: '40px 20px'}}>
-                                  <p style={{color: 'var(--text-light)', marginBottom: '20px', lineHeight: '1.6'}}>
-                                      Ta base de données est prête, mais elle est vide. Clique sur le bouton ci-dessous pour injecter tes données Excel actuelles et démarrer !
-                                  </p>
-                                  <button onClick={handleSeedDatabase} disabled={loading} className="btn-gold">
-                                      {loading ? "Initialisation..." : "Initialiser avec mon Excel"}
-                                  </button>
+
+                              {/* Répartition Propriétaires (Visible seulement sur 'Tous') */}
+                              {ownerFilter === 'Tous' && (
+                                  <div className="card">
+                                      <div className="card-header" style={{textAlign: 'center'}}>Répartition Familiale</div>
+                                      <div className="chart-container-small">
+                                          <canvas ref={ownerChartRef}></canvas>
+                                      </div>
+                                  </div>
+                              )}
+
+                              {/* Allocation par Catégorie */}
+                              <div className="card">
+                                  <div className="card-header" style={{textAlign: 'center'}}>Allocation d'Actifs {ownerFilter !== 'Tous' && `(${ownerFilter})`}</div>
+                                  <div className="chart-container">
+                                      <canvas ref={categoryChartRef}></canvas>
+                                  </div>
                               </div>
-                          )}
-                      </div>
+
+                              {/* Top Enveloppes */}
+                              <div className="card">
+                                  <div className="card-header" style={{marginBottom: '20px'}}>Top Enveloppes</div>
+                                  {topEnvelopes.map(([name, value], index) => (
+                                      <div className="envelope-row" key={name}>
+                                          <div className="envelope-info">
+                                              <span>{name}</span>
+                                              <span>{value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span>
+                                          </div>
+                                          <div className="envelope-bar-bg">
+                                              <div className="envelope-bar-fill" style={{width: `${(value / maxEnvelopeValue) * 100}%`}}></div>
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      ) : (
+                          <div className="card" style={{textAlign: 'center', padding: '40px 20px'}}>
+                              <p style={{color: 'var(--text-light)', marginBottom: '20px', lineHeight: '1.6'}}>
+                                  Ta base de données est prête, mais elle est vide. Clique sur le bouton ci-dessous pour injecter tes données Excel.
+                              </p>
+                              <button onClick={handleSeedDatabase} disabled={loading} className="btn-gold">
+                                  {loading ? "Initialisation..." : "Initialiser avec mon Excel"}
+                              </button>
+                          </div>
+                      )
                   ) : (
                       <form onSubmit={handleSave}>
                           <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px', lineHeight: '1.6'}}>
@@ -413,14 +491,9 @@
                               <div key={p.id} className="input-group">
                                   <div className="input-label">
                                       <p>{p.account_name}</p>
-                                      <p>{p.owner} • {p.category || p.envelope}</p>
+                                      <p>{p.owner} • {p.category}</p>
                                   </div>
-                                  <input 
-                                      type="number" 
-                                      value={formValues[p.id] || ''}
-                                      onChange={e => setFormValues({...formValues, [p.id]: e.target.value})}
-                                      className="input-field"
-                                  />
+                                  <input type="number" value={formValues[p.id] || ''} onChange={e => setFormValues({...formValues, [p.id]: e.target.value})} className="input-field" />
                               </div>
                           ))}
                           
