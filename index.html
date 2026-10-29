@@ -81,21 +81,26 @@
   .envelope-details.open { display: block; }
   .account-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-light); padding: 6px 0; }
 
-  .input-group { display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.02); padding: 15px; border-radius: 12px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.05); }
-  .input-label p:first-child { font-weight: 500; color: #fff; font-size: 0.95rem; margin-bottom: 4px; }
-  .input-label p:last-child { font-size: 0.75rem; color: var(--gold); text-transform: uppercase; letter-spacing: 0.05em; }
-  .input-field { width: 110px; padding: 12px; border-radius: 8px; border: 1px solid var(--gold); text-align: right; font-weight: 600; font-size: 1rem; color: var(--gold-light); background: rgba(0,0,0,0.2); outline: none; }
-  .btn-delete { background: transparent; border: none; color: var(--red); font-size: 1.2rem; cursor: pointer; padding: 5px; margin-left: 10px; }
+  /* --- NOUVEAU TABLEAU DE MISE A JOUR --- */
+  .update-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  .update-table th { text-align: left; font-size: 0.7rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.05em; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .update-table td { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 0.85rem; }
+  .update-table td:last-child { border-bottom: none; text-align: right; }
+  .update-table tr:last-child td { border-bottom: none; }
   
+  .table-input { width: 90px; padding: 8px; border-radius: 6px; border: 1px solid var(--gold); text-align: right; font-weight: 600; color: var(--gold-light); background: rgba(0,0,0,0.2); outline: none; font-size: 0.9rem; }
+  .btn-delete { background: transparent; border: none; color: var(--red); font-size: 1.1rem; cursor: pointer; padding: 5px; margin-left: 5px; }
+
   .btn-sync { background: var(--gold-trans); border: 1px solid var(--gold); color: var(--gold); padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; }
   .btn-export { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #CBD5E1; padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 20px; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; }
 
+  /* Formulaire d'ajout */
   .add-form { background: rgba(212, 175, 55, 0.05); border: 1px dashed var(--gold); border-radius: 12px; padding: 20px; margin-bottom: 20px; display: none; }
   .add-form.open { display: block; }
   .add-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-  .add-input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.3); color: #fff; outline: none; }
+  .add-input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: #0A1120; color: #fff; outline: none; font-family: 'Inter', sans-serif; font-size: 0.85rem;}
   .add-input:focus { border-color: var(--gold); }
-
+  
   /* SLIDERS FIRE */
   .slider-container { margin-bottom: 25px; }
   .slider-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem; }
@@ -105,8 +110,8 @@
   input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: var(--gold); cursor: pointer; margin-top: -8px; box-shadow: var(--glow); }
   input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(255,255,255,0.1); border-radius: 2px; }
   
-  .fire-result { display: flex; justify-content: space-between; margin-top: 20px; text-align: center; }
-  .fire-box { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; width: 31%; border: 1px solid rgba(255,255,255,0.05); }
+  .fire-result { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; text-align: center; }
+  .fire-box { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
   .fire-box-label { font-size: 0.75rem; color: var(--text-light); margin-bottom: 5px; }
   .fire-box-value { font-weight: 700; font-size: 1rem; color: var(--gold-light); }
 
@@ -133,6 +138,17 @@
   const SUPABASE_URL = 'https://geykxuqyspwzocvwzqjj.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_AsJvkk-erLkE5-pUbxiNnw_h2mmuuRN';
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // Listes normalisées pour les formulaires
+  const ENVELOPPES_LIST = [
+    'Compte Courant / Livret', 'Compte Bancaire', 'PEA', 'PEA-PME', 'Assurance-Vie', 
+    'CTO', 'Entreprise', 'Crédit', 'Immobilier', 'PER', 'PEE', 'Autre'
+  ];
+  
+  const CATEGORIES_LIST = [
+    'Actions', 'Fonds euros', 'Livrets', 'SCPI', 'Private equity', 
+    'Fonds diversifiés', 'Obligataire', 'Immobilier Brut', 'Dette Immobilière', 'Dettes Conso', 'Autre'
+  ];
 
   const HistoryChart = memo(({ history, color }) => {
     const chartRef = useRef(null);
@@ -191,7 +207,7 @@
             options: { responsive: true, maintainAspectRatio: false, animation: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { enabled: true, callbacks: { label: (ctx) => `${Math.round(ctx.parsed.y).toLocaleString('fr-FR')} €` } } }, scales: { x: { display: false }, y: { display: false } }, layout: { padding: { top: 10, bottom: 0, left: 0, right: 0 } } }
         });
     }, [data, color]);
-    return <div className="history-chart-container" style={{height: '250px'}}><canvas ref={chartRef}></canvas></div>;
+    return <div className="history-chart-container" style={{height: '200px'}}><canvas ref={chartRef}></canvas></div>;
   });
 
 
@@ -214,10 +230,10 @@
       const [syncLoading, setSyncLoading] = useState(false);
 
       const [showAddForm, setShowAddForm] = useState(false);
-      const [newAccount, setNewAccount] = useState({ owner: 'Aubin', envelope: '', account_name: '', category: '', value_eur: '', is_liability: false, is_professional: false });
+      const [newAccount, setNewAccount] = useState({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', value_eur: '', is_liability: false, is_professional: false });
 
       // States FIRE
-      const [fireEpargne, setFireEpargne] = useState(1000);
+      const [fireEpargne, setFireEpargne] = useState(1500);
       const [fireRendement, setFireRendement] = useState(7);
 
       useEffect(() => {
@@ -260,7 +276,7 @@
       const totalPassifs = filteredPositions.filter(p => p.value_eur < 0).reduce((sum, p) => sum + p.value_eur, 0);
       const totalNet = totalActifs + totalPassifs;
 
-      // --- CALCUL PROJECTION FIRE ---
+      // --- CALCUL PROJECTION FIRE (30 ANS) ---
       const fireData = useMemo(() => {
           const data = [];
           let current = totalNet;
@@ -384,7 +400,7 @@
           if (error) alert("Erreur : " + error.message);
           else {
               setShowAddForm(false);
-              setNewAccount({ owner: 'Aubin', envelope: '', account_name: '', category: '', value_eur: '', is_liability: false, is_professional: false });
+              setNewAccount({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', value_eur: '', is_liability: false, is_professional: false });
               fetchPositions(); fetchHistory();
           }
           setLoading(false);
@@ -517,10 +533,20 @@
 
                   {view === 'saisie' && (
                       <div>
+                          {/* ACTIONS RAPIDES */}
+                          <button type="button" onClick={syncYahooPEA} disabled={syncLoading} className="btn-sync">
+                              {syncLoading ? "⏳ Connexion à Yahoo..." : "⟳ Actualiser le PEA via Yahoo"}
+                          </button>
+                          <button type="button" onClick={exportToCSV} className="btn-export">
+                              📥 Exporter en CSV
+                          </button>
+
+                          {/* BOUTON AJOUTER */}
                           <button onClick={() => setShowAddForm(!showAddForm)} className="btn-sync" style={{borderColor: 'var(--text-light)', color: 'var(--text-light)', marginBottom: '15px'}}>
                               {showAddForm ? "Fermer le formulaire" : "+ Ajouter un nouveau compte"}
                           </button>
 
+                          {/* FORMULAIRE AJOUT */}
                           {showAddForm && (
                               <form onSubmit={handleAddAccount} className="add-form open">
                                   <div className="add-form-grid">
@@ -528,11 +554,15 @@
                                           <option value="Aubin">Aubin</option>
                                           <option value="Oliwia">Oliwia</option>
                                       </select>
-                                      <input className="add-input" placeholder="Enveloppe (ex: PEA)" required value={newAccount.envelope} onChange={e => setNewAccount({...newAccount, envelope: e.target.value})} />
+                                      <select className="add-input" required value={newAccount.envelope} onChange={e => setNewAccount({...newAccount, envelope: e.target.value})}>
+                                          {ENVELOPPES_LIST.map(env => <option key={env} value={env}>{env}</option>)}
+                                      </select>
                                   </div>
                                   <div className="add-form-grid">
                                       <input className="add-input" placeholder="Nom du compte" required value={newAccount.account_name} onChange={e => setNewAccount({...newAccount, account_name: e.target.value})} />
-                                      <input className="add-input" placeholder="Catégorie (ex: Actions)" required value={newAccount.category} onChange={e => setNewAccount({...newAccount, category: e.target.value})} />
+                                      <select className="add-input" required value={newAccount.category} onChange={e => setNewAccount({...newAccount, category: e.target.value})}>
+                                          {CATEGORIES_LIST.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                      </select>
                                   </div>
                                   <div className="add-form-grid">
                                       <input className="add-input" type="number" step="any" placeholder="Valeur (€)" required value={newAccount.value_eur} onChange={e => setNewAccount({...newAccount, value_eur: e.target.value})} />
@@ -545,35 +575,44 @@
                               </form>
                           )}
 
-                          <button type="button" onClick={syncYahooPEA} disabled={syncLoading} className="btn-sync">
-                              {syncLoading ? "⏳ Connexion à Yahoo..." : "⟳ Actualiser le PEA via Yahoo"}
-                          </button>
-                          
-                          <button type="button" onClick={exportToCSV} className="btn-export">
-                              📥 Exporter en CSV
-                          </button>
-
+                          {/* TABLEAU DE MISE A JOUR PAR ENVELOPPE */}
                           <form onSubmit={handleSave}>
-                              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
-                                  <p style={{fontSize: '0.85rem', color: 'var(--text-light)'}}>Mets à jour tes valeurs.</p>
-                              </div>
-
-                              {positions.map(p => (
-                                  <div key={p.id} className="input-group">
-                                      <div className="input-label">
-                                          <p>{p.account_name}</p>
-                                          <p>{p.owner} • {p.category}</p>
-                                      </div>
-                                      <div style={{display: 'flex', alignItems: 'center'}}>
-                                          <input type="number" step="any" value={formValues[p.id] ?? ''} onChange={e => setFormValues(prev => ({...prev, [p.id]: e.target.value}))} className="input-field" />
-                                          <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer">🗑️</button>
-                                      </div>
+                              <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px'}}>Mets à jour tes valeurs directement dans les tableaux ci-dessous.</p>
+                              
+                              {sortedEnvelopes.map(([envName, data]) => (
+                                  <div className="card" key={envName} style={{padding: '15px'}}>
+                                      <h3 className="serif" style={{fontSize: '1.1rem', marginBottom: '5px', color: 'var(--gold-light)'}}>{envName}</h3>
+                                      <table className="update-table">
+                                          <thead>
+                                              <tr>
+                                                  <th>Compte</th>
+                                                  <th>Prop.</th>
+                                                  <th>Catégorie</th>
+                                                  <th style={{textAlign: 'right'}}>Valeur (€)</th>
+                                              </tr>
+                                          </thead>
+                                          <tbody>
+                                              {data.accounts.map(p => (
+                                                  <tr key={p.id}>
+                                                      <td style={{fontWeight: 500}}>{p.account_name}</td>
+                                                      <td style={{color: 'var(--text-light)', fontSize: '0.75rem'}}>{p.owner}</td>
+                                                      <td style={{color: 'var(--gold)', fontSize: '0.75rem'}}>{p.category}</td>
+                                                      <td style={{textAlign: 'right'}}>
+                                                          <div style={{display: 'flex', justifyContent: 'flex-end', alignItems: 'center'}}>
+                                                              <input type="number" step="any" value={formValues[p.id] ?? ''} onChange={e => setFormValues(prev => ({...prev, [p.id]: e.target.value}))} className="table-input" />
+                                                              <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer">🗑️</button>
+                                                          </div>
+                                                      </td>
+                                                  </tr>
+                                              ))}
+                                          </tbody>
+                                      </table>
                                   </div>
                               ))}
                               
                               {positions.length > 0 && (
-                                  <button type="submit" disabled={loading} className="btn-gold" style={{marginTop: '20px'}}>
-                                      {loading ? "Enregistrement..." : "Enregistrer la mise à jour"}
+                                  <button type="submit" disabled={loading} className="btn-gold" style={{marginTop: '10px', marginBottom: '30px'}}>
+                                      {loading ? "Enregistrement..." : "Enregistrer toutes les modifications"}
                                   </button>
                               )}
                           </form>
@@ -590,7 +629,7 @@
                                       <span className="slider-label">Épargne mensuelle</span>
                                       <span className="slider-value">{Number(fireEpargne).toLocaleString('fr-FR')} €</span>
                                   </div>
-                                  <input type="range" min="0" max="5000" step="50" value={fireEpargne} onChange={e => setFireEpargne(e.target.value)} />
+                                  <input type="range" min="0" max="20000" step="100" value={fireEpargne} onChange={e => setFireEpargne(e.target.value)} />
                               </div>
 
                               <div className="slider-container">
@@ -604,6 +643,10 @@
                               <FireChart data={fireData} color={isOliwia ? '#E07A5F' : '#D4AF37'} />
 
                               <div className="fire-result">
+                                  <div className="fire-box">
+                                      <div className="fire-box-label">Dans 5 ans</div>
+                                      <div className="fire-box-value">{Math.round(fireData[5].value).toLocaleString('fr-FR')} €</div>
+                                  </div>
                                   <div className="fire-box">
                                       <div className="fire-box-label">Dans 10 ans</div>
                                       <div className="fire-box-value">{Math.round(fireData[10].value).toLocaleString('fr-FR')} €</div>
