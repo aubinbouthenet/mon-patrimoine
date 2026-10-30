@@ -467,29 +467,24 @@
       const chartColors = isOliwia ? ['#E07A5F', '#81B29A', '#F2CC8F', '#3D405B', '#E9C46A', '#F4A261', '#E76F51'] : ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
       const themeStyle = isOliwia ? { '--gold': '#E07A5F', '--gold-light': '#F4F1DE', '--gold-dark': '#B05A42', '--gold-trans': 'rgba(224, 122, 95, 0.15)', '--glow': '0 0 15px rgba(224, 122, 95, 0.3)' } : { '--gold': '#D4AF37', '--gold-light': '#F4EBD6', '--gold-dark': '#A6833C', '--gold-trans': 'rgba(212, 175, 55, 0.15)', '--glow': '0 0 15px rgba(212, 175, 55, 0.2)' };
 
+      // --- CORRECTION ICI : Utilisation de supabase.functions.invoke ---
       async function syncYahooPEA() {
           setSyncLoading(true);
           try {
-              const response = await fetch(`${SUPABASE_URL}/functions/v1/yahoo-quotes`, {
-                  method: 'POST',
-                  headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${SUPABASE_KEY}`,
-                      'apikey': SUPABASE_KEY
-                  },
-                  body: JSON.stringify({ tickers: ['PUST.PA', 'WPEA.PA'] })
+              const { data, error } = await supabase.functions.invoke('yahoo-quotes', {
+                  body: { tickers: ['PUST.PA', 'WPEA.PA'] }
               });
 
-              if (!response.ok) {
-                  const errData = await response.json();
-                  throw new Error(errData.error || "Erreur inconnue de la fonction");
+              if (error) throw error;
+              
+              if (!data || !data.prices) {
+                  throw new Error("Aucune donnée reçue de la fonction.");
               }
 
-              const data = await response.json();
               const pricePUST = data.prices['PUST.PA'];
               const priceWPEA = data.prices['WPEA.PA'];
               
-              if (!pricePUST || !priceWPEA) throw new Error("Prix non trouvés");
+              if (!pricePUST || !priceWPEA) throw new Error("Prix non trouvés dans la réponse.");
 
               const newPEAValue = Math.round((1343 * pricePUST) + (14543 * priceWPEA));
               const peaPosition = positions.find(p => p.envelope === 'PEA' && p.owner === 'Aubin');
@@ -499,7 +494,7 @@
                   alert(`PEA actualisé avec succès !\n\nPUST: ${pricePUST.toFixed(2)} €\nWPEA: ${priceWPEA.toFixed(2)} €\n\nNouveau total: ${newPEAValue.toLocaleString('fr-FR')} €\n\nN'oublie pas d'enregistrer en bas.`);
               }
           } catch (err) { 
-              alert("Erreur de connexion à Yahoo Finance via Supabase.\n\nDétail : " + err.message); 
+              alert("Erreur de connexion à Yahoo Finance via Supabase.\n\nDétail : " + (err.message || JSON.stringify(err))); 
           }
           setSyncLoading(false);
       }
