@@ -471,7 +471,6 @@
       async function syncYahooPEA() {
           setSyncLoading(true);
           try {
-              // APPEL À LA FONCTION SUPABASE
               const { data, error } = await supabase.functions.invoke('yahoo-quotes', {
                   body: { tickers: ['PUST.PA', 'WPEA.PA'] }
               });
@@ -483,7 +482,6 @@
               
               if (!pricePUST || !priceWPEA) throw new Error("Prix non trouvés");
 
-              // Calcul avec les quantités de ton Excel
               const newPEAValue = Math.round((1343 * pricePUST) + (14543 * priceWPEA));
               const peaPosition = positions.find(p => p.envelope === 'PEA' && p.owner === 'Aubin');
               
