@@ -81,7 +81,6 @@
   .envelope-details.open { display: block; }
   .account-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-light); padding: 6px 0; }
 
-  /* --- NOUVEAU TABLEAU DE MISE A JOUR --- */
   .update-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
   .update-table th { text-align: left; font-size: 0.7rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.05em; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); }
   .update-table td { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 0.85rem; }
@@ -94,14 +93,12 @@
   .btn-sync { background: var(--gold-trans); border: 1px solid var(--gold); color: var(--gold); padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; }
   .btn-export { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #CBD5E1; padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 20px; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; }
 
-  /* Formulaire d'ajout */
   .add-form { background: rgba(212, 175, 55, 0.05); border: 1px dashed var(--gold); border-radius: 12px; padding: 20px; margin-bottom: 20px; display: none; }
   .add-form.open { display: block; }
   .add-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
   .add-input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: #0A1120; color: #fff; outline: none; font-family: 'Inter', sans-serif; font-size: 0.85rem;}
   .add-input:focus { border-color: var(--gold); }
   
-  /* SLIDERS FIRE */
   .slider-container { margin-bottom: 25px; }
   .slider-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem; }
   .slider-label { color: var(--text-light); }
@@ -115,7 +112,13 @@
   .fire-box-label { font-size: 0.75rem; color: var(--text-light); margin-bottom: 5px; }
   .fire-box-value { font-weight: 700; font-size: 1rem; color: var(--gold-light); }
 
-  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 75px; background: rgba(5, 10, 20, 0.9); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: center; gap: 30px; align-items: center; z-index: 100; }
+  .target-bar-container { margin-bottom: 15px; }
+  .target-bar-label { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 5px; }
+  .target-bar-bg { height: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; position: relative; }
+  .target-bar-actual { height: 100%; background: var(--gold); border-radius: 6px; position: absolute; top:0; left:0; }
+  .target-bar-target { height: 100%; background: rgba(255,255,255,0.2); border-radius: 6px; position: absolute; top:0; left:0; }
+
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 75px; background: rgba(5, 10, 20, 0.9); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: center; gap: 25px; align-items: center; z-index: 100; }
   .nav-item { display: flex; flex-direction: column; align-items: center; gap: 5px; background: none; border: none; cursor: pointer; color: #475569; }
   .nav-item.active { color: var(--gold); }
   .nav-icon { font-size: 1.3rem; }
@@ -139,16 +142,15 @@
   const SUPABASE_KEY = 'sb_publishable_AsJvkk-erLkE5-pUbxiNnw_h2mmuuRN';
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Listes normalisées pour les formulaires
   const ENVELOPPES_LIST = [
     'Compte Courant / Livret', 'Compte Bancaire', 'PEA', 'PEA-PME', 'Assurance-Vie', 
     'CTO', 'Entreprise', 'Crédit', 'Immobilier', 'PER', 'PEE', 'Autre'
   ];
-  
   const CATEGORIES_LIST = [
     'Actions', 'Fonds euros', 'Livrets', 'SCPI', 'Private equity', 
     'Fonds diversifiés', 'Obligataire', 'Immobilier Brut', 'Dette Immobilière', 'Dettes Conso', 'Autre'
   ];
+  const TARGET_CATEGORIES = ['Actions', 'Fonds euros', 'Livrets', 'SCPI', 'Private equity', 'Fonds diversifiés', 'Obligataire', 'Immobilier'];
 
   const HistoryChart = memo(({ history, color }) => {
     const chartRef = useRef(null);
@@ -157,12 +159,10 @@
         const ctx = chartRef.current.getContext('2d');
         const existing = Chart.getChart(ctx.canvas);
         if (existing) existing.destroy();
-
         const labels = history.map(h => new Date(h.snapshot_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }));
         const dataPoints = history.map(h => Number(h.total_net));
         const gradient = ctx.createLinearGradient(0, 0, 0, 180);
         gradient.addColorStop(0, `${color}44`); gradient.addColorStop(1, `${color}00`);
-
         new Chart(ctx, {
             type: 'line',
             data: { labels, datasets: [{ data: dataPoints, borderColor: color, borderWidth: 2, backgroundColor: gradient, fill: true, tension: 0.3, pointRadius: history.length === 1 ? 4 : 0, pointHoverRadius: 5 }] },
@@ -195,12 +195,10 @@
         const ctx = chartRef.current.getContext('2d');
         const existing = Chart.getChart(ctx.canvas);
         if (existing) existing.destroy();
-
         const labels = data.map(d => `Année ${d.year}`);
         const dataPoints = data.map(d => d.value);
         const gradient = ctx.createLinearGradient(0, 0, 0, 200);
         gradient.addColorStop(0, `${color}44`); gradient.addColorStop(1, `${color}00`);
-
         new Chart(ctx, {
             type: 'line',
             data: { labels, datasets: [{ data: dataPoints, borderColor: color, borderWidth: 3, backgroundColor: gradient, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 6 }] },
@@ -209,7 +207,6 @@
     }, [data, color]);
     return <div className="history-chart-container" style={{height: '200px'}}><canvas ref={chartRef}></canvas></div>;
   });
-
 
   function App() {
       const [session, setSession] = useState(null);
@@ -232,9 +229,13 @@
       const [showAddForm, setShowAddForm] = useState(false);
       const [newAccount, setNewAccount] = useState({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', value_eur: '', is_liability: false, is_professional: false });
 
-      // States FIRE
       const [fireEpargne, setFireEpargne] = useState(1500);
       const [fireRendement, setFireRendement] = useState(7);
+
+      // States pour les cibles
+      const [targets, setTargets] = useState({});
+      const [editTargetsMode, setEditTargetsMode] = useState(false);
+      const [tempTargets, setTempTargets] = useState({});
 
       useEffect(() => {
           supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -244,15 +245,15 @@
           if (session) {
               fetchPositions();
               fetchHistory();
+              fetchTargets();
           }
       }, [session, ownerFilter]);
 
       async function fetchPositions() {
           setLoading(true);
           const { data, error } = await supabase.from('latest_positions').select('*');
-          if (error) {
-              setError("Erreur de chargement : " + error.message);
-          } else if (data) {
+          if (error) setError("Erreur de chargement : " + error.message);
+          else if (data) {
               setPositions(data);
               const initialForm = {};
               data.forEach(p => initialForm[p.id] = p.value_eur);
@@ -266,6 +267,18 @@
           if (!error && data) setHistoryData(data);
       }
 
+      async function fetchTargets() {
+          const { data, error } = await supabase.from('target_allocations').select('*');
+          if (error) {
+              console.error("Table target_allocations manquante :", error);
+          } else if (data) {
+              const t = {};
+              data.forEach(row => t[row.category] = row.target_percentage);
+              setTargets(t);
+              setTempTargets(t);
+          }
+      }
+
       const filteredPositions = positions.filter(p => {
           const matchOwner = ownerFilter === 'Tous' || p.owner === ownerFilter;
           const matchPro = showPro || !p.is_professional;
@@ -276,12 +289,10 @@
       const totalPassifs = filteredPositions.filter(p => p.value_eur < 0).reduce((sum, p) => sum + p.value_eur, 0);
       const totalNet = totalActifs + totalPassifs;
 
-      // --- CALCUL PROJECTION FIRE (30 ANS) ---
       const fireData = useMemo(() => {
           const data = [];
           let current = totalNet;
           const monthlyRate = (fireRendement / 100) / 12;
-          
           for (let year = 0; year <= 30; year++) {
               if (year > 0) {
                   for (let month = 1; month <= 12; month++) {
@@ -325,6 +336,20 @@
           if (chartData['Immobilier']) chartData['Immobilier'] += debtImmo;
           return Object.entries(chartData).sort((a, b) => b[1] - a[1]);
       }, [filteredPositions]);
+
+      // Calcul des pourcentages réels vs cibles
+      const totalCategorized = sortedChartData.reduce((sum, [_, val]) => sum + val, 0);
+      const actualPctData = {};
+      sortedChartData.forEach(([cat, val]) => {
+          if (TARGET_CATEGORIES.includes(cat)) {
+              actualPctData[cat] = totalCategorized > 0 ? (val / totalCategorized) * 100 : 0;
+          }
+      });
+
+      const targetPctData = {};
+      TARGET_CATEGORIES.forEach(cat => {
+          targetPctData[cat] = Number(targets[cat] || 0);
+      });
 
       const isOliwia = ownerFilter === 'Oliwia';
       const chartColors = isOliwia ? ['#E07A5F', '#81B29A', '#F2CC8F', '#3D405B', '#E9C46A', '#F4A261', '#E76F51'] : ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
@@ -412,6 +437,18 @@
           const { error } = await supabase.from('positions').delete().match({ owner: account.owner, envelope: account.envelope, account_name: account.account_name, category: account.category || '' });
           if (error) alert("Erreur : " + error.message);
           else { fetchPositions(); fetchHistory(); }
+          setLoading(false);
+      }
+
+      async function saveTargets() {
+          setLoading(true);
+          const updates = TARGET_CATEGORIES.map(cat => ({ category: cat, target_percentage: Number(tempTargets[cat] || 0) }));
+          const { error } = await supabase.from('target_allocations').upsert(updates, { onConflict: 'category' });
+          if (error) alert("Erreur : " + error.message);
+          else {
+              setTargets(tempTargets);
+              setEditTargetsMode(false);
+          }
           setLoading(false);
       }
 
@@ -533,7 +570,6 @@
 
                   {view === 'saisie' && (
                       <div>
-                          {/* ACTIONS RAPIDES */}
                           <button type="button" onClick={syncYahooPEA} disabled={syncLoading} className="btn-sync">
                               {syncLoading ? "⏳ Connexion à Yahoo..." : "⟳ Actualiser le PEA via Yahoo"}
                           </button>
@@ -541,12 +577,10 @@
                               📥 Exporter en CSV
                           </button>
 
-                          {/* BOUTON AJOUTER */}
                           <button onClick={() => setShowAddForm(!showAddForm)} className="btn-sync" style={{borderColor: 'var(--text-light)', color: 'var(--text-light)', marginBottom: '15px'}}>
                               {showAddForm ? "Fermer le formulaire" : "+ Ajouter un nouveau compte"}
                           </button>
 
-                          {/* FORMULAIRE AJOUT */}
                           {showAddForm && (
                               <form onSubmit={handleAddAccount} className="add-form open">
                                   <div className="add-form-grid">
@@ -575,22 +609,13 @@
                               </form>
                           )}
 
-                          {/* TABLEAU DE MISE A JOUR PAR ENVELOPPE */}
                           <form onSubmit={handleSave}>
                               <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px'}}>Mets à jour tes valeurs directement dans les tableaux ci-dessous.</p>
-                              
                               {sortedEnvelopes.map(([envName, data]) => (
                                   <div className="card" key={envName} style={{padding: '15px'}}>
                                       <h3 className="serif" style={{fontSize: '1.1rem', marginBottom: '5px', color: 'var(--gold-light)'}}>{envName}</h3>
                                       <table className="update-table">
-                                          <thead>
-                                              <tr>
-                                                  <th>Compte</th>
-                                                  <th>Prop.</th>
-                                                  <th>Catégorie</th>
-                                                  <th style={{textAlign: 'right'}}>Valeur (€)</th>
-                                              </tr>
-                                          </thead>
+                                          <thead><tr><th>Compte</th><th>Prop.</th><th>Catégorie</th><th style={{textAlign: 'right'}}>Valeur (€)</th></tr></thead>
                                           <tbody>
                                               {data.accounts.map(p => (
                                                   <tr key={p.id}>
@@ -609,7 +634,6 @@
                                       </table>
                                   </div>
                               ))}
-                              
                               {positions.length > 0 && (
                                   <button type="submit" disabled={loading} className="btn-gold" style={{marginTop: '10px', marginBottom: '30px'}}>
                                       {loading ? "Enregistrement..." : "Enregistrer toutes les modifications"}
@@ -623,64 +647,83 @@
                       <div>
                           <div className="card">
                               <div className="ap-label" style={{marginBottom: '20px'}}>Simulateur d'Indépendance Financière</div>
-                              
                               <div className="slider-container">
-                                  <div className="slider-header">
-                                      <span className="slider-label">Épargne mensuelle</span>
-                                      <span className="slider-value">{Number(fireEpargne).toLocaleString('fr-FR')} €</span>
-                                  </div>
+                                  <div className="slider-header"><span className="slider-label">Épargne mensuelle</span><span className="slider-value">{Number(fireEpargne).toLocaleString('fr-FR')} €</span></div>
                                   <input type="range" min="0" max="20000" step="100" value={fireEpargne} onChange={e => setFireEpargne(e.target.value)} />
                               </div>
-
                               <div className="slider-container">
-                                  <div className="slider-header">
-                                      <span className="slider-label">Rendement annuel estimé</span>
-                                      <span className="slider-value">{fireRendement} %</span>
-                                  </div>
+                                  <div className="slider-header"><span className="slider-label">Rendement annuel estimé</span><span className="slider-value">{fireRendement} %</span></div>
                                   <input type="range" min="1" max="15" step="0.5" value={fireRendement} onChange={e => setFireRendement(e.target.value)} />
                               </div>
-
                               <FireChart data={fireData} color={isOliwia ? '#E07A5F' : '#D4AF37'} />
-
                               <div className="fire-result">
-                                  <div className="fire-box">
-                                      <div className="fire-box-label">Dans 5 ans</div>
-                                      <div className="fire-box-value">{Math.round(fireData[5].value).toLocaleString('fr-FR')} €</div>
-                                  </div>
-                                  <div className="fire-box">
-                                      <div className="fire-box-label">Dans 10 ans</div>
-                                      <div className="fire-box-value">{Math.round(fireData[10].value).toLocaleString('fr-FR')} €</div>
-                                  </div>
-                                  <div className="fire-box">
-                                      <div className="fire-box-label">Dans 20 ans</div>
-                                      <div className="fire-box-value">{Math.round(fireData[20].value).toLocaleString('fr-FR')} €</div>
-                                  </div>
-                                  <div className="fire-box">
-                                      <div className="fire-box-label">Dans 30 ans</div>
-                                      <div className="fire-box-value">{Math.round(fireData[30].value).toLocaleString('fr-FR')} €</div>
-                                  </div>
+                                  <div className="fire-box"><div className="fire-box-label">Dans 5 ans</div><div className="fire-box-value">{Math.round(fireData[5].value).toLocaleString('fr-FR')} €</div></div>
+                                  <div className="fire-box"><div className="fire-box-label">Dans 10 ans</div><div className="fire-box-value">{Math.round(fireData[10].value).toLocaleString('fr-FR')} €</div></div>
+                                  <div className="fire-box"><div className="fire-box-label">Dans 20 ans</div><div className="fire-box-value">{Math.round(fireData[20].value).toLocaleString('fr-FR')} €</div></div>
+                                  <div className="fire-box"><div className="fire-box-label">Dans 30 ans</div><div className="fire-box-value">{Math.round(fireData[30].value).toLocaleString('fr-FR')} €</div></div>
                               </div>
                           </div>
-                          <p style={{fontSize: '0.75rem', color: 'var(--text-light)', textAlign: 'center', padding: '0 10px'}}>
-                              Ce calcul prend en compte les intérêts composés sur votre patrimoine net actuel et vos versements. Il ne tient pas compte de l'inflation.
-                          </p>
+                          <p style={{fontSize: '0.75rem', color: 'var(--text-light)', textAlign: 'center', padding: '0 10px'}}>Ce calcul prend en compte les intérêts composés sur votre patrimoine net actuel et vos versements. Il ne tient pas compte de l'inflation.</p>
+                      </div>
+                  )}
+
+                  {view === 'cible' && (
+                      <div>
+                          {editTargetsMode ? (
+                              <div className="card">
+                                  <div className="ap-label" style={{marginBottom: '20px'}}>Définir mes cibles (%)</div>
+                                  {TARGET_CATEGORIES.map(cat => (
+                                      <div className="slider-container" key={cat}>
+                                          <div className="slider-header">
+                                              <span className="slider-label">{cat}</span>
+                                              <span className="slider-value">{tempTargets[cat] || 0} %</span>
+                                          </div>
+                                          <input type="range" min="0" max="100" step="1" value={tempTargets[cat] || 0} onChange={e => setTempTargets({...tempTargets, [cat]: e.target.value})} />
+                                      </div>
+                                  ))}
+                                  <div style={{display: 'flex', gap: '10px', marginTop: '20px'}}>
+                                      <button onClick={() => setEditTargetsMode(false)} className="btn-export" style={{flex:1, marginBottom:0}}>Annuler</button>
+                                      <button onClick={saveTargets} className="btn-gold" style={{flex:2}}>Enregistrer</button>
+                                  </div>
+                              </div>
+                          ) : (
+                              <div>
+                                  <button onClick={() => setEditTargetsMode(true)} className="btn-sync" style={{marginBottom: '20px'}}>
+                                      ✏️ Modifier mes cibles
+                                  </button>
+
+                                  <div className="card">
+                                      <div className="ap-label" style={{marginBottom: '20px'}}>Cible vs Réel</div>
+                                      {TARGET_CATEGORIES.map(cat => {
+                                          const actual = actualPctData[cat] || 0;
+                                          const target = targetPctData[cat] || 0;
+                                          return (
+                                              <div className="target-bar-container" key={cat}>
+                                                  <div className="target-bar-label">
+                                                      <span>{cat}</span>
+                                                      <span style={{color: actual > target + 5 ? 'var(--gold)' : actual < target - 5 ? 'var(--red)' : 'var(--text-light)'}}>
+                                                          Réel: {actual.toFixed(1)}% / Cible: {target.toFixed(0)}%
+                                                      </span>
+                                                  </div>
+                                                  <div className="target-bar-bg">
+                                                      <div className="target-bar-target" style={{width: `${target}%`}}></div>
+                                                      <div className="target-bar-actual" style={{width: `${actual}%`}}></div>
+                                                  </div>
+                                              </div>
+                                          );
+                                      })}
+                                  </div>
+                              </div>
+                          )}
                       </div>
                   )}
               </main>
 
               <nav className="bottom-nav">
-                  <button onClick={() => setView('dashboard')} className={`nav-item ${view === 'dashboard' ? 'active' : ''}`}>
-                      <span className="nav-icon">📊</span>
-                      <span className="nav-text">Tableau de bord</span>
-                  </button>
-                  <button onClick={() => setView('projection')} className={`nav-item ${view === 'projection' ? 'active' : ''}`}>
-                      <span className="nav-icon">🔮</span>
-                      <span className="nav-text">Projection</span>
-                  </button>
-                  <button onClick={() => setView('saisie')} className={`nav-item ${view === 'saisie' ? 'active' : ''}`}>
-                      <span className="nav-icon">✏️</span>
-                      <span className="nav-text">Mise à jour</span>
-                  </button>
+                  <button onClick={() => setView('dashboard')} className={`nav-item ${view === 'dashboard' ? 'active' : ''}`}><span className="nav-icon">📊</span><span className="nav-text">Dashboard</span></button>
+                  <button onClick={() => setView('projection')} className={`nav-item ${view === 'projection' ? 'active' : ''}`}><span className="nav-icon">🔮</span><span className="nav-text">Projection</span></button>
+                  <button onClick={() => setView('cible')} className={`nav-item ${view === 'cible' ? 'active' : ''}`}><span className="nav-icon">🎯</span><span className="nav-text">Cible</span></button>
+                  <button onClick={() => setView('saisie')} className={`nav-item ${view === 'saisie' ? 'active' : ''}`}><span className="nav-icon">✏️</span><span className="nav-text">Mise à jour</span></button>
               </nav>
           </div>
       );
