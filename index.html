@@ -273,7 +273,6 @@
       const [showRebalance, setShowRebalance] = useState(false);
       const [rebalanceAmount, setRebalanceAmount] = useState(1000);
 
-      // State pour le taux de change
       const [plnRate, setPlnRate] = useState(null);
 
       useEffect(() => {
@@ -413,20 +412,18 @@
           return Object.entries(chartData).sort((a, b) => b[1] - a[1]);
       }, [filteredPositions]);
 
-      // Préparation de la matrice d'exposition
       const exposureMatrix = useMemo(() => {
           const matrix = {};
           filteredPositions.forEach(p => {
               let cat = p.category;
               if (cat === 'Immobilier Brut') cat = 'Immobilier';
               if (cat === 'Dette Immobilière') return;
-              if (!cat || cat === 'Dettes Conso') return; // On exclut les dettes conso pour la matrice
+              if (!cat || cat === 'Dettes Conso') return;
               
               if (!matrix[p.envelope]) matrix[p.envelope] = {};
               if (!matrix[p.envelope][cat]) matrix[p.envelope][cat] = 0;
               matrix[p.envelope][cat] += p.value_eur;
           });
-          // On filtre les colonnes qui ont au moins une valeur
           const activeCategories = TARGET_CATEGORIES.filter(cat => 
               Object.values(matrix).some(env => env[cat] && env[cat] > 0)
           );
@@ -471,10 +468,10 @@
       const chartColors = isOliwia ? ['#E07A5F', '#81B29A', '#F2CC8F', '#3D405B', '#E9C46A', '#F4A261', '#E76F51'] : ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
       const themeStyle = isOliwia ? { '--gold': '#E07A5F', '--gold-light': '#F4F1DE', '--gold-dark': '#B05A42', '--gold-trans': 'rgba(224, 122, 95, 0.15)', '--glow': '0 0 15px rgba(224, 122, 95, 0.3)' } : { '--gold': '#D4AF37', '--gold-light': '#F4EBD6', '--gold-dark': '#A6833C', '--gold-trans': 'rgba(212, 175, 55, 0.15)', '--glow': '0 0 15px rgba(212, 175, 55, 0.2)' };
 
-      // --- APPEL SYNCHRONISATION YAHOO VIA EDGE FUNCTION ---
       async function syncYahooPEA() {
           setSyncLoading(true);
           try {
+              // APPEL À LA FONCTION SUPABASE
               const { data, error } = await supabase.functions.invoke('yahoo-quotes', {
                   body: { tickers: ['PUST.PA', 'WPEA.PA'] }
               });
@@ -486,20 +483,20 @@
               
               if (!pricePUST || !priceWPEA) throw new Error("Prix non trouvés");
 
+              // Calcul avec les quantités de ton Excel
               const newPEAValue = Math.round((1343 * pricePUST) + (14543 * priceWPEA));
               const peaPosition = positions.find(p => p.envelope === 'PEA' && p.owner === 'Aubin');
               
               if (peaPosition) {
                   setFormValues(prev => ({ ...prev, [peaPosition.id]: newPEAValue }));
-                  alert(`PEA actualisé !\n\nPUST: ${pricePUST.toFixed(2)} €\nWPEA: ${priceWPEA.toFixed(2)} €\n\nNouveau total: ${newPEAValue.toLocaleString('fr-FR')} €\n\nN'oublie pas d'enregistrer.`);
+                  alert(`PEA actualisé avec succès !\n\nPUST: ${pricePUST.toFixed(2)} €\nWPEA: ${priceWPEA.toFixed(2)} €\n\nNouveau total: ${newPEAValue.toLocaleString('fr-FR')} €\n\nN'oublie pas d'enregistrer en bas.`);
               }
           } catch (err) { 
-              alert("Erreur de connexion à Yahoo Finance via Supabase. Vérifie que l'Edge Function est bien déployée et active.\n\nDétail : " + err.message); 
+              alert("Erreur de connexion à Yahoo Finance via Supabase.\n\nDétail : " + err.message); 
           }
           setSyncLoading(false);
       }
 
-      // --- EXPORT / IMPORT JSON ---
       function exportToJSON() {
           const exportData = {
               positions: positions,
@@ -526,12 +523,9 @@
                   if (!window.confirm(`Attention : cela va remplacer TOUTES tes données actuelles par celles de la sauvegarde (${data.positions.length} comptes). Continuer ?`)) return;
                   
                   setLoading(true);
-                  // 1. Vider les positions
                   await supabase.from('positions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-                  // 2. Insérer les nouvelles positions
                   await supabase.from('positions').insert(data.positions);
                   
-                  // 3. Restaurer les cibles si présentes
                   if (data.targets) {
                       const updates = TARGET_CATEGORIES.map(cat => ({ category: cat, target_percentage: Number(data.targets[cat] || 0) }));
                       await supabase.from('target_allocations').upsert(updates, { onConflict: 'category' });
@@ -547,7 +541,6 @@
           reader.readAsText(file);
       }
 
-      // --- AUTRES FONCTIONS SAISIE ---
       function quickAdd(id, amount) {
           setFormValues(prev => {
               const current = Number(prev[id]) || 0;
@@ -738,7 +731,6 @@
                                   </div>
                               </div>
 
-                              {/* MATRICE D'EXPOSITION */}
                               <div className="card">
                                   <div className="ap-label" style={{marginBottom: '10px'}}>Matrice d'Exposition</div>
                                   <div style={{overflowX: 'auto'}}>
@@ -873,7 +865,6 @@
                                       {Object.entries(contractsObj).map(([contractName, categories]) => {
                                           const contractTotal = categories.reduce((sum, p) => sum + (Number(formValues[p.id]) || 0), 0);
                                           
-                                          // Détection du compte polonais
                                           const isPolishAccount = contractName.includes('PKO') || contractName.includes('mBank');
                                           const displayValue = isPolishAccount && plnRate ? Math.round(contractTotal * plnRate) : Math.round(contractTotal);
 
