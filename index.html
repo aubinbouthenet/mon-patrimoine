@@ -88,12 +88,16 @@
   .envelope-details.open { display: block; }
   .account-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-light); padding: 6px 0; }
 
+  /* Saisie : En-tête d'enveloppe et sous-en-tête de contrat */
   .update-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .total-input-container { display: flex; align-items: center; gap: 10px; background: rgba(212, 175, 55, 0.1); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--gold); }
   .total-input-container span { font-size: 0.8rem; color: var(--gold-light); }
   .total-input { width: 100px; background: transparent; border: none; color: var(--gold); font-weight: bold; font-size: 1rem; text-align: right; outline: none; }
 
-  .update-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  .contract-header { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; margin-bottom: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); }
+  .contract-title { font-size: 0.95rem; color: #fff; font-weight: 500; }
+
+  .update-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
   .update-table th { text-align: left; font-size: 0.7rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.05em; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); }
   .update-table td { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 0.85rem; }
   .update-table td:last-child { border-bottom: none; text-align: right; }
@@ -535,16 +539,16 @@
           });
       }
 
-      function handleTotalChange(envName, accounts, newTotal) {
-          const oldTotal = accounts.reduce((sum, acc) => sum + (Number(formValues[acc.id]) || 0), 0);
+      function handleContractTotalChange(accountName, categories, newTotal) {
+          const oldTotal = categories.reduce((sum, acc) => sum + (Number(formValues[acc.id]) || 0), 0);
           const newTotalNum = Number(newTotal);
           if (oldTotal === 0) {
-              setFormValues(prev => ({ ...prev, [accounts[0].id]: newTotalNum }));
+              setFormValues(prev => ({ ...prev, [categories[0].id]: newTotalNum }));
               return;
           }
           const ratio = newTotalNum / oldTotal;
           const newValues = { ...formValues };
-          accounts.forEach(acc => {
+          categories.forEach(acc => {
               const currentVal = Number(formValues[acc.id]) || 0;
               newValues[acc.id] = Math.round(currentVal * ratio);
           });
@@ -565,6 +569,7 @@
           );
       }
 
+      // Regroupement pour le Dashboard
       const groupedByEnvelope = {};
       filteredPositions.forEach(p => {
           if (!groupedByEnvelope[p.envelope]) groupedByEnvelope[p.envelope] = { total: 0, accounts: [] };
@@ -572,6 +577,20 @@
           groupedByEnvelope[p.envelope].accounts.push(p);
       });
       const sortedEnvelopes = Object.entries(groupedByEnvelope).sort((a, b) => b[1].total - a[1].total);
+
+      // Regroupement spécial pour la Saisie (Enveloppe -> Contrat -> Catégories)
+      const groupedForSaisie = {};
+      filteredPositions.forEach(p => {
+          if (!groupedForSaisie[p.envelope]) groupedForSaisie[p.envelope] = {};
+          if (!groupedForSaisie[p.envelope][p.account_name]) groupedForSaisie[p.envelope][p.account_name] = [];
+          groupedForSaisie[p.envelope][p.account_name].push(p);
+      });
+      const sortedSaisieEnvelopes = Object.entries(groupedForSaisie).sort((a, b) => {
+          // Trier les enveloppes par montant total
+          const totalA = Object.values(a[1]).flat().reduce((sum, p) => sum + p.value_eur, 0);
+          const totalB = Object.values(b[1]).flat().reduce((sum, p) => sum + p.value_eur, 0);
+          return totalB - totalA;
+      });
 
       return (
           <div className="app-container" style={themeStyle}>
@@ -711,46 +730,60 @@
                           <form onSubmit={handleSave}>
                               <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px'}}>Mets à jour tes valeurs. Le brouillon est sauvegardé automatiquement.</p>
                               
-                              {sortedEnvelopes.map(([envName, data]) => {
-                                  const currentTotal = data.accounts.reduce((sum, acc) => sum + (Number(formValues[acc.id]) || 0), 0);
+                              {sortedSaisieEnvelopes.map(([envName, contractsObj]) => {
+                                  const envTotal = Object.values(contractsObj).flat().reduce((sum, p) => sum + (Number(formValues[p.id]) || 0), 0);
                                   
                                   return (
-                                  <div className="card" key={envName} style={{padding: '15px'}}>
+                                  <div className="card" key={envName} style={{padding: '20px'}}>
                                       <div className="update-header">
-                                          <h3 className="serif" style={{fontSize: '1.1rem', color: 'var(--gold-light)'}}>{envName}</h3>
-                                          {data.accounts.length > 1 && (
-                                              <div className="total-input-container">
-                                                  <span>Total :</span>
-                                                  <input 
-                                                      type="number" 
-                                                      className="total-input" 
-                                                      value={Math.round(currentTotal)}
-                                                      onChange={(e) => handleTotalChange(envName, data.accounts, e.target.value)}
-                                                  />
-                                              </div>
-                                          )}
+                                          <h3 className="serif" style={{fontSize: '1.2rem', color: 'var(--gold-light)'}}>{envName}</h3>
+                                          <div style={{fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--gold)'}}>
+                                              {Math.round(envTotal).toLocaleString('fr-FR')} €
+                                          </div>
                                       </div>
 
-                                      <table className="update-table">
-                                          <thead><tr><th>Compte</th><th>Prop.</th><th>Catégorie</th><th style={{textAlign: 'right'}}>Valeur (€)</th></tr></thead>
-                                          <tbody>
-                                              {data.accounts.map(p => (
-                                                  <tr key={p.id}>
-                                                      <td style={{fontWeight: 500}}>{p.account_name}</td>
-                                                      <td style={{color: 'var(--text-light)', fontSize: '0.75rem'}}>{p.owner}</td>
-                                                      <td style={{color: 'var(--gold)', fontSize: '0.75rem'}}>{p.category}</td>
-                                                      <td style={{textAlign: 'right'}}>
-                                                          <div className="input-wrapper">
-                                                              <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)}>-</button>
-                                                              <input type="number" step="any" value={formValues[p.id] ?? ''} onChange={e => setFormValues(prev => ({...prev, [p.id]: e.target.value}))} className="table-input" />
-                                                              <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, 1000)}>+</button>
-                                                              <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer">🗑️</button>
+                                      {Object.entries(contractsObj).map(([contractName, categories]) => {
+                                          const contractTotal = categories.reduce((sum, p) => sum + (Number(formValues[p.id]) || 0), 0);
+                                          
+                                          return (
+                                              <div key={contractName} style={{marginTop: '10px'}}>
+                                                  <div className="contract-header">
+                                                      <span className="contract-title">{contractName}</span>
+                                                      {categories.length > 1 && (
+                                                          <div className="total-input-container">
+                                                              <span>Total :</span>
+                                                              <input 
+                                                                  type="number" 
+                                                                  className="total-input" 
+                                                                  value={Math.round(contractTotal)}
+                                                                  onChange={(e) => handleContractTotalChange(contractName, categories, e.target.value)}
+                                                              />
                                                           </div>
-                                                      </td>
-                                                  </tr>
-                                              ))}
-                                          </tbody>
-                                      </table>
+                                                      )}
+                                                  </div>
+
+                                                  <table className="update-table">
+                                                      <thead><tr><th>Support</th><th>Prop.</th><th style={{textAlign: 'right'}}>Valeur (€)</th></tr></thead>
+                                                      <tbody>
+                                                          {categories.map(p => (
+                                                              <tr key={p.id}>
+                                                                  <td style={{color: 'var(--gold)'}}>{p.category || 'Général'}</td>
+                                                                  <td style={{color: 'var(--text-light)', fontSize: '0.75rem'}}>{p.owner}</td>
+                                                                  <td style={{textAlign: 'right'}}>
+                                                                      <div className="input-wrapper">
+                                                                          <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)}>-</button>
+                                                                          <input type="number" step="any" value={formValues[p.id] ?? ''} onChange={e => setFormValues(prev => ({...prev, [p.id]: e.target.value}))} className="table-input" />
+                                                                          <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, 1000)}>+</button>
+                                                                          <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer">🗑️</button>
+                                                                      </div>
+                                                                  </td>
+                                                              </tr>
+                                                          ))}
+                                                      </tbody>
+                                                  </table>
+                                              </div>
+                                          )
+                                      })}
                                   </div>
                               )})}
                               
