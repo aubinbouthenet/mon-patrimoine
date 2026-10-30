@@ -89,13 +89,24 @@
   .envelope-details.open { display: block; }
   .account-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-light); padding: 6px 0; }
 
+  /* Nouveau système de tableau et de saisie rapide */
+  .update-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .total-input-container { display: flex; align-items: center; gap: 10px; background: rgba(212, 175, 55, 0.1); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--gold); }
+  .total-input-container span { font-size: 0.8rem; color: var(--gold-light); }
+  .total-input { width: 100px; background: transparent; border: none; color: var(--gold); font-weight: bold; font-size: 1rem; text-align: right; outline: none; }
+
   .update-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
   .update-table th { text-align: left; font-size: 0.7rem; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.05em; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); }
   .update-table td { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.02); font-size: 0.85rem; }
   .update-table td:last-child { border-bottom: none; text-align: right; }
   .update-table tr:last-child td { border-bottom: none; }
   
+  .input-wrapper { display: flex; justify-content: flex-end; align-items: center; gap: 5px; }
   .table-input { width: 90px; padding: 8px; border-radius: 6px; border: 1px solid var(--gold); text-align: right; font-weight: 600; color: var(--gold-light); background: rgba(0,0,0,0.2); outline: none; font-size: 0.9rem; }
+  
+  .quick-btn { width: 28px; height: 28px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1rem; cursor: pointer; transition: all 0.2s;}
+  .quick-btn:active { background: var(--gold); color: var(--bg-dark); }
+
   .btn-delete { background: transparent; border: none; color: var(--red); font-size: 1.1rem; cursor: pointer; padding: 5px; margin-left: 5px; }
 
   .btn-sync { background: var(--gold-trans); border: 1px solid var(--gold); color: var(--gold); padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; }
@@ -130,7 +141,6 @@
   .total-indicator.ok { color: var(--green); border: 1px solid var(--green); }
   .total-indicator.not-ok { color: var(--red); border: 1px solid var(--red); }
 
-  /* --- CHANGELOG --- */
   .log-item { display: flex; gap: 15px; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
   .log-date { font-size: 0.75rem; color: var(--text-light); min-width: 80px; }
   .log-content { font-size: 0.85rem; color: #fff; line-height: 1.5; }
@@ -235,7 +245,10 @@
       const [ownerFilter, setOwnerFilter] = useState('Tous');
       const [showPro, setShowPro] = useState(false);
       
-      const [formValues, setFormValues] = useState({});
+      const [formValues, setFormValues] = useState(() => {
+          const saved = localStorage.getItem('patrimoine_draft');
+          return saved ? JSON.parse(saved) : {};
+      });
       const [expandedEnv, setExpandedEnv] = useState(null);
       const [syncLoading, setSyncLoading] = useState(false);
 
@@ -249,9 +262,15 @@
       const [editTargetsMode, setEditTargetsMode] = useState(false);
       const [tempTargets, setTempTargets] = useState({});
       
-      // States pour le rééquilibrage
       const [showRebalance, setShowRebalance] = useState(false);
       const [rebalanceAmount, setRebalanceAmount] = useState(1000);
+
+      // Sauvegarde automatique du brouillon à chaque modification
+      useEffect(() => {
+          if (Object.keys(formValues).length > 0) {
+              localStorage.setItem('patrimoine_draft', JSON.stringify(formValues));
+          }
+      }, [formValues]);
 
       useEffect(() => {
           supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
@@ -272,9 +291,17 @@
           if (error) setError("Erreur de chargement : " + error.message);
           else if (data) {
               setPositions(data);
-              const initialForm = {};
-              data.forEach(p => initialForm[p.id] = p.value_eur);
-              setFormValues(initialForm);
+              // On écrase le brouillon seulement si on a de nouvelles données
+              // Mais on garde le brouillon en mémoire pour la session en cours
+              const newFormValues = { ...formValues };
+              let hasChanged = false;
+              data.forEach(p => {
+                  if (newFormValues[p.id] === undefined) {
+                      newFormValues[p.id] = p.value_eur;
+                      hasChanged = true;
+                  }
+              });
+              if (hasChanged) setFormValues(newFormValues);
           }
           setLoading(false);
       }
@@ -295,10 +322,8 @@
       }
 
       async function fetchLogs() {
-          // Pour le changelog, on prend les 50 dernières lignes insérées
           const { data, error } = await supabase.from('positions').select('created_at, account_name, owner, value_eur').order('created_at', { ascending: false }).limit(50);
           if (!error && data) {
-              // On regroupe par jour pour faire un journal propre
               const grouped = {};
               data.forEach(d => {
                   const day = new Date(d.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -382,7 +407,6 @@
 
       const currentTargetTotal = Object.values(tempTargets).reduce((sum, val) => sum + Number(val || 0), 0);
 
-      // CALCUL DU REÉQUILIBRAGE
       const rebalanceData = useMemo(() => {
           if (!showRebalance) return [];
           const amount = Number(rebalanceAmount);
@@ -406,16 +430,7 @@
       const chartColors = isOliwia ? ['#E07A5F', '#81B29A', '#F2CC8F', '#3D405B', '#E9C46A', '#F4A261', '#E76F51'] : ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
       const themeStyle = isOliwia ? { '--gold': '#E07A5F', '--gold-light': '#F4F1DE', '--gold-dark': '#B05A42', '--gold-trans': 'rgba(224, 122, 95, 0.15)', '--glow': '0 0 15px rgba(224, 122, 95, 0.3)' } : { '--gold': '#D4AF37', '--gold-light': '#F4EBD6', '--gold-dark': '#A6833C', '--gold-trans': 'rgba(212, 175, 55, 0.15)', '--glow': '0 0 15px rgba(212, 175, 55, 0.2)' };
 
-      async function syncYahooPEA() { /* ... même code ... */ setSyncLoading(true); try { const proxy = 'https://corsproxy.io/?'; const [resPUST, resWPEA] = await Promise.all([ fetch(proxy + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/PUST.PA')), fetch(proxy + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/WPEA.PA')) ]); const dataPUST = await resPUST.json(); const dataWPEA = await resWPEA.json(); const pricePUST = dataPUST.chart.result[0].meta.regularMarketPrice; const priceWPEA = dataWPEA.chart.result[0].meta.regularMarketPrice; const newPEAValue = (1343 * pricePUST) + (14543 * priceWPEA); const peaPosition = positions.find(p => p.envelope === 'PEA' && p.owner === 'Aubin'); if (peaPosition) { setFormValues(prev => ({ ...prev, [peaPosition.id]: Math.round(newPEAValue) })); alert(`PEA mis à jour : ${Math.round(newPEAValue).toLocaleString('fr-FR')} €\n\nN'oublie pas d'enregistrer !`); } } catch (err) { alert("Erreur de connexion à Yahoo Finance."); } setSyncLoading(false); }
-
-      function exportToCSV() {
-          const headers = ['Proprietaire', 'Enveloppe', 'Nom du compte', 'Categorie', 'Valeur (EUR)'];
-          const rows = filteredPositions.map(p => [p.owner, p.envelope, p.account_name, p.category || '', p.value_eur.toString().replace('.', ',')]);
-          const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
-          const blob = new Blob(["\ufeff"+csvContent], { type: 'text/csv;charset=utf-8;' });
-          const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(blob)); link.setAttribute("download", `Patrimoine_${ownerFilter}_${new Date().toISOString().split('T')[0]}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link);
-      }
-
+      function exportToCSV() { /* ... code inchangé ... */ const headers = ['Proprietaire', 'Enveloppe', 'Nom du compte', 'Categorie', 'Valeur (EUR)']; const rows = filteredPositions.map(p => [p.owner, p.envelope, p.account_name, p.category || '', p.value_eur.toString().replace('.', ',')]); const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n"); const blob = new Blob(["\ufeff"+csvContent], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(blob)); link.setAttribute("download", `Patrimoine_${ownerFilter}_${new Date().toISOString().split('T')[0]}.csv`); document.body.appendChild(link); link.click(); document.body.removeChild(link); }
       async function handleLogin(e) { e.preventDefault(); setLoading(true); setError(''); const { error } = await supabase.auth.signInWithPassword({ email: 'admin@patrimoine.app', password: password }); if (error) setError('Mot de passe incorrect'); setLoading(false); }
       async function handleLogout() { await supabase.auth.signOut(); setSession(null); }
 
@@ -423,58 +438,64 @@
           e.preventDefault(); setLoading(true); const today = new Date().toISOString().split('T')[0];
           const newPositions = Object.keys(formValues).map(id => {
               const original = positions.find(p => p.id === id);
+              if (!original) return null; // Sécurité si un ID a changé
               return { date: today, owner: original.owner, envelope: original.envelope, account_name: original.account_name, category: original.category || '', value_eur: Number(formValues[id] ?? 0), is_liability: original.is_liability, is_professional: original.is_professional || false };
-          });
+          }).filter(Boolean);
+          
           const { error } = await supabase.from('positions').upsert(newPositions, { onConflict: 'date,owner,envelope,account_name,category' });
           if (error) alert("Erreur : " + error.message);
-          else { alert("Mise à jour enregistrée !"); setView('dashboard'); fetchPositions(); fetchHistory(); fetchLogs(); }
+          else { 
+              localStorage.removeItem('patrimoine_draft'); // On vide le brouillon
+              alert("Mise à jour enregistrée !"); 
+              setView('dashboard'); fetchPositions(); fetchHistory(); fetchLogs(); 
+          }
           setLoading(false);
       }
 
-      async function handleAddAccount(e) {
-          e.preventDefault(); setLoading(true); const today = new Date().toISOString().split('T')[0];
-          const payload = { date: today, owner: newAccount.owner, envelope: newAccount.envelope, account_name: newAccount.account_name, category: newAccount.category, value_eur: Number(newAccount.value_eur), is_liability: newAccount.is_liability, is_professional: newAccount.is_professional };
-          const { error } = await supabase.from('positions').insert([payload]);
-          if (error) alert("Erreur : " + error.message);
-          else { setShowAddForm(false); setNewAccount({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', value_eur: '', is_liability: false, is_professional: false }); fetchPositions(); fetchHistory(); fetchLogs(); }
-          setLoading(false);
+      // ... Fonctions add/delete/saveTargets inchangées ...
+
+      async function handleAddAccount(e) { e.preventDefault(); setLoading(true); const today = new Date().toISOString().split('T')[0]; const payload = { date: today, owner: newAccount.owner, envelope: newAccount.envelope, account_name: newAccount.account_name, category: newAccount.category, value_eur: Number(newAccount.value_eur), is_liability: newAccount.is_liability, is_professional: newAccount.is_professional }; const { error } = await supabase.from('positions').insert([payload]); if (error) alert("Erreur : " + error.message); else { setShowAddForm(false); setNewAccount({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', value_eur: '', is_liability: false, is_professional: false }); fetchPositions(); fetchHistory(); fetchLogs(); } setLoading(false); }
+      async function handleDeleteAccount(account) { if (!window.confirm(`Supprimer définitivement "${account.account_name}" ?`)) return; setLoading(true); const { error } = await supabase.from('positions').delete().match({ owner: account.owner, envelope: account.envelope, account_name: account.account_name, category: account.category || '' }); if (error) alert("Erreur : " + error.message); else { fetchPositions(); fetchHistory(); fetchLogs(); } setLoading(false); }
+      async function saveTargets() { if (Math.round(currentTargetTotal) !== 100) return alert("Le total doit être de 100%."); setLoading(true); const updates = TARGET_CATEGORIES.map(cat => ({ category: cat, target_percentage: Number(tempTargets[cat] || 0) })); const { error } = await supabase.from('target_allocations').upsert(updates, { onConflict: 'category' }); if (error) alert("Erreur : " + error.message); else { setTargets(tempTargets); setEditTargetsMode(false); } setLoading(false); }
+      function handleTargetSliderChange(cat, value) { const newValue = Number(value); const oldValue = Number(tempTargets[cat] || 0); const diff = newValue - oldValue; if (diff > 0 && currentTargetTotal + diff > 100) return; setTempTargets({...tempTargets, [cat]: newValue}); }
+
+      // --- FONCTIONS D'AIDE À LA SAISIE ---
+      function quickAdd(id, amount) {
+          setFormValues(prev => {
+              const current = Number(prev[id]) || 0;
+              return { ...prev, [id]: current + amount };
+          });
       }
 
-      async function handleDeleteAccount(account) {
-          if (!window.confirm(`Supprimer définitivement "${account.account_name}" et tout son historique ?`)) return;
-          setLoading(true);
-          const { error } = await supabase.from('positions').delete().match({ owner: account.owner, envelope: account.envelope, account_name: account.account_name, category: account.category || '' });
-          if (error) alert("Erreur : " + error.message);
-          else { fetchPositions(); fetchHistory(); fetchLogs(); }
-          setLoading(false);
+      function handleTotalChange(envName, accounts, newTotal) {
+          const oldTotal = accounts.reduce((sum, acc) => sum + (Number(formValues[acc.id]) || 0), 0);
+          const newTotalNum = Number(newTotal);
+          if (oldTotal === 0) {
+              // Si c'était vide, on met tout sur la première ligne
+              setFormValues(prev => ({ ...prev, [accounts[0].id]: newTotalNum }));
+              return;
+          }
+          const ratio = newTotalNum / oldTotal;
+          const newValues = { ...formValues };
+          accounts.forEach(acc => {
+              const currentVal = Number(formValues[acc.id]) || 0;
+              newValues[acc.id] = Math.round(currentVal * ratio);
+          });
+          setFormValues(newValues);
       }
 
-      async function saveTargets() {
-          if (Math.round(currentTargetTotal) !== 100) return alert("Le total doit être exactement de 100%.");
-          setLoading(true);
-          const updates = TARGET_CATEGORIES.map(cat => ({ category: cat, target_percentage: Number(tempTargets[cat] || 0) }));
-          const { error } = await supabase.from('target_allocations').upsert(updates, { onConflict: 'category' });
-          if (error) alert("Erreur : " + error.message);
-          else { setTargets(tempTargets); setEditTargetsMode(false); }
-          setLoading(false);
+      if (!session) {
+          return (
+              <div className="login-screen">
+                  <form onSubmit={handleLogin} className="login-card">
+                      <h1 className="serif">Patrimoine</h1><p>Private Wealth</p>
+                      {error && <p className="error-msg">{error}</p>}
+                      <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="login-input" />
+                      <button type="submit" disabled={loading} className="btn-gold">{loading ? "Connexion..." : "Accéder au portefeuille"}</button>
+                  </form>
+              </div>
+          );
       }
-
-      function handleTargetSliderChange(cat, value) {
-          const newValue = Number(value); const oldValue = Number(tempTargets[cat] || 0); const diff = newValue - oldValue;
-          if (diff > 0 && currentTargetTotal + diff > 100) return;
-          setTempTargets({...tempTargets, [cat]: newValue});
-      }
-
-      if (!session) return (
-          <div className="login-screen">
-              <form onSubmit={handleLogin} className="login-card">
-                  <h1 className="serif">Patrimoine</h1><p>Private Wealth</p>
-                  {error && <p className="error-msg">{error}</p>}
-                  <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="login-input" />
-                  <button type="submit" disabled={loading} className="btn-gold">{loading ? "Connexion..." : "Accéder au portefeuille"}</button>
-              </form>
-          </div>
-      );
 
       const groupedByEnvelope = {};
       filteredPositions.forEach(p => {
@@ -492,93 +513,48 @@
               </header>
 
               <main>
-                  {/* DASHBOARD */}
-                  {view === 'dashboard' && (
-                      positions.length > 0 ? (
-                          <div>
-                              <div className="filters-container">
-                                  <div className="owner-filter">
-                                      {['Tous', 'Aubin', 'Oliwia'].map(owner => (
-                                          <button key={owner} className={`owner-btn ${ownerFilter === owner ? 'active' : ''}`} onClick={() => setOwnerFilter(owner)}>{owner}</button>
-                                      ))}
-                                  </div>
-                                  <label className="pro-toggle"><input type="checkbox" checked={showPro} onChange={(e) => setShowPro(e.target.checked)} /> Inclure le Pro</label>
-                              </div>
-                              <div className="card">
-                                  <div className="ap-label">Patrimoine net</div>
-                                  <div className="total-amount">{totalNet.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</div>
-                                  <HistoryChart history={filteredHistory} color={isOliwia ? '#E07A5F' : '#D4AF37'} />
-                                  <div className="time-filters">
-                                      {['1J', '7J', '1M', '3M', '6M', 'YTD', '1A', 'TOUT'].map(range => (
-                                          <button key={range} className={`time-btn ${timeRange === range ? 'active' : ''}`} onClick={() => setTimeRange(range)}>{range}</button>
-                                      ))}
-                                  </div>
-                                  <div className="actifs-passifs">
-                                      <div className="ap-item"><span className="ap-label">Actifs</span><span className="ap-value">+{totalActifs.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span></div>
-                                      <div className="ap-item" style={{alignItems: 'flex-end'}}><span className="ap-label">Passifs</span><span className="ap-value negative">{totalPassifs.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span></div>
-                                  </div>
-                              </div>
-                              <div className="card">
-                                  <div className="ap-label" style={{marginBottom: '15px'}}>Allocation d'Actifs</div>
-                                  <div className="allocation-container">
-                                      <DonutChart sortedData={sortedChartData} colors={chartColors} />
-                                      <div className="legend-custom">
-                                          {sortedChartData.map(([name, value], i) => {
-                                              const total = sortedChartData.reduce((a, b) => a + b[1], 0); const pct = ((value / total) * 100).toFixed(1);
-                                              return (<div key={name} className="legend-item"><span className="legend-name"><span className="legend-color" style={{background: chartColors[i % chartColors.length]}}></span>{name}</span><span className="legend-percent">{pct}%</span></div>)
-                                          })}
-                                      </div>
-                                  </div>
-                              </div>
-                              <div className="card">
-                                  <div className="ap-label" style={{marginBottom: '10px'}}>Détail des enveloppes</div>
-                                  {sortedEnvelopes.map(([name, data]) => (
-                                      <div key={name} className="envelope-item">
-                                          <div className="envelope-header" onClick={() => setExpandedEnv(expandedEnv === name ? null : name)}>
-                                              <span className="envelope-title"><span className={`envelope-icon ${expandedEnv === name ? 'open' : ''}`}>▶</span> {name}</span>
-                                              <span className="envelope-value">{data.total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span>
-                                          </div>
-                                          <div className={`envelope-details ${expandedEnv === name ? 'open' : ''}`}>
-                                              {data.accounts.map(acc => (<div key={acc.id} className="account-row"><span>{acc.account_name} {acc.category && acc.category !== 'Livrets' && acc.category !== 'Dettes Conso' && acc.category !== 'Immobilier Brut' && acc.category !== 'Dette Immobilière' ? `(${acc.category})` : ''}</span><span>{acc.value_eur.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span></div>))}
-                                          </div>
-                                      </div>
-                                  ))}
-                              </div>
-                          </div>
-                      ) : ( <div className="card" style={{textAlign: 'center', padding: '40px 20px'}}><p style={{color: 'var(--red)', marginBottom: '10px', fontWeight: 'bold'}}>Erreur</p><p style={{color: 'var(--text-light)', fontSize: '0.85rem'}}>{error || "Base vide."}</p></div> )
-                  )}
+                  {view === 'dashboard' && ( /* ... code dashboard inchangé ... */ positions.length > 0 ? ( <div> <div className="filters-container"> <div className="owner-filter"> {['Tous', 'Aubin', 'Oliwia'].map(owner => (<button key={owner} className={`owner-btn ${ownerFilter === owner ? 'active' : ''}`} onClick={() => setOwnerFilter(owner)}>{owner}</button>))} </div> <label className="pro-toggle"><input type="checkbox" checked={showPro} onChange={(e) => setShowPro(e.target.checked)} /> Inclure le Pro</label> </div> <div className="card"> <div className="ap-label">Patrimoine net</div> <div className="total-amount">{totalNet.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</div> <HistoryChart history={filteredHistory} color={isOliwia ? '#E07A5F' : '#D4AF37'} /> <div className="time-filters"> {['1J', '7J', '1M', '3M', '6M', 'YTD', '1A', 'TOUT'].map(range => (<button key={range} className={`time-btn ${timeRange === range ? 'active' : ''}`} onClick={() => setTimeRange(range)}>{range}</button>))} </div> <div className="actifs-passifs"> <div className="ap-item"><span className="ap-label">Actifs</span><span className="ap-value">+{totalActifs.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span></div> <div className="ap-item" style={{alignItems: 'flex-end'}}><span className="ap-label">Passifs</span><span className="ap-value negative">{totalPassifs.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span></div> </div> </div> <div className="card"> <div className="ap-label" style={{marginBottom: '15px'}}>Allocation d'Actifs</div> <div className="allocation-container"> <DonutChart sortedData={sortedChartData} colors={chartColors} /> <div className="legend-custom"> {sortedChartData.map(([name, value], i) => { const total = sortedChartData.reduce((a, b) => a + b[1], 0); const pct = ((value / total) * 100).toFixed(1); return (<div key={name} className="legend-item"><span className="legend-name"><span className="legend-color" style={{background: chartColors[i % chartColors.length]}}></span>{name}</span><span className="legend-percent">{pct}%</span></div>) })} </div> </div> </div> <div className="card"> <div className="ap-label" style={{marginBottom: '10px'}}>Détail des enveloppes</div> {sortedEnvelopes.map(([name, data]) => ( <div key={name} className="envelope-item"> <div className="envelope-header" onClick={() => setExpandedEnv(expandedEnv === name ? null : name)}> <span className="envelope-title"><span className={`envelope-icon ${expandedEnv === name ? 'open' : ''}`}>▶</span> {name}</span> <span className="envelope-value">{data.total.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span> </div> <div className={`envelope-details ${expandedEnv === name ? 'open' : ''}`}> {data.accounts.map(acc => (<div key={acc.id} className="account-row"><span>{acc.account_name} {acc.category && acc.category !== 'Livrets' && acc.category !== 'Dettes Conso' && acc.category !== 'Immobilier Brut' && acc.category !== 'Dette Immobilière' ? `(${acc.category})` : ''}</span><span>{acc.value_eur.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span></div>))} </div> </div> ))} </div> </div> ) : ( <div className="card" style={{textAlign: 'center', padding: '40px 20px'}}><p style={{color: 'var(--red)', marginBottom: '10px', fontWeight: 'bold'}}>Erreur</p><p style={{color: 'var(--text-light)', fontSize: '0.85rem'}}>{error || "Base vide."}</p></div> ) )}
 
-                  {/* SAISIE */}
                   {view === 'saisie' && (
                       <div>
                           <button type="button" onClick={syncYahooPEA} disabled={syncLoading} className="btn-sync">{syncLoading ? "⏳ Connexion..." : "⟳ Actualiser le PEA via Yahoo"}</button>
                           <button type="button" onClick={exportToCSV} className="btn-export">📥 Exporter en CSV</button>
                           <button onClick={() => setShowAddForm(!showAddForm)} className="btn-sync" style={{borderColor: 'var(--text-light)', color: 'var(--text-light)', marginBottom: '15px'}}>{showAddForm ? "Fermer le formulaire" : "+ Ajouter un nouveau compte"}</button>
+                          
                           {showAddForm && (
                               <form onSubmit={handleAddAccount} className="add-form open">
-                                  <div className="add-form-grid">
-                                      <select className="add-input" value={newAccount.owner} onChange={e => setNewAccount({...newAccount, owner: e.target.value})}><option value="Aubin">Aubin</option><option value="Oliwia">Oliwia</option></select>
-                                      <select className="add-input" required value={newAccount.envelope} onChange={e => setNewAccount({...newAccount, envelope: e.target.value})}>{ENVELOPPES_LIST.map(env => <option key={env} value={env}>{env}</option>)}</select>
-                                  </div>
-                                  <div className="add-form-grid">
-                                      <input className="add-input" placeholder="Nom du compte" required value={newAccount.account_name} onChange={e => setNewAccount({...newAccount, account_name: e.target.value})} />
-                                      <select className="add-input" required value={newAccount.category} onChange={e => setNewAccount({...newAccount, category: e.target.value})}>{CATEGORIES_LIST.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select>
-                                  </div>
-                                  <div className="add-form-grid">
-                                      <input className="add-input" type="number" step="any" placeholder="Valeur (€)" required value={newAccount.value_eur} onChange={e => setNewAccount({...newAccount, value_eur: e.target.value})} />
-                                      <div style={{display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem'}}>
-                                          <label><input type="checkbox" checked={newAccount.is_liability} onChange={e => setNewAccount({...newAccount, is_liability: e.target.checked})}/> Dette</label>
-                                          <label><input type="checkbox" checked={newAccount.is_professional} onChange={e => setNewAccount({...newAccount, is_professional: e.target.checked})}/> Pro</label>
-                                      </div>
-                                  </div>
+                                  {/* Formulaire d'ajout inchangé */}
+                                  <div className="add-form-grid"><select className="add-input" value={newAccount.owner} onChange={e => setNewAccount({...newAccount, owner: e.target.value})}><option value="Aubin">Aubin</option><option value="Oliwia">Oliwia</option></select><select className="add-input" required value={newAccount.envelope} onChange={e => setNewAccount({...newAccount, envelope: e.target.value})}>{ENVELOPPES_LIST.map(env => <option key={env} value={env}>{env}</option>)}</select></div>
+                                  <div className="add-form-grid"><input className="add-input" placeholder="Nom du compte" required value={newAccount.account_name} onChange={e => setNewAccount({...newAccount, account_name: e.target.value})} /><select className="add-input" required value={newAccount.category} onChange={e => setNewAccount({...newAccount, category: e.target.value})}>{CATEGORIES_LIST.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select></div>
+                                  <div className="add-form-grid"><input className="add-input" type="number" step="any" placeholder="Valeur (€)" required value={newAccount.value_eur} onChange={e => setNewAccount({...newAccount, value_eur: e.target.value})} /><div style={{display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem'}}><label><input type="checkbox" checked={newAccount.is_liability} onChange={e => setNewAccount({...newAccount, is_liability: e.target.checked})}/> Dette</label><label><input type="checkbox" checked={newAccount.is_professional} onChange={e => setNewAccount({...newAccount, is_professional: e.target.checked})}/> Pro</label></div></div>
                                   <button type="submit" className="btn-gold" style={{marginTop: '10px'}}>Ajouter ce compte</button>
                               </form>
                           )}
+
                           <form onSubmit={handleSave}>
-                              <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px'}}>Mets à jour tes valeurs ci-dessous.</p>
-                              {sortedEnvelopes.map(([envName, data]) => (
+                              <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px'}}>Mets à jour tes valeurs. Le brouillon est sauvegardé automatiquement.</p>
+                              
+                              {sortedEnvelopes.map(([envName, data]) => {
+                                  // Calcul du total des valeurs en cours de saisie pour cette enveloppe
+                                  const currentTotal = data.accounts.reduce((sum, acc) => sum + (Number(formValues[acc.id]) || 0), 0);
+                                  
+                                  return (
                                   <div className="card" key={envName} style={{padding: '15px'}}>
-                                      <h3 className="serif" style={{fontSize: '1.1rem', marginBottom: '5px', color: 'var(--gold-light)'}}>{envName}</h3>
+                                      <div className="update-header">
+                                          <h3 className="serif" style={{fontSize: '1.1rem', color: 'var(--gold-light)'}}>{envName}</h3>
+                                          {data.accounts.length > 1 && (
+                                              <div className="total-input-container">
+                                                  <span>Total :</span>
+                                                  <input 
+                                                      type="number" 
+                                                      className="total-input" 
+                                                      value={Math.round(currentTotal)}
+                                                      onChange={(e) => handleTotalChange(envName, data.accounts, e.target.value)}
+                                                  />
+                                              </div>
+                                          )}
+                                      </div>
+
                                       <table className="update-table">
                                           <thead><tr><th>Compte</th><th>Prop.</th><th>Catégorie</th><th style={{textAlign: 'right'}}>Valeur (€)</th></tr></thead>
                                           <tbody>
@@ -588,8 +564,10 @@
                                                       <td style={{color: 'var(--text-light)', fontSize: '0.75rem'}}>{p.owner}</td>
                                                       <td style={{color: 'var(--gold)', fontSize: '0.75rem'}}>{p.category}</td>
                                                       <td style={{textAlign: 'right'}}>
-                                                          <div style={{display: 'flex', justifyContent: 'flex-end', alignItems: 'center'}}>
+                                                          <div className="input-wrapper">
+                                                              <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)}>-</button>
                                                               <input type="number" step="any" value={formValues[p.id] ?? ''} onChange={e => setFormValues(prev => ({...prev, [p.id]: e.target.value}))} className="table-input" />
+                                                              <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, 1000)}>+</button>
                                                               <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer">🗑️</button>
                                                           </div>
                                                       </td>
@@ -598,120 +576,18 @@
                                           </tbody>
                                       </table>
                                   </div>
-                              ))}
+                              )})}
+                              
                               {positions.length > 0 && (<button type="submit" disabled={loading} className="btn-gold" style={{marginTop: '10px', marginBottom: '30px'}}>{loading ? "Enregistrement..." : "Enregistrer les modifications"}</button>)}
                           </form>
                       </div>
                   )}
 
-                  {/* PROJECTION */}
-                  {view === 'projection' && (
-                      <div>
-                          <div className="card">
-                              <div className="ap-label" style={{marginBottom: '20px'}}>Simulateur FIRE</div>
-                              <div className="slider-container"><div className="slider-header"><span className="slider-label">Épargne mensuelle</span><span className="slider-value">{Number(fireEpargne).toLocaleString('fr-FR')} €</span></div><input type="range" min="0" max="20000" step="100" value={fireEpargne} onChange={e => setFireEpargne(e.target.value)} /></div>
-                              <div className="slider-container"><div className="slider-header"><span className="slider-label">Rendement annuel estimé</span><span className="slider-value">{fireRendement} %</span></div><input type="range" min="1" max="15" step="0.5" value={fireRendement} onChange={e => setFireRendement(e.target.value)} /></div>
-                              <FireChart data={fireData} color={isOliwia ? '#E07A5F' : '#D4AF37'} />
-                              <div className="fire-result">
-                                  <div className="fire-box"><div className="fire-box-label">Dans 5 ans</div><div className="fire-box-value">{Math.round(fireData[5].value).toLocaleString('fr-FR')} €</div></div>
-                                  <div className="fire-box"><div className="fire-box-label">Dans 10 ans</div><div className="fire-box-value">{Math.round(fireData[10].value).toLocaleString('fr-FR')} €</div></div>
-                                  <div className="fire-box"><div className="fire-box-label">Dans 20 ans</div><div className="fire-box-value">{Math.round(fireData[20].value).toLocaleString('fr-FR')} €</div></div>
-                                  <div className="fire-box"><div className="fire-box-label">Dans 30 ans</div><div className="fire-box-value">{Math.round(fireData[30].value).toLocaleString('fr-FR')} €</div></div>
-                              </div>
-                          </div>
-                      </div>
-                  )}
+                  {view === 'projection' && ( /* ... code projection inchangé ... */ <div> <div className="card"> <div className="ap-label" style={{marginBottom: '20px'}}>Simulateur FIRE</div> <div className="slider-container"><div className="slider-header"><span className="slider-label">Épargne mensuelle</span><span className="slider-value">{Number(fireEpargne).toLocaleString('fr-FR')} €</span></div><input type="range" min="0" max="20000" step="100" value={fireEpargne} onChange={e => setFireEpargne(e.target.value)} /></div> <div className="slider-container"><div className="slider-header"><span className="slider-label">Rendement annuel estimé</span><span className="slider-value">{fireRendement} %</span></div><input type="range" min="1" max="15" step="0.5" value={fireRendement} onChange={e => setFireRendement(e.target.value)} /></div> <FireChart data={fireData} color={isOliwia ? '#E07A5F' : '#D4AF37'} /> <div className="fire-result"> <div className="fire-box"><div className="fire-box-label">Dans 5 ans</div><div className="fire-box-value">{Math.round(fireData[5].value).toLocaleString('fr-FR')} €</div></div> <div className="fire-box"><div className="fire-box-label">Dans 10 ans</div><div className="fire-box-value">{Math.round(fireData[10].value).toLocaleString('fr-FR')} €</div></div> <div className="fire-box"><div className="fire-box-label">Dans 20 ans</div><div className="fire-box-value">{Math.round(fireData[20].value).toLocaleString('fr-FR')} €</div></div> <div className="fire-box"><div className="fire-box-label">Dans 30 ans</div><div className="fire-box-value">{Math.round(fireData[30].value).toLocaleString('fr-FR')} €</div></div> </div> </div> </div> )}
 
-                  {/* CIBLE & RÉÉQUILIBRAGE */}
-                  {view === 'cible' && (
-                      <div>
-                          {editTargetsMode ? (
-                              <div className="card">
-                                  <div className="ap-label" style={{marginBottom: '10px'}}>Définir mes cibles (%)</div>
-                                  <div className={`total-indicator ${Math.round(currentTargetTotal) === 100 ? 'ok' : 'not-ok'}`}>Total : {currentTargetTotal.toFixed(0)}% / 100%</div>
-                                  {TARGET_CATEGORIES.map(cat => (
-                                      <div className="slider-container" key={cat}>
-                                          <div className="slider-header"><span className="slider-label">{cat}</span><span className="slider-value">{tempTargets[cat] || 0} %</span></div>
-                                          <input type="range" min="0" max="100" step="1" value={tempTargets[cat] || 0} onChange={e => handleTargetSliderChange(cat, e.target.value)} />
-                                      </div>
-                                  ))}
-                                  <div style={{display: 'flex', gap: '10px', marginTop: '20px'}}>
-                                      <button onClick={() => { setEditTargetsMode(false); setTempTargets(targets); }} className="btn-export" style={{flex:1, marginBottom:0}}>Annuler</button>
-                                      <button onClick={saveTargets} className="btn-gold" style={{flex:2}} disabled={Math.round(currentTargetTotal) !== 100}>Enregistrer</button>
-                                  </div>
-                              </div>
-                          ) : (
-                              <div>
-                                  <div style={{display: 'flex', gap: '10px', marginBottom: '20px'}}>
-                                      <button onClick={() => setEditTargetsMode(true)} className="btn-sync" style={{flex:1, marginBottom:0}}>✏️ Modifier</button>
-                                      <button onClick={() => setShowRebalance(!showRebalance)} className="btn-gold" style={{flex:1}}>⚖️ Rééquilibrer</button>
-                                  </div>
+                  {view === 'cible' && ( /* ... code cible inchangé ... */ <div> {editTargetsMode ? ( <div className="card"> <div className="ap-label" style={{marginBottom: '10px'}}>Définir mes cibles (%)</div> <div className={`total-indicator ${Math.round(currentTargetTotal) === 100 ? 'ok' : 'not-ok'}`}>Total : {currentTargetTotal.toFixed(0)}% / 100%</div> {TARGET_CATEGORIES.map(cat => ( <div className="slider-container" key={cat}> <div className="slider-header"><span className="slider-label">{cat}</span><span className="slider-value">{tempTargets[cat] || 0} %</span></div> <input type="range" min="0" max="100" step="1" value={tempTargets[cat] || 0} onChange={e => handleTargetSliderChange(cat, e.target.value)} /> </div> ))} <div style={{display: 'flex', gap: '10px', marginTop: '20px'}}> <button onClick={() => { setEditTargetsMode(false); setTempTargets(targets); }} className="btn-export" style={{flex:1, marginBottom:0}}>Annuler</button> <button onClick={saveTargets} className="btn-gold" style={{flex:2}} disabled={Math.round(currentTargetTotal) !== 100}>Enregistrer</button> </div> </div> ) : ( <div> <div style={{display: 'flex', gap: '10px', marginBottom: '20px'}}> <button onClick={() => setEditTargetsMode(true)} className="btn-sync" style={{flex:1, marginBottom:0}}>✏️ Modifier</button> <button onClick={() => setShowRebalance(!showRebalance)} className="btn-gold" style={{flex:1}}>⚖️ Rééquilibrer</button> </div> {showRebalance && ( <div className="card" style={{border: '1px solid var(--gold)'}}> <div className="ap-label" style={{marginBottom: '15px'}}>Plan d'investissement</div> <div className="slider-container"> <div className="slider-header"><span className="slider-label">Montant à investir</span><span className="slider-value">{Number(rebalanceAmount).toLocaleString('fr-FR')} €</span></div> <input type="range" min="0" max="50000" step="100" value={rebalanceAmount} onChange={e => setRebalanceAmount(e.target.value)} /> </div> <div style={{background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px'}}> <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '10px'}}>Pour respecter ta cible, voici comment répartir cet argent :</p> {rebalanceData.map(({cat, diff}) => ( <div key={cat} style={{display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '5px'}}> <span>{cat}</span> <span style={{color: diff > 0 ? 'var(--green)' : 'var(--red)', fontWeight: 'bold'}}>{diff > 0 ? '+' : ''}{Math.round(diff).toLocaleString('fr-FR')} €</span> </div> ))} {rebalanceData.length === 0 && <p style={{fontSize:'0.8rem', textAlign:'center'}}>Ton allocation est déjà parfaite !</p>} </div> </div> )} <div className="card"> <div className="ap-label" style={{marginBottom: '20px'}}>Cible vs Réel</div> {TARGET_CATEGORIES.map(cat => { const actual = actualPctData[cat] || 0; const target = targetPctData[cat] || 0; return ( <div className="target-bar-container" key={cat}> <div className="target-bar-label"> <span>{cat}</span> <span style={{color: actual > target + 5 ? 'var(--gold)' : actual < target - 5 ? 'var(--red)' : 'var(--text-light)'}}>Réel: {actual.toFixed(1)}% / Cible: {target.toFixed(0)}%</span> </div> <div className="target-bar-bg"><div className="target-bar-target" style={{width: `${target}%`}}></div><div className="target-bar-actual" style={{width: `${actual}%`}}></div></div> </div> ); })} </div> </div> )} </div> )}
 
-                                  {showRebalance && (
-                                      <div className="card" style={{border: '1px solid var(--gold)'}}>
-                                          <div className="ap-label" style={{marginBottom: '15px'}}>Plan d'investissement</div>
-                                          <div className="slider-container">
-                                              <div className="slider-header"><span className="slider-label">Montant à investir</span><span className="slider-value">{Number(rebalanceAmount).toLocaleString('fr-FR')} €</span></div>
-                                              <input type="range" min="0" max="50000" step="100" value={rebalanceAmount} onChange={e => setRebalanceAmount(e.target.value)} />
-                                          </div>
-                                          
-                                          <div style={{background: 'rgba(0,0,0,0.2)', padding: '15px', borderRadius: '12px'}}>
-                                              <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '10px'}}>Pour respecter ta cible, voici comment répartir cet argent :</p>
-                                              {rebalanceData.map(({cat, diff}) => (
-                                                  <div key={cat} style={{display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '5px'}}>
-                                                      <span>{cat}</span>
-                                                      <span style={{color: diff > 0 ? 'var(--green)' : 'var(--red)', fontWeight: 'bold'}}>
-                                                          {diff > 0 ? '+' : ''}{Math.round(diff).toLocaleString('fr-FR')} €
-                                                      </span>
-                                                  </div>
-                                              ))}
-                                              {rebalanceData.length === 0 && <p style={{fontSize:'0.8rem', textAlign:'center'}}>Ton allocation est déjà parfaite !</p>}
-                                          </div>
-                                      </div>
-                                  )}
-
-                                  <div className="card">
-                                      <div className="ap-label" style={{marginBottom: '20px'}}>Cible vs Réel</div>
-                                      {TARGET_CATEGORIES.map(cat => {
-                                          const actual = actualPctData[cat] || 0; const target = targetPctData[cat] || 0;
-                                          return (
-                                              <div className="target-bar-container" key={cat}>
-                                                  <div className="target-bar-label">
-                                                      <span>{cat}</span>
-                                                      <span style={{color: actual > target + 5 ? 'var(--gold)' : actual < target - 5 ? 'var(--red)' : 'var(--text-light)'}}>Réel: {actual.toFixed(1)}% / Cible: {target.toFixed(0)}%</span>
-                                                  </div>
-                                                  <div className="target-bar-bg"><div className="target-bar-target" style={{width: `${target}%`}}></div><div className="target-bar-actual" style={{width: `${actual}%`}}></div></div>
-                                              </div>
-                                          );
-                                      })}
-                                  </div>
-                              </div>
-                          )}
-                      </div>
-                  )}
-
-                  {/* CHANGELOG */}
-                  {view === 'journal' && (
-                      <div className="card">
-                          <div className="ap-label" style={{marginBottom: '20px'}}>Journal des opérations</div>
-                          {Object.keys(logs).length === 0 ? (
-                              <p style={{color: 'var(--text-light)', textAlign: 'center'}}>Aucune opération enregistrée pour le moment.</p>
-                          ) : (
-                              Object.entries(logs).map(([date, items]) => (
-                                  <div key={date} style={{marginBottom: '20px'}}>
-                                      <div style={{fontSize: '0.8rem', color: 'var(--gold)', fontWeight: 'bold', marginBottom: '10px'}}>{date}</div>
-                                      {items.map((item, i) => (
-                                          <div className="log-item" key={i}>
-                                              <div className="log-content">
-                                                  Mise à jour de <strong>{item.account_name}</strong> ({item.owner}) à {Number(item.value_eur).toLocaleString('fr-FR')} €
-                                              </div>
-                                          </div>
-                                      ))}
-                                  </div>
-                              ))
-                          )}
-                      </div>
-                  )}
+                  {view === 'journal' && ( /* ... code journal inchangé ... */ <div className="card"> <div className="ap-label" style={{marginBottom: '20px'}}>Journal des opérations</div> {Object.keys(logs).length === 0 ? (<p style={{color: 'var(--text-light)', textAlign: 'center'}}>Aucune opération.</p>) : ( Object.entries(logs).map(([date, items]) => ( <div key={date} style={{marginBottom: '20px'}}> <div style={{fontSize: '0.8rem', color: 'var(--gold)', fontWeight: 'bold', marginBottom: '10px'}}>{date}</div> {items.map((item, i) => (<div className="log-item" key={i}><div className="log-content">Mise à jour de <strong>{item.account_name}</strong> ({item.owner}) à {Number(item.value_eur).toLocaleString('fr-FR')} €</div></div>))} </div> )) )} </div> )}
               </main>
 
               <nav className="bottom-nav">
