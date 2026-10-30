@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Mon Patrimoine</title>
+<title>Mon Patrimoine - Private Wealth</title>
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#050A14">
@@ -77,6 +77,14 @@
   .legend-name { color: var(--text-light); display: flex; align-items: center; flex: 1; }
   .legend-percent { color: #fff; font-weight: 600; }
 
+  /* Matrice d'exposition */
+  .matrix-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.8rem; }
+  .matrix-table th { text-align: right; padding: 8px; color: var(--text-light); border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 500;}
+  .matrix-table th:first-child { text-align: left; }
+  .matrix-table td { padding: 8px; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.02); }
+  .matrix-table td:first-child { text-align: left; font-weight: 600; color: var(--gold); }
+  .matrix-table tr:last-child td { border-bottom: none; }
+
   .envelope-item { border-bottom: 1px solid rgba(255,255,255,0.05); }
   .envelope-item:last-child { border-bottom: none; }
   .envelope-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; cursor: pointer; }
@@ -88,7 +96,6 @@
   .envelope-details.open { display: block; }
   .account-row { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-light); padding: 6px 0; }
 
-  /* Saisie : En-tête d'enveloppe et sous-en-tête de contrat */
   .update-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .total-input-container { display: flex; align-items: center; gap: 10px; background: rgba(212, 175, 55, 0.1); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--gold); }
   .total-input-container span { font-size: 0.8rem; color: var(--gold-light); }
@@ -144,7 +151,6 @@
   .total-indicator.not-ok { color: var(--red); border: 1px solid var(--red); }
 
   .log-item { display: flex; gap: 15px; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-  .log-date { font-size: 0.75rem; color: var(--text-light); min-width: 80px; }
   .log-content { font-size: 0.85rem; color: #fff; line-height: 1.5; }
   .log-content strong { color: var(--gold); }
 
@@ -267,6 +273,9 @@
       const [showRebalance, setShowRebalance] = useState(false);
       const [rebalanceAmount, setRebalanceAmount] = useState(1000);
 
+      // State pour le taux de change
+      const [plnRate, setPlnRate] = useState(null);
+
       useEffect(() => {
           if (Object.keys(formValues).length > 0) {
               localStorage.setItem('patrimoine_draft', JSON.stringify(formValues));
@@ -283,8 +292,21 @@
               fetchHistory();
               fetchTargets();
               fetchLogs();
+              fetchPlnRate();
           }
       }, [session, ownerFilter]);
+
+      async function fetchPlnRate() {
+          try {
+              const res = await fetch('https://api.frankfurter.app/latest?from=EUR&to=PLN');
+              const data = await res.json();
+              if (data && data.rates && data.rates.PLN) {
+                  setPlnRate(data.rates.PLN);
+              }
+          } catch (err) {
+              console.error("Erreur de récupération du taux de change", err);
+          }
+      }
 
       async function fetchPositions() {
           setLoading(true);
@@ -391,6 +413,26 @@
           return Object.entries(chartData).sort((a, b) => b[1] - a[1]);
       }, [filteredPositions]);
 
+      // Préparation de la matrice d'exposition
+      const exposureMatrix = useMemo(() => {
+          const matrix = {};
+          filteredPositions.forEach(p => {
+              let cat = p.category;
+              if (cat === 'Immobilier Brut') cat = 'Immobilier';
+              if (cat === 'Dette Immobilière') return;
+              if (!cat || cat === 'Dettes Conso') return; // On exclut les dettes conso pour la matrice
+              
+              if (!matrix[p.envelope]) matrix[p.envelope] = {};
+              if (!matrix[p.envelope][cat]) matrix[p.envelope][cat] = 0;
+              matrix[p.envelope][cat] += p.value_eur;
+          });
+          // On filtre les colonnes qui ont au moins une valeur
+          const activeCategories = TARGET_CATEGORIES.filter(cat => 
+              Object.values(matrix).some(env => env[cat] && env[cat] > 0)
+          );
+          return { matrix, activeCategories };
+      }, [filteredPositions]);
+
       const totalCategorized = sortedChartData.reduce((sum, [_, val]) => sum + val, 0);
       const actualPctData = {};
       sortedChartData.forEach(([cat, val]) => {
@@ -429,37 +471,104 @@
       const chartColors = isOliwia ? ['#E07A5F', '#81B29A', '#F2CC8F', '#3D405B', '#E9C46A', '#F4A261', '#E76F51'] : ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
       const themeStyle = isOliwia ? { '--gold': '#E07A5F', '--gold-light': '#F4F1DE', '--gold-dark': '#B05A42', '--gold-trans': 'rgba(224, 122, 95, 0.15)', '--glow': '0 0 15px rgba(224, 122, 95, 0.3)' } : { '--gold': '#D4AF37', '--gold-light': '#F4EBD6', '--gold-dark': '#A6833C', '--gold-trans': 'rgba(212, 175, 55, 0.15)', '--glow': '0 0 15px rgba(212, 175, 55, 0.2)' };
 
+      // --- APPEL SYNCHRONISATION YAHOO VIA EDGE FUNCTION ---
       async function syncYahooPEA() {
           setSyncLoading(true);
           try {
-              const proxy = 'https://corsproxy.io/?';
-              const [resPUST, resWPEA] = await Promise.all([
-                  fetch(proxy + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/PUST.PA')),
-                  fetch(proxy + encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/WPEA.PA'))
-              ]);
-              const dataPUST = await resPUST.json();
-              const dataWPEA = await resWPEA.json();
-              const pricePUST = dataPUST.chart.result[0].meta.regularMarketPrice;
-              const priceWPEA = dataWPEA.chart.result[0].meta.regularMarketPrice;
-              const newPEAValue = (1343 * pricePUST) + (14543 * priceWPEA);
+              const { data, error } = await supabase.functions.invoke('yahoo-quotes', {
+                  body: { tickers: ['PUST.PA', 'WPEA.PA'] }
+              });
+
+              if (error) throw error;
+              
+              const pricePUST = data.prices['PUST.PA'];
+              const priceWPEA = data.prices['WPEA.PA'];
+              
+              if (!pricePUST || !priceWPEA) throw new Error("Prix non trouvés");
+
+              const newPEAValue = Math.round((1343 * pricePUST) + (14543 * priceWPEA));
               const peaPosition = positions.find(p => p.envelope === 'PEA' && p.owner === 'Aubin');
+              
               if (peaPosition) {
-                  setFormValues(prev => ({ ...prev, [peaPosition.id]: Math.round(newPEAValue) }));
-                  alert(`PEA mis à jour : ${Math.round(newPEAValue).toLocaleString('fr-FR')} €\n\nN'oublie pas d'enregistrer !`);
+                  setFormValues(prev => ({ ...prev, [peaPosition.id]: newPEAValue }));
+                  alert(`PEA actualisé !\n\nPUST: ${pricePUST.toFixed(2)} €\nWPEA: ${priceWPEA.toFixed(2)} €\n\nNouveau total: ${newPEAValue.toLocaleString('fr-FR')} €\n\nN'oublie pas d'enregistrer.`);
               }
-          } catch (err) { alert("Erreur de connexion à Yahoo Finance. Le proxy est peut-être en maintenance."); }
+          } catch (err) { 
+              alert("Erreur de connexion à Yahoo Finance via Supabase. Vérifie que l'Edge Function est bien déployée et active.\n\nDétail : " + err.message); 
+          }
           setSyncLoading(false);
       }
 
-      function exportToCSV() {
-          const headers = ['Proprietaire', 'Enveloppe', 'Nom du compte', 'Categorie', 'Valeur (EUR)'];
-          const rows = filteredPositions.map(p => [p.owner, p.envelope, p.account_name, p.category || '', p.value_eur.toString().replace('.', ',')]);
-          const csvContent = [headers, ...rows].map(e => e.join(";")).join("\n");
-          const blob = new Blob(["\ufeff"+csvContent], { type: 'text/csv;charset=utf-8;' });
+      // --- EXPORT / IMPORT JSON ---
+      function exportToJSON() {
+          const exportData = {
+              positions: positions,
+              targets: targets,
+              date_export: new Date().toISOString()
+          };
+          const jsonString = JSON.stringify(exportData, null, 2);
+          const blob = new Blob([jsonString], { type: 'application/json' });
           const link = document.createElement("a");
-          link.setAttribute("href", URL.createObjectURL(blob));
-          link.setAttribute("download", `Patrimoine_${ownerFilter}_${new Date().toISOString().split('T')[0]}.csv`);
+          link.href = URL.createObjectURL(blob);
+          link.download = `Sauvegarde_Patrimoine_${new Date().toISOString().split('T')[0]}.json`;
           document.body.appendChild(link); link.click(); document.body.removeChild(link);
+      }
+
+      function importFromJSON(event) {
+          const file = event.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = async (e) => {
+              try {
+                  const data = JSON.parse(e.target.result);
+                  if (!data.positions || !Array.isArray(data.positions)) throw new Error("Format invalide");
+                  
+                  if (!window.confirm(`Attention : cela va remplacer TOUTES tes données actuelles par celles de la sauvegarde (${data.positions.length} comptes). Continuer ?`)) return;
+                  
+                  setLoading(true);
+                  // 1. Vider les positions
+                  await supabase.from('positions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                  // 2. Insérer les nouvelles positions
+                  await supabase.from('positions').insert(data.positions);
+                  
+                  // 3. Restaurer les cibles si présentes
+                  if (data.targets) {
+                      const updates = TARGET_CATEGORIES.map(cat => ({ category: cat, target_percentage: Number(data.targets[cat] || 0) }));
+                      await supabase.from('target_allocations').upsert(updates, { onConflict: 'category' });
+                  }
+                  
+                  alert("Restauration terminée !");
+                  fetchPositions(); fetchHistory(); fetchTargets();
+              } catch (err) {
+                  alert("Erreur de lecture du fichier : " + err.message);
+              }
+              setLoading(false);
+          };
+          reader.readAsText(file);
+      }
+
+      // --- AUTRES FONCTIONS SAISIE ---
+      function quickAdd(id, amount) {
+          setFormValues(prev => {
+              const current = Number(prev[id]) || 0;
+              return { ...prev, [id]: current + amount };
+          });
+      }
+
+      function handleContractTotalChange(accountName, categories, newTotal) {
+          const oldTotal = categories.reduce((sum, acc) => sum + (Number(formValues[acc.id]) || 0), 0);
+          const newTotalNum = Number(newTotal);
+          if (oldTotal === 0) {
+              setFormValues(prev => ({ ...prev, [categories[0].id]: newTotalNum }));
+              return;
+          }
+          const ratio = newTotalNum / oldTotal;
+          const newValues = { ...formValues };
+          categories.forEach(acc => {
+              const currentVal = Number(formValues[acc.id]) || 0;
+              newValues[acc.id] = Math.round(currentVal * ratio);
+          });
+          setFormValues(newValues);
       }
 
       async function handleLogin(e) {
@@ -508,7 +617,7 @@
       }
 
       async function handleDeleteAccount(account) {
-          if (!window.confirm(`Supprimer définitivement "${account.account_name}" et tout son historique ?`)) return;
+          if (!window.confirm(`Supprimer définitivement "${account.account_name}" ?`)) return;
           setLoading(true);
           const { error } = await supabase.from('positions').delete().match({ owner: account.owner, envelope: account.envelope, account_name: account.account_name, category: account.category || '' });
           if (error) alert("Erreur : " + error.message);
@@ -532,29 +641,6 @@
           setTempTargets({...tempTargets, [cat]: newValue});
       }
 
-      function quickAdd(id, amount) {
-          setFormValues(prev => {
-              const current = Number(prev[id]) || 0;
-              return { ...prev, [id]: current + amount };
-          });
-      }
-
-      function handleContractTotalChange(accountName, categories, newTotal) {
-          const oldTotal = categories.reduce((sum, acc) => sum + (Number(formValues[acc.id]) || 0), 0);
-          const newTotalNum = Number(newTotal);
-          if (oldTotal === 0) {
-              setFormValues(prev => ({ ...prev, [categories[0].id]: newTotalNum }));
-              return;
-          }
-          const ratio = newTotalNum / oldTotal;
-          const newValues = { ...formValues };
-          categories.forEach(acc => {
-              const currentVal = Number(formValues[acc.id]) || 0;
-              newValues[acc.id] = Math.round(currentVal * ratio);
-          });
-          setFormValues(newValues);
-      }
-
       if (!session) {
           return (
               <div className="login-screen">
@@ -569,7 +655,6 @@
           );
       }
 
-      // Regroupement pour le Dashboard
       const groupedByEnvelope = {};
       filteredPositions.forEach(p => {
           if (!groupedByEnvelope[p.envelope]) groupedByEnvelope[p.envelope] = { total: 0, accounts: [] };
@@ -578,7 +663,6 @@
       });
       const sortedEnvelopes = Object.entries(groupedByEnvelope).sort((a, b) => b[1].total - a[1].total);
 
-      // Regroupement spécial pour la Saisie (Enveloppe -> Contrat -> Catégories)
       const groupedForSaisie = {};
       filteredPositions.forEach(p => {
           if (!groupedForSaisie[p.envelope]) groupedForSaisie[p.envelope] = {};
@@ -586,7 +670,6 @@
           groupedForSaisie[p.envelope][p.account_name].push(p);
       });
       const sortedSaisieEnvelopes = Object.entries(groupedForSaisie).sort((a, b) => {
-          // Trier les enveloppes par montant total
           const totalA = Object.values(a[1]).flat().reduce((sum, p) => sum + p.value_eur, 0);
           const totalB = Object.values(b[1]).flat().reduce((sum, p) => sum + p.value_eur, 0);
           return totalB - totalA;
@@ -655,6 +738,39 @@
                                   </div>
                               </div>
 
+                              {/* MATRICE D'EXPOSITION */}
+                              <div className="card">
+                                  <div className="ap-label" style={{marginBottom: '10px'}}>Matrice d'Exposition</div>
+                                  <div style={{overflowX: 'auto'}}>
+                                      <table className="matrix-table">
+                                          <thead>
+                                              <tr>
+                                                  <th>Enveloppe</th>
+                                                  {exposureMatrix.activeCategories.map(cat => (
+                                                      <th key={cat}>{cat}</th>
+                                                  ))}
+                                              </tr>
+                                          </thead>
+                                          <tbody>
+                                              {Object.entries(exposureMatrix.matrix).sort((a,b) => {
+                                                  const totA = Object.values(a[1]).reduce((s,v)=>s+v,0);
+                                                  const totB = Object.values(b[1]).reduce((s,v)=>s+v,0);
+                                                  return totB - totA;
+                                              }).map(([env, cats]) => (
+                                                  <tr key={env}>
+                                                      <td>{env}</td>
+                                                      {exposureMatrix.activeCategories.map(cat => (
+                                                          <td key={cat}>
+                                                              {cats[cat] ? Math.round(cats[cat]).toLocaleString('fr-FR') : '-'}
+                                                          </td>
+                                                      ))}
+                                                  </tr>
+                                              ))}
+                                          </tbody>
+                                      </table>
+                                  </div>
+                              </div>
+
                               <div className="card">
                                   <div className="ap-label" style={{marginBottom: '10px'}}>Détail des enveloppes</div>
                                   {sortedEnvelopes.map(([name, data]) => (
@@ -688,12 +804,24 @@
 
                   {view === 'saisie' && (
                       <div>
-                          <button type="button" onClick={syncYahooPEA} disabled={syncLoading} className="btn-sync">
-                              {syncLoading ? "⏳ Connexion..." : "⟳ Actualiser le PEA via Yahoo"}
-                          </button>
-                          <button type="button" onClick={exportToCSV} className="btn-export">
-                              📥 Exporter en CSV
-                          </button>
+                          <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+                              <button type="button" onClick={syncYahooPEA} disabled={syncLoading} className="btn-sync" style={{flex:1, marginBottom:0}}>
+                                  {syncLoading ? "⏳ Sync..." : "⟳ Sync Yahoo"}
+                              </button>
+                              <button type="button" onClick={exportToJSON} className="btn-export" style={{flex:1, marginBottom:0}}>
+                                  📥 Sauvegarde
+                              </button>
+                              <label className="btn-export" style={{flex:1, marginBottom:0, cursor: 'pointer'}}>
+                                  📤 Restaurer
+                                  <input type="file" accept=".json" onChange={importFromJSON} style={{display: 'none'}} />
+                              </label>
+                          </div>
+
+                          {plnRate && (
+                              <p style={{fontSize: '0.8rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '15px'}}>
+                                  Taux de change actuel : 1 EUR = {plnRate} PLN
+                              </p>
+                          )}
 
                           <button onClick={() => setShowAddForm(!showAddForm)} className="btn-sync" style={{borderColor: 'var(--text-light)', color: 'var(--text-light)', marginBottom: '15px'}}>
                               {showAddForm ? "Fermer le formulaire" : "+ Ajouter un nouveau compte"}
@@ -745,18 +873,28 @@
                                       {Object.entries(contractsObj).map(([contractName, categories]) => {
                                           const contractTotal = categories.reduce((sum, p) => sum + (Number(formValues[p.id]) || 0), 0);
                                           
+                                          // Détection du compte polonais
+                                          const isPolishAccount = contractName.includes('PKO') || contractName.includes('mBank');
+                                          const displayValue = isPolishAccount && plnRate ? Math.round(contractTotal * plnRate) : Math.round(contractTotal);
+
                                           return (
                                               <div key={contractName} style={{marginTop: '10px'}}>
                                                   <div className="contract-header">
-                                                      <span className="contract-title">{contractName}</span>
+                                                      <span className="contract-title">
+                                                          {contractName} {isPolishAccount && <span style={{fontSize:'0.7rem', color:'var(--text-light)'}}>(en PLN)</span>}
+                                                      </span>
                                                       {categories.length > 1 && (
                                                           <div className="total-input-container">
                                                               <span>Total :</span>
                                                               <input 
                                                                   type="number" 
                                                                   className="total-input" 
-                                                                  value={Math.round(contractTotal)}
-                                                                  onChange={(e) => handleContractTotalChange(contractName, categories, e.target.value)}
+                                                                  value={displayValue}
+                                                                  onChange={(e) => {
+                                                                      const newVal = Number(e.target.value);
+                                                                      const valInEuro = isPolishAccount && plnRate ? newVal / plnRate : newVal;
+                                                                      handleContractTotalChange(contractName, categories, valInEuro);
+                                                                  }}
                                                               />
                                                           </div>
                                                       )}
