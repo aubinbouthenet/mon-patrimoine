@@ -467,7 +467,6 @@
       const chartColors = isOliwia ? ['#E07A5F', '#81B29A', '#F2CC8F', '#3D405B', '#E9C46A', '#F4A261', '#E76F51'] : ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
       const themeStyle = isOliwia ? { '--gold': '#E07A5F', '--gold-light': '#F4F1DE', '--gold-dark': '#B05A42', '--gold-trans': 'rgba(224, 122, 95, 0.15)', '--glow': '0 0 15px rgba(224, 122, 95, 0.3)' } : { '--gold': '#D4AF37', '--gold-light': '#F4EBD6', '--gold-dark': '#A6833C', '--gold-trans': 'rgba(212, 175, 55, 0.15)', '--glow': '0 0 15px rgba(212, 175, 55, 0.2)' };
 
-      // --- CORRECTION ICI : Utilisation de supabase.functions.invoke ---
       async function syncYahooPEA() {
           setSyncLoading(true);
           try {
@@ -484,7 +483,9 @@
               const pricePUST = data.prices['PUST.PA'];
               const priceWPEA = data.prices['WPEA.PA'];
               
-              if (!pricePUST || !priceWPEA) throw new Error("Prix non trouvés dans la réponse.");
+              if (!pricePUST || !priceWPEA) {
+                  throw new Error("Yahoo Finance n'a pas pu fournir les prix. Réessaie plus tard.");
+              }
 
               const newPEAValue = Math.round((1343 * pricePUST) + (14543 * priceWPEA));
               const peaPosition = positions.find(p => p.envelope === 'PEA' && p.owner === 'Aubin');
