@@ -467,47 +467,80 @@
       const chartColors = isOliwia ? ['#E07A5F', '#81B29A', '#F2CC8F', '#3D405B', '#E9C46A', '#F4A261', '#E76F51'] : ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
       const themeStyle = isOliwia ? { '--gold': '#E07A5F', '--gold-light': '#F4F1DE', '--gold-dark': '#B05A42', '--gold-trans': 'rgba(224, 122, 95, 0.15)', '--glow': '0 0 15px rgba(224, 122, 95, 0.3)' } : { '--gold': '#D4AF37', '--gold-light': '#F4EBD6', '--gold-dark': '#A6833C', '--gold-trans': 'rgba(212, 175, 55, 0.15)', '--glow': '0 0 15px rgba(212, 175, 55, 0.2)' };
 
-      // --- NOUVELLE FONCTION SYNCHRONISATION (Basée sur les conseils de l'IA) ---
+      // --- NOUVELLE FONCTION SYNCHRONISATION (Avec Fallback et Tiret magique) ---
       async function syncYahooPEA() {
           setSyncLoading(true);
           const tickers = ['PUST.PA', 'WPEA.PA'];
-          const endpoint = `${SUPABASE_URL}/functions/v1/yahoo-quotes?tickers=${encodeURIComponent(tickers.join(','))}&t=${Date.now()}`;
+          const EDGE_FUNCTION_SLUG = 'yahoo-quotes-'; // Le tiret final est volontaire pour correspondre à la création sur Supabase
+          const endpoint = `${SUPABASE_URL}/functions/v1/${EDGE_FUNCTION_SLUG}?tickers=${encodeURIComponent(tickers.join(','))}&t=${Date.now()}`;
+
+          let pricePUST = null;
+          let priceWPEA = null;
+          let mode = 'supabase-edge';
+
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10000);
+          const timeoutId = setTimeout(() => controller.abort(), 9000);
 
           try {
               const response = await fetch(endpoint, { method: 'GET', signal: controller.signal });
               clearTimeout(timeoutId);
-
-              if (!response.ok) throw new Error(`Erreur HTTP ${response.status}`);
-
-              const data = await response.json();
-              
-              if (data.error) throw new Error(`Erreur interne : ${data.error}`);
-
-              const pricePUST = data?.prices?.['PUST.PA'];
-              const priceWPEA = data?.prices?.['WPEA.PA'];
-
-              if (typeof pricePUST !== 'number' || typeof priceWPEA !== 'number') {
-                  throw new Error(`Prix incomplets reçus.`);
+              if (response.ok) {
+                  const data = await response.json();
+                  pricePUST = data?.prices?.['PUST.PA'] ?? null;
+                  priceWPEA = data?.prices?.['WPEA.PA'] ?? null;
               }
-
-              const newPEAValue = Math.round((1343 * pricePUST) + (14543 * priceWPEA));
-              const peaPosition = positions.find(p => p.envelope === 'PEA' && p.owner === 'Aubin');
-              
-              if (peaPosition) {
-                  setFormValues(prev => ({ ...prev, [peaPosition.id]: newPEAValue }));
-                  alert(`PEA actualisé avec succès !\n\nPUST: ${pricePUST.toFixed(2)} €\nWPEA: ${priceWPEA.toFixed(2)} €\n\nNouveau total: ${newPEAValue.toLocaleString('fr-FR')} €\n\nN'oublie pas d'enregistrer en bas.`);
-              }
-          } catch (err) {
-              if (err.name === 'AbortError') {
-                  alert("Erreur : Délai d'attente dépassé (10s). Vérifie ta connexion mobile.");
-              } else {
-                  alert("Erreur lors de la synchronisation : " + err.message);
-              }
-          } finally {
-              setSyncLoading(false);
+          } catch (edgeErr) {
+              console.warn('Edge Function injoignable, bascule sur le secours navigateur :', edgeErr.message);
           }
+
+          if (typeof pricePUST !== 'number' || typeof priceWPEA !== 'number') {
+              mode = 'client-fallback';
+              const fetchWithTimeoutClient = async (url, timeoutMs = 6000) => {
+                  const ctrl = new AbortController();
+                  const id = setTimeout(() => ctrl.abort(), timeoutMs);
+                  try { return await fetch(url, { method: 'GET', signal: ctrl.signal }); } finally { clearTimeout(id); }
+              };
+              const fetchTickerClientSideFallback = async (ticker) => {
+                  const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
+                  const proxies = [
+                      `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
+                      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(yahooUrl)}`
+                  ];
+                  for (const proxyUrl of proxies) {
+                      try {
+                          const res = await fetchWithTimeoutClient(proxyUrl, 6000);
+                          if (!res.ok) continue;
+                          const data = await res.json();
+                          const meta = data?.chart?.result?.[0]?.meta;
+                          const price = meta?.regularMarketPrice ?? meta?.chartPreviousClose ?? meta?.previousClose;
+                          if (typeof price === 'number' && !Number.isNaN(price) && price > 0) return price;
+                      } catch (_) {}
+                  }
+                  return null;
+              };
+
+              const [fallbackPUST, fallbackWPEA] = await Promise.all([
+                  typeof pricePUST === 'number' ? pricePUST : fetchTickerClientSideFallback('PUST.PA'),
+                  typeof priceWPEA === 'number' ? priceWPEA : fetchTickerClientSideFallback('WPEA.PA'),
+              ]);
+              pricePUST = fallbackPUST;
+              priceWPEA = fallbackWPEA;
+          }
+
+          if (typeof pricePUST !== 'number' || typeof priceWPEA !== 'number') {
+              alert(`Erreur : Impossible de récupérer les cours (PUST.PA: ${pricePUST ?? 'N/A'}, WPEA.PA: ${priceWPEA ?? 'N/A'}).`);
+              setSyncLoading(false);
+              return null;
+          }
+
+          const newPEAValue = Math.round((1343 * pricePUST) + (14543 * priceWPEA));
+          const peaPosition = positions.find(p => p.envelope === 'PEA' && p.owner === 'Aubin');
+          
+          if (peaPosition) {
+              setFormValues(prev => ({ ...prev, [peaPosition.id]: newPEAValue }));
+              alert(`PEA actualisé (${mode}) !\n\nPUST: ${pricePUST.toFixed(2)} €\nWPEA: ${priceWPEA.toFixed(2)} €\n\nNouveau total: ${newPEAValue.toLocaleString('fr-FR')} €\n\nN'oublie pas d'enregistrer en bas.`);
+          }
+          setSyncLoading(false);
       }
 
       function exportToJSON() {
