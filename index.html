@@ -3,21 +3,41 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TEST</title>
+<title>TEST CDN</title>
+<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  body { background: #050A14; color: #D4AF37; font-family: system-ui; text-align: center; padding: 50px 20px; }
-  h1 { font-size: 3rem; }
-  p { color: #94A3B8; margin-top: 20px; }
-  .time { color: #10B981; font-size: 1.2rem; margin-top: 30px; }
+  body { background: #050A14; color: #fff; font-family: system-ui; padding: 20px; }
+  .ok { color: #10B981; } .ko { color: #E11D48; }
+  h1 { color: #D4AF37; margin-bottom: 20px; }
+  ul { list-style: none; padding: 0; }
+  li { padding: 10px; margin: 5px 0; background: rgba(255,255,255,0.05); border-radius: 8px; font-family: monospace; }
 </style>
 </head>
 <body>
-  <h1>✅ ÇA MARCHE</h1>
-  <p>Si tu vois ce message, GitHub Pages fonctionne.</p>
-  <p>Le problème vient du code JavaScript, pas du déploiement.</p>
-  <div class="time" id="time"></div>
+  <h1>Test des CDN</h1>
+  <ul id="list"></ul>
   <script>
-    document.getElementById('time').textContent = 'Chargé à ' + new Date().toLocaleTimeString('fr-FR');
+    const checks = [
+      ['React', window.React],
+      ['ReactDOM', window.ReactDOM],
+      ['Babel', window.Babel],
+      ['Chart.js', window.Chart],
+      ['Supabase', window.supabase],
+    ];
+    const list = document.getElementById('list');
+    checks.forEach(([name, val]) => {
+      const li = document.createElement('li');
+      if (val) {
+        li.innerHTML = '<span class="ok">✅ ' + name + ' chargé</span>';
+      } else {
+        li.innerHTML = '<span class="ko">❌ ' + name + ' N\'A PAS CHARGÉ</span>';
+      }
+      list.appendChild(li);
+    });
   </script>
 </body>
 </html>
