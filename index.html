@@ -7,10 +7,9 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#050A14">
 
-<!-- 🛠️ AJOUT DE ERUDA (Console mobile) -->
+<!-- 🛠️ ERUDA (Console mobile) -->
 <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
 <script>eruda.init();</script>
-<!-- 🛠️ FIN ERUDA -->
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700&family=Inter:wght@400;500;600;700&display=swap');
@@ -92,12 +91,18 @@
   .total-input { width: 100px; background: transparent; border: none; color: var(--gold); font-weight: bold; font-size: 1rem; text-align: right; outline: none; }
   .contract-header { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; margin-bottom: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); }
   .contract-title { font-size: 0.95rem; color: var(--text-white); font-weight: 500; }
+  
+  /* Nouveau style pour le tableau de saisie (avec ETF) */
   .update-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
-  .update-table th { text-align: left; font-size: 0.7rem; color: var(--text-light); text-transform: uppercase; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); }
+  .update-table th { text-align: left; font-size: 0.65rem; color: var(--text-light); text-transform: uppercase; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); }
   .update-table td { padding: 10px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-white);}
-  .update-table td:last-child { border-bottom: none; text-align: right; }
+  .update-table td:last-child { border-bottom: none; }
   .input-wrapper { display: flex; justify-content: flex-end; align-items: center; gap: 5px; }
-  .table-input { width: 90px; padding: 8px; border-radius: 6px; border: 1px solid var(--gold); text-align: right; font-weight: 600; color: var(--text-white); background: var(--input-bg); outline: none; font-size: 0.9rem; }
+  .table-input { width: 70px; padding: 6px; border-radius: 6px; border: 1px solid var(--gold); text-align: right; font-weight: 600; color: var(--text-white); background: var(--input-bg); outline: none; font-size: 0.85rem; }
+  .small-input { width: 55px; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center; font-size: 0.75rem; background: var(--input-bg); color: var(--text-light); outline: none; }
+  .small-input:focus { border-color: var(--gold); }
+  .etf-row { display: flex; gap: 5px; margin-top: 5px; justify-content: flex-end; }
+  
   .quick-btn { width: 28px; height: 28px; border-radius: 6px; background: var(--gold-trans); border: 1px solid var(--border-color); color: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 1rem; cursor: pointer; }
   .quick-btn:active { background: var(--gold); color: #fff; }
   .btn-delete { background: transparent; border: none; color: var(--red); font-size: 1.1rem; cursor: pointer; padding: 5px; margin-left: 5px; }
@@ -208,7 +213,6 @@ try {
   throw e;
 }
 
-// 🛡️ ERROR BOUNDARY REACT (Filet de sécurité)
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { hasError: false, error: null }; }
   static getDerivedStateFromError(error) { return { hasError: true, error }; }
@@ -327,7 +331,7 @@ function App() {
   useEffect(() => { if (isDarkMode) document.body.classList.remove('light-theme'); else document.body.classList.add('light-theme'); }, [isDarkMode]);
   useEffect(() => {
     try { if (Object.keys(formValues).length > 0) localStorage.setItem('patrimoine_draft', JSON.stringify(formValues)); }
-    catch(e) { /* Safari nav privée peut bloquer */ }
+    catch(e) {}
   }, [formValues]);
   useEffect(() => { supabase.auth.getSession().then(({ data }) => setSession(data.session || null)).catch(() => {}); }, []);
   useEffect(() => { if (session) { fetchPositions(); fetchHistory(); fetchTargets(); fetchLogs(); fetchPlnRate(); } }, [session, ownerFilter]);
@@ -367,6 +371,236 @@ function App() {
       });
       setLogs(grouped);
     }
+  }
+
+  // --- SYNCHRO YAHOO DYNAMIQUE ---
+  async function syncYahooAll() {
+    const etfPositions = positions.filter(p => p.ticker);
+    if (etfPositions.length === 0) {
+      return alert("Aucun ETF configuré. Ajoute un ticker (ex: CW8.PA) dans la Saisie.");
+    }
+    const tickers = [...new Set(etfPositions.map(p => p.ticker))];
+    setSyncLoading(true);
+    
+    let prices = {};
+    let mode = 'supabase-edge';
+    const endpoint = SUPABASE_URL + '/functions/v1/yahoo-quotes-?tickers=' + encodeURIComponent(tickers.join(',')) + '&t=' + Date.now();
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    try {
+      const response = await fetch(endpoint, { method: 'GET', signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (response.ok) {
+        const data = await response.json();
+        prices = data.prices || {};
+      }
+    } catch (edgeErr) {}
+
+    // Fallback client si l'Edge Function échoue
+    if (Object.keys(prices).length === 0) {
+      mode = 'client-fallback';
+      const fetchWithTimeout = async (url, timeoutMs) => {
+        const ctrl = new AbortController(); const id = setTimeout(() => ctrl.abort(), timeoutMs);
+        try { return await fetch(url, { signal: ctrl.signal }); } finally { clearTimeout(id); }
+      };
+      const fetchTicker = async (ticker) => {
+        const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ticker) + '?interval=1d&range=5d';
+        const proxies = [
+          'https://api.allorigins.win/raw?url=' + encodeURIComponent(yahooUrl),
+          'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(yahooUrl)
+        ];
+        for (const proxy of proxies) {
+          try {
+            const res = await fetchWithTimeout(proxy, 8000);
+            if (!res.ok) continue;
+            const data = await res.json();
+            const meta = data?.chart?.result?.[0]?.meta;
+            const price = meta?.regularMarketPrice ?? meta?.chartPreviousClose ?? meta?.previousClose;
+            if (typeof price === 'number' && price > 0) return price;
+          } catch (_) {}
+        }
+        return null;
+      };
+      await Promise.all(tickers.map(async t => {
+        const p = await fetchTicker(t);
+        if (p) prices[t] = p;
+      }));
+    }
+
+    if (Object.keys(prices).length === 0) {
+      alert("Erreur : Impossible de récupérer les cours depuis Yahoo Finance.");
+      setSyncLoading(false);
+      return;
+    }
+
+    // Application des nouveaux prix
+    let updatedCount = 0;
+    let details = "";
+    const newFormValues = { ...formValues };
+
+    etfPositions.forEach(p => {
+      const price = prices[p.ticker];
+      if (price && p.quantity) {
+        const newVal = Math.round(p.quantity * price);
+        newFormValues[p.id] = newVal;
+        updatedCount++;
+        details += `- ${p.account_name} (${p.ticker}): ${price.toFixed(2)} €\n`;
+      }
+    });
+
+    setFormValues(newFormValues);
+    setSyncLoading(false);
+    
+    if (updatedCount > 0) {
+      alert(`✅ ${updatedCount} ETF mis à jour (${mode}) !\n\n${details}\n\nN'oublie pas d'enregistrer en bas.`);
+    } else {
+      alert("Aucun cours trouvé pour tes tickers. Vérifie les codes (ex: CW8.PA).");
+    }
+  }
+
+  function exportToJSON() {
+    const exportData = { positions, targets, date_export: new Date().toISOString() };
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'Sauvegarde_Patrimoine_' + new Date().toISOString().split('T')[0] + '.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+  function importFromJSON(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.positions || !Array.isArray(data.positions)) throw new Error('Format invalide');
+        if (!window.confirm('Attention : cela va remplacer TOUTES tes données actuelles. Continuer ?')) return;
+        setLoading(true);
+        await supabase.from('positions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('positions').insert(data.positions);
+        if (data.targets) {
+          const updates = TARGET_CATEGORIES.map(cat => ({ category: cat, target_percentage: Number(data.targets[cat] || 0) }));
+          await supabase.from('target_allocations').upsert(updates, { onConflict: 'category' });
+        }
+        alert('Restauration terminée !');
+        fetchPositions(); fetchHistory(); fetchTargets();
+      } catch (err) { alert('Erreur de lecture du fichier : ' + err.message); }
+      setLoading(false);
+    };
+    reader.readAsText(file);
+  }
+  function quickAdd(id, amount) { setFormValues(prev => ({ ...prev, [id]: (Number(prev[id]) || 0) + amount })); }
+  function handleContractTotalChange(accountName, categories, newTotal) {
+    const oldTotal = categories.reduce((sum, acc) => sum + (Number(formValues[acc.id]) || 0), 0);
+    const newTotalNum = Number(newTotal);
+    if (oldTotal === 0) { setFormValues(prev => ({ ...prev, [categories[0].id]: newTotalNum })); return; }
+    const ratio = newTotalNum / oldTotal;
+    const newValues = { ...formValues };
+    categories.forEach(acc => { newValues[acc.id] = Math.round((Number(formValues[acc.id]) || 0) * ratio); });
+    setFormValues(newValues);
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    setLoading(true); setError('');
+    const { error } = await supabase.auth.signInWithPassword({ email: 'admin@patrimoine.app', password: password });
+    if (error) setError('Mot de passe incorrect');
+    setLoading(false);
+  }
+  async function handleLogout() { await supabase.auth.signOut(); setSession(null); }
+  
+  async function handleSave(e) {
+    e.preventDefault();
+    setLoading(true);
+    const today = new Date().toISOString().split('T')[0];
+    const newPositions = Object.keys(formValues).map(id => {
+      const original = positions.find(p => p.id === id);
+      if (!original) return null;
+      return { 
+        date: today, 
+        owner: original.owner, 
+        envelope: original.envelope, 
+        account_name: original.account_name, 
+        category: original.category || '', 
+        value_eur: Number(formValues[id] ?? 0), 
+        is_liability: original.is_liability, 
+        is_professional: original.is_professional || false,
+        ticker: original.ticker || null,
+        quantity: original.quantity ? Number(original.quantity) : null
+      };
+    }).filter(Boolean);
+    
+    const { error } = await supabase.from('positions').upsert(newPositions, { onConflict: 'date,owner,envelope,account_name,category' });
+    if (error) alert('Erreur : ' + error.message);
+    else {
+      try { localStorage.removeItem('patrimoine_draft'); } catch(e) {}
+      alert('Mise à jour enregistrée !');
+      setView('dashboard');
+      fetchPositions(); fetchHistory(); fetchLogs();
+    }
+    setLoading(false);
+  }
+
+  // Mise à jour du ticker/quantity en local (sera sauvegardé avec le bouton "Enregistrer")
+  function updatePositionEtf(id, field, value) {
+    setPositions(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+  }
+
+  async function handleAddAccount(e) {
+    e.preventDefault();
+    setLoading(true);
+    const today = new Date().toISOString().split('T')[0];
+    const payload = { date: today, owner: newAccount.owner, envelope: newAccount.envelope, account_name: newAccount.account_name, category: newAccount.category, value_eur: Number(newAccount.value_eur), is_liability: newAccount.is_liability, is_professional: newAccount.is_professional };
+    const { error } = await supabase.from('positions').insert([payload]);
+    if (error) alert('Erreur : ' + error.message);
+    else {
+      setShowAddForm(false);
+      setNewAccount({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', value_eur: '', is_liability: false, is_professional: false });
+      fetchPositions(); fetchHistory(); fetchLogs();
+    }
+    setLoading(false);
+  }
+  async function handleDeleteAccount(account) {
+    if (!window.confirm('Supprimer définitivement "' + account.account_name + '" ?')) return;
+    setLoading(true);
+    const { error } = await supabase.from('positions').delete().match({ owner: account.owner, envelope: account.envelope, account_name: account.account_name, category: account.category || '' });
+    if (error) alert('Erreur : ' + error.message);
+    else { fetchPositions(); fetchHistory(); fetchLogs(); }
+    setLoading(false);
+  }
+  async function saveTargets() {
+    if (Math.round(currentTargetTotal) !== 100) return alert('Le total doit être exactement de 100%.');
+    setLoading(true);
+    const updates = TARGET_CATEGORIES.map(cat => ({ category: cat, target_percentage: Number(tempTargets[cat] || 0) }));
+    const { error } = await supabase.from('target_allocations').upsert(updates, { onConflict: 'category' });
+    if (error) alert('Erreur : ' + error.message);
+    else { setTargets(tempTargets); setEditTargetsMode(false); }
+    setLoading(false);
+  }
+  function handleTargetSliderChange(cat, value) {
+    const newValue = Number(value);
+    const oldValue = Number(tempTargets[cat] || 0);
+    const diff = newValue - oldValue;
+    if (diff > 0 && currentTargetTotal + diff > 100) return;
+    setTempTargets({...tempTargets, [cat]: newValue});
+  }
+
+  if (!session) {
+    return (
+      <div className="login-screen animate-in">
+        <form onSubmit={handleLogin} className="login-card">
+          <h1 className="serif">Patrimoine</h1><p>Private Wealth</p>
+          {error && <p className="error-msg">{error}</p>}
+          <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="login-input" />
+          <button type="submit" disabled={loading} className="btn-gold">{loading ? 'Connexion...' : 'Accéder au portefeuille'}</button>
+        </form>
+      </div>
+    );
   }
 
   const filteredPositions = positions.filter(p => {
@@ -458,183 +692,6 @@ function App() {
 
   const isOliwia = ownerFilter === 'Oliwia';
   const chartColors = isOliwia ? ['#E07A5F', '#81B29A', '#F2CC8F', '#3D405B', '#E9C46A', '#F4A261', '#E76F51'] : ['#D4AF37', '#3B82F6', '#10B981', '#E11D48', '#8B5CF6', '#64748B', '#F59E0B'];
-
-  async function syncYahooPEA() {
-    setSyncLoading(true);
-    const tickers = ['PUST.PA', 'WPEA.PA'];
-    const EDGE_FUNCTION_SLUG = 'yahoo-quotes-';
-    const endpoint = SUPABASE_URL + '/functions/v1/' + EDGE_FUNCTION_SLUG + '?tickers=' + encodeURIComponent(tickers.join(',')) + '&t=' + Date.now();
-    let pricePUST = null; let priceWPEA = null; let mode = 'supabase-edge';
-    const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 9000);
-    try {
-      const response = await fetch(endpoint, { method: 'GET', signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (response.ok) { const data = await response.json(); pricePUST = data?.prices?.['PUST.PA'] ?? null; priceWPEA = data?.prices?.['WPEA.PA'] ?? null; }
-    } catch (edgeErr) {}
-    if (typeof pricePUST !== 'number' || typeof priceWPEA !== 'number') {
-      mode = 'client-fallback';
-      const fetchWithTimeoutClient = async (url, timeoutMs) => {
-        const ctrl = new AbortController(); const id = setTimeout(() => ctrl.abort(), timeoutMs);
-        try { return await fetch(url, { method: 'GET', signal: ctrl.signal }); } finally { clearTimeout(id); }
-      };
-      const fetchTickerClientSideFallback = async (ticker) => {
-        const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ticker) + '?interval=1d&range=5d';
-        const proxies = ['https://api.allorigins.win/raw?url=' + encodeURIComponent(yahooUrl), 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(yahooUrl)];
-        for (const proxyUrl of proxies) {
-          try {
-            const res = await fetchWithTimeoutClient(proxyUrl, 6000);
-            if (!res.ok) continue;
-            const data = await res.json();
-            const meta = data?.chart?.result?.[0]?.meta;
-            const price = meta?.regularMarketPrice ?? meta?.chartPreviousClose ?? meta?.previousClose;
-            if (typeof price === 'number' && !Number.isNaN(price) && price > 0) return price;
-          } catch (_) {}
-        }
-        return null;
-      };
-      const [fallbackPUST, fallbackWPEA] = await Promise.all([
-        typeof pricePUST === 'number' ? pricePUST : fetchTickerClientSideFallback('PUST.PA'),
-        typeof priceWPEA === 'number' ? priceWPEA : fetchTickerClientSideFallback('WPEA.PA')
-      ]);
-      pricePUST = fallbackPUST; priceWPEA = fallbackWPEA;
-    }
-    if (typeof pricePUST !== 'number' || typeof priceWPEA !== 'number') {
-      alert('Erreur : Impossible de récupérer les cours.');
-      setSyncLoading(false);
-      return null;
-    }
-    const newPEAValue = Math.round((1343 * pricePUST) + (14543 * priceWPEA));
-    const peaPosition = positions.find(p => p.envelope === 'PEA' && p.owner === 'Aubin');
-    if (peaPosition) {
-      setFormValues(prev => ({ ...prev, [peaPosition.id]: newPEAValue }));
-      alert('PEA actualisé (' + mode + ') !\n\nPUST: ' + pricePUST.toFixed(2) + ' €\nWPEA: ' + priceWPEA.toFixed(2) + ' €\n\nNouveau total: ' + newPEAValue.toLocaleString('fr-FR') + ' €\n\nN\'oublie pas d\'enregistrer en bas.');
-    }
-    setSyncLoading(false);
-  }
-
-  function exportToJSON() {
-    const exportData = { positions, targets, date_export: new Date().toISOString() };
-    const jsonString = JSON.stringify(exportData, null, 2);
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'Sauvegarde_Patrimoine_' + new Date().toISOString().split('T')[0] + '.json';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-  function importFromJSON(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        if (!data.positions || !Array.isArray(data.positions)) throw new Error('Format invalide');
-        if (!window.confirm('Attention : cela va remplacer TOUTES tes données actuelles. Continuer ?')) return;
-        setLoading(true);
-        await supabase.from('positions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        await supabase.from('positions').insert(data.positions);
-        if (data.targets) {
-          const updates = TARGET_CATEGORIES.map(cat => ({ category: cat, target_percentage: Number(data.targets[cat] || 0) }));
-          await supabase.from('target_allocations').upsert(updates, { onConflict: 'category' });
-        }
-        alert('Restauration terminée !');
-        fetchPositions(); fetchHistory(); fetchTargets();
-      } catch (err) { alert('Erreur de lecture du fichier : ' + err.message); }
-      setLoading(false);
-    };
-    reader.readAsText(file);
-  }
-  function quickAdd(id, amount) { setFormValues(prev => ({ ...prev, [id]: (Number(prev[id]) || 0) + amount })); }
-  function handleContractTotalChange(accountName, categories, newTotal) {
-    const oldTotal = categories.reduce((sum, acc) => sum + (Number(formValues[acc.id]) || 0), 0);
-    const newTotalNum = Number(newTotal);
-    if (oldTotal === 0) { setFormValues(prev => ({ ...prev, [categories[0].id]: newTotalNum })); return; }
-    const ratio = newTotalNum / oldTotal;
-    const newValues = { ...formValues };
-    categories.forEach(acc => { newValues[acc.id] = Math.round((Number(formValues[acc.id]) || 0) * ratio); });
-    setFormValues(newValues);
-  }
-
-  async function handleLogin(e) {
-    e.preventDefault();
-    setLoading(true); setError('');
-    const { error } = await supabase.auth.signInWithPassword({ email: 'admin@patrimoine.app', password: password });
-    if (error) setError('Mot de passe incorrect');
-    setLoading(false);
-  }
-  async function handleLogout() { await supabase.auth.signOut(); setSession(null); }
-  async function handleSave(e) {
-    e.preventDefault();
-    setLoading(true);
-    const today = new Date().toISOString().split('T')[0];
-    const newPositions = Object.keys(formValues).map(id => {
-      const original = positions.find(p => p.id === id);
-      if (!original) return null;
-      return { date: today, owner: original.owner, envelope: original.envelope, account_name: original.account_name, category: original.category || '', value_eur: Number(formValues[id] ?? 0), is_liability: original.is_liability, is_professional: original.is_professional || false };
-    }).filter(Boolean);
-    const { error } = await supabase.from('positions').upsert(newPositions, { onConflict: 'date,owner,envelope,account_name,category' });
-    if (error) alert('Erreur : ' + error.message);
-    else {
-      try { localStorage.removeItem('patrimoine_draft'); } catch(e) {}
-      alert('Mise à jour enregistrée !');
-      setView('dashboard');
-      fetchPositions(); fetchHistory(); fetchLogs();
-    }
-    setLoading(false);
-  }
-  async function handleAddAccount(e) {
-    e.preventDefault();
-    setLoading(true);
-    const today = new Date().toISOString().split('T')[0];
-    const payload = { date: today, owner: newAccount.owner, envelope: newAccount.envelope, account_name: newAccount.account_name, category: newAccount.category, value_eur: Number(newAccount.value_eur), is_liability: newAccount.is_liability, is_professional: newAccount.is_professional };
-    const { error } = await supabase.from('positions').insert([payload]);
-    if (error) alert('Erreur : ' + error.message);
-    else {
-      setShowAddForm(false);
-      setNewAccount({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', value_eur: '', is_liability: false, is_professional: false });
-      fetchPositions(); fetchHistory(); fetchLogs();
-    }
-    setLoading(false);
-  }
-  async function handleDeleteAccount(account) {
-    if (!window.confirm('Supprimer définitivement "' + account.account_name + '" ?')) return;
-    setLoading(true);
-    const { error } = await supabase.from('positions').delete().match({ owner: account.owner, envelope: account.envelope, account_name: account.account_name, category: account.category || '' });
-    if (error) alert('Erreur : ' + error.message);
-    else { fetchPositions(); fetchHistory(); fetchLogs(); }
-    setLoading(false);
-  }
-  async function saveTargets() {
-    if (Math.round(currentTargetTotal) !== 100) return alert('Le total doit être exactement de 100%.');
-    setLoading(true);
-    const updates = TARGET_CATEGORIES.map(cat => ({ category: cat, target_percentage: Number(tempTargets[cat] || 0) }));
-    const { error } = await supabase.from('target_allocations').upsert(updates, { onConflict: 'category' });
-    if (error) alert('Erreur : ' + error.message);
-    else { setTargets(tempTargets); setEditTargetsMode(false); }
-    setLoading(false);
-  }
-  function handleTargetSliderChange(cat, value) {
-    const newValue = Number(value);
-    const oldValue = Number(tempTargets[cat] || 0);
-    const diff = newValue - oldValue;
-    if (diff > 0 && currentTargetTotal + diff > 100) return;
-    setTempTargets({...tempTargets, [cat]: newValue});
-  }
-
-  if (!session) {
-    return (
-      <div className="login-screen animate-in">
-        <form onSubmit={handleLogin} className="login-card">
-          <h1 className="serif">Patrimoine</h1><p>Private Wealth</p>
-          {error && <p className="error-msg">{error}</p>}
-          <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="login-input" />
-          <button type="submit" disabled={loading} className="btn-gold">{loading ? 'Connexion...' : 'Accéder au portefeuille'}</button>
-        </form>
-      </div>
-    );
-  }
 
   const groupedByEnvelope = {};
   filteredPositions.forEach(p => {
@@ -728,7 +785,7 @@ function App() {
                       <div className={'envelope-details ' + (expandedEnv === name ? 'open' : '')}>
                         {data.accounts.map(acc => (
                           <div key={acc.id} className="account-row">
-                            <span>{acc.account_name} {acc.category && acc.category !== 'Livrets' && acc.category !== 'Dettes Conso' && acc.category !== 'Immobilier Brut' && acc.category !== 'Dette Immobilière' ? '(' + acc.category + ')' : ''}</span>
+                            <span>{acc.account_name} {acc.category && acc.category !== 'Livrets' && acc.category !== 'Dettes Conso' && acc.category !== 'Immobilier Brut' && acc.category !== 'Dette Immobilière' ? '(' + acc.category + ')' : ''} {acc.ticker ? '['+acc.ticker+']' : ''}</span>
                             <span>{acc.value_eur.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span>
                           </div>
                         ))}
@@ -748,7 +805,7 @@ function App() {
         {view === 'saisie' && (
           <div className="animate-in">
             <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
-              <button type="button" onClick={syncYahooPEA} disabled={syncLoading} className="btn-sync" style={{flex:1, marginBottom:0}}><Icon name="refresh" size={16} /> {syncLoading ? 'Sync...' : 'Sync Yahoo'}</button>
+              <button type="button" onClick={syncYahooAll} disabled={syncLoading} className="btn-sync" style={{flex:1, marginBottom:0}}><Icon name="refresh" size={16} /> {syncLoading ? 'Sync...' : 'Sync Yahoo'}</button>
               <button type="button" onClick={exportToJSON} className="btn-export" style={{flex:1, marginBottom:0}}><Icon name="download" size={16} /> Sauvegarde</button>
               <label className="btn-export" style={{flex:1, marginBottom:0, cursor: 'pointer'}}><Icon name="upload" size={16} /> Restaurer<input type="file" accept=".json" onChange={importFromJSON} style={{display: 'none'}} /></label>
             </div>
@@ -797,11 +854,19 @@ function App() {
                             {categories.length > 1 && (<div className="total-input-container"><span>Total :</span><input type="number" className="total-input" value={displayValue} onChange={(e) => { const newVal = Number(e.target.value); const valInEuro = isPolishAccount && plnRate ? newVal / plnRate : newVal; handleContractTotalChange(contractName, categories, valInEuro); }} /></div>)}
                           </div>
                           <table className="update-table">
-                            <thead><tr><th>Support</th><th>Prop.</th><th style={{textAlign: 'right'}}>Valeur (€)</th></tr></thead>
+                            <thead><tr><th>Support</th><th>ETF</th><th style={{textAlign: 'right'}}>Valeur (€)</th></tr></thead>
                             <tbody>{categories.map(p => (
                               <tr key={p.id}>
-                                <td style={{color: 'var(--gold)'}}>{p.category || 'Général'}</td>
-                                <td style={{color: 'var(--text-light)', fontSize: '0.75rem'}}>{p.owner}</td>
+                                <td style={{color: 'var(--gold)'}}>
+                                  {p.category || 'Général'}
+                                  <div style={{fontSize: '0.65rem', color: 'var(--text-light)'}}>{p.owner}</div>
+                                </td>
+                                <td style={{textAlign: 'right'}}>
+                                  <div className="etf-row">
+                                    <input className="small-input" placeholder="Ticker" value={p.ticker || ''} onChange={e => updatePositionEtf(p.id, 'ticker', e.target.value.toUpperCase())} title="Code Yahoo (ex: CW8.PA)" />
+                                    <input className="small-input" type="number" step="any" placeholder="Parts" value={p.quantity || ''} onChange={e => updatePositionEtf(p.id, 'quantity', e.target.value)} title="Nombre de parts" />
+                                  </div>
+                                </td>
                                 <td style={{textAlign: 'right'}}>
                                   <div className="input-wrapper">
                                     <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)}>-</button>
