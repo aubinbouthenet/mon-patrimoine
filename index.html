@@ -92,7 +92,6 @@
   .contract-header { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; margin-bottom: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); }
   .contract-title { font-size: 0.95rem; color: var(--text-white); font-weight: 500; }
   
-  /* Nouveau style pour le tableau de saisie (avec ETF) */
   .update-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
   .update-table th { text-align: left; font-size: 0.65rem; color: var(--text-light); text-transform: uppercase; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); }
   .update-table td { padding: 10px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-white);}
@@ -373,7 +372,6 @@ function App() {
     }
   }
 
-  // --- SYNCHRO YAHOO DYNAMIQUE ---
   async function syncYahooAll() {
     const etfPositions = positions.filter(p => p.ticker);
     if (etfPositions.length === 0) {
@@ -398,7 +396,6 @@ function App() {
       }
     } catch (edgeErr) {}
 
-    // Fallback client si l'Edge Function échoue
     if (Object.keys(prices).length === 0) {
       mode = 'client-fallback';
       const fetchWithTimeout = async (url, timeoutMs) => {
@@ -435,7 +432,6 @@ function App() {
       return;
     }
 
-    // Application des nouveaux prix
     let updatedCount = 0;
     let details = "";
     const newFormValues = { ...formValues };
@@ -546,7 +542,6 @@ function App() {
     setLoading(false);
   }
 
-  // Mise à jour du ticker/quantity en local (sera sauvegardé avec le bouton "Enregistrer")
   function updatePositionEtf(id, field, value) {
     setPositions(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
   }
@@ -588,19 +583,6 @@ function App() {
     const diff = newValue - oldValue;
     if (diff > 0 && currentTargetTotal + diff > 100) return;
     setTempTargets({...tempTargets, [cat]: newValue});
-  }
-
-  if (!session) {
-    return (
-      <div className="login-screen animate-in">
-        <form onSubmit={handleLogin} className="login-card">
-          <h1 className="serif">Patrimoine</h1><p>Private Wealth</p>
-          {error && <p className="error-msg">{error}</p>}
-          <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="login-input" />
-          <button type="submit" disabled={loading} className="btn-gold">{loading ? 'Connexion...' : 'Accéder au portefeuille'}</button>
-        </form>
-      </div>
-    );
   }
 
   const filteredPositions = positions.filter(p => {
@@ -712,6 +694,20 @@ function App() {
     const totalB = Object.values(b[1]).flat().reduce((sum, p) => sum + p.value_eur, 0);
     return totalB - totalA;
   });
+
+  // 👇 L'ÉCRAN DE CONNEXION EST MAINTENANT ICI (APRÈS TOUS LES HOOKS)
+  if (!session) {
+    return (
+      <div className="login-screen animate-in">
+        <form onSubmit={handleLogin} className="login-card">
+          <h1 className="serif">Patrimoine</h1><p>Private Wealth</p>
+          {error && <p className="error-msg">{error}</p>}
+          <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="login-input" />
+          <button type="submit" disabled={loading} className="btn-gold">{loading ? 'Connexion...' : 'Accéder au portefeuille'}</button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">
