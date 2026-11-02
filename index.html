@@ -55,6 +55,7 @@
   .pro-toggle input { accent-color: var(--gold); }
   .card { background: var(--bg-card-dark); backdrop-filter: blur(20px); border-radius: 20px; padding: 25px; box-shadow: var(--shadow-3d); border: 1px solid var(--border-color); margin-bottom: 20px; }
   .history-chart-container { position: relative; height: 180px; width: 100%; margin-top: 10px; }
+  .bar-chart-container { position: relative; height: 200px; width: 100%; margin-top: 10px; }
   .time-filters { display: flex; justify-content: space-between; margin-top: 20px; }
   .time-btn { background: transparent; border: none; color: var(--text-light); font-size: 0.75rem; font-weight: 600; cursor: pointer; padding: 5px 10px; border-radius: 15px; }
   .time-btn.active { background: var(--gold-trans); color: var(--gold); }
@@ -64,6 +65,12 @@
   .ap-label { font-size: 0.85rem; color: var(--text-light); }
   .ap-value { font-size: 1.1rem; font-weight: 600; color: var(--text-white); }
   .ap-value.negative { color: var(--red); }
+  
+  /* Nouveau graphique de répartition */
+  .owner-split { display: flex; margin-top: 15px; border-radius: 8px; overflow: hidden; height: 24px; background: var(--input-bg); }
+  .owner-split-aubin { background: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; color: #000; }
+  .owner-split-oliwia { background: #E07A5F; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; color: #fff; }
+
   .allocation-container { display: flex; align-items: center; gap: 20px; margin-top: 15px; }
   .chart-donut { width: 130px; height: 130px; flex-shrink: 0; }
   .legend-custom { display: flex; flex-direction: column; gap: 6px; width: 100%; }
@@ -133,9 +140,11 @@
   .total-indicator { text-align: center; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; padding: 10px; border-radius: 8px; background: var(--input-bg); }
   .total-indicator.ok { color: var(--green); border: 1px solid var(--green); }
   .total-indicator.not-ok { color: var(--red); border: 1px solid var(--red); }
-  .log-item { display: flex; gap: 15px; padding: 15px 0; border-bottom: 1px solid var(--border-color); }
+  .log-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid var(--border-color); }
   .log-content { font-size: 0.85rem; color: var(--text-white); line-height: 1.5; }
   .log-content strong { color: var(--gold); }
+  .btn-delete-history { background: var(--red); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
+  
   .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 75px; background: var(--nav-bg); backdrop-filter: blur(20px); border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; align-items: center; z-index: 100; padding: 0 10px; }
   .nav-item { display: flex; flex-direction: column; align-items: center; gap: 5px; background: none; border: none; cursor: pointer; color: var(--text-light); }
   .nav-item.active { color: var(--gold); }
@@ -282,6 +291,42 @@ const DonutChart = memo(({ sortedData, colors }) => {
   return <div className="chart-donut"><canvas ref={chartRef}></canvas></div>;
 });
 
+const EnvelopesBarChart = memo(({ sortedEnvelopes, color }) => {
+  const chartRef = useRef(null);
+  useEffect(() => {
+    if (!chartRef.current || sortedEnvelopes.length === 0) return;
+    const ctx = chartRef.current.getContext('2d');
+    const existing = Chart.getChart(ctx.canvas);
+    if (existing) existing.destroy();
+    
+    new Chart(ctx, { 
+      type: 'bar', 
+      data: { 
+        labels: sortedEnvelopes.map(e => e[0]), 
+        datasets: [{ 
+          data: sortedEnvelopes.map(e => e[1].total), 
+          backgroundColor: color, 
+          borderRadius: 6 
+        }] 
+      }, 
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false, 
+        indexAxis: 'y',
+        plugins: { 
+          legend: { display: false }, 
+          tooltip: { enabled: true, callbacks: { label: (ctx) => ctx.parsed.x.toLocaleString('fr-FR') + ' €' } } 
+        }, 
+        scales: { 
+          x: { display: false }, 
+          y: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 11 } } } 
+        } 
+      } 
+    });
+  }, [sortedEnvelopes, color]);
+  return <div className="bar-chart-container"><canvas ref={chartRef}></canvas></div>;
+});
+
 const FireChart = memo(({ data, color }) => {
   const chartRef = useRef(null);
   useEffect(() => {
@@ -306,7 +351,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [positions, setPositions] = useState([]);
   const [historyData, setHistoryData] = useState([]);
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState({});
   const [timeRange, setTimeRange] = useState('YTD');
   const [view, setView] = useState('dashboard');
   const [ownerFilter, setOwnerFilter] = useState('Tous');
@@ -363,16 +408,24 @@ function App() {
     if (!error && data) { const t = {}; data.forEach(row => t[row.category] = row.target_percentage); setTargets(t); setTempTargets(t); }
   }
   async function fetchLogs() {
-    const { data, error } = await supabase.from('positions').select('created_at, account_name, owner, value_eur').order('created_at', { ascending: false }).limit(50);
+    const { data, error } = await supabase.from('positions').select('created_at, date, account_name, owner, value_eur').order('date', { ascending: false }).limit(100);
     if (!error && data) {
       const grouped = {};
       data.forEach(d => {
-        const day = new Date(d.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-        if (!grouped[day]) grouped[day] = [];
-        grouped[day].push(d);
+        if (!grouped[d.date]) grouped[d.date] = [];
+        grouped[d.date].push(d);
       });
       setLogs(grouped);
     }
+  }
+
+  async function deleteHistoryDay(dateStr) {
+    if (!window.confirm("Attention : supprimer cette date va effacer toutes les données enregistrées ce jour-là. Le graphique sera recalculé. Continuer ?")) return;
+    setLoading(true);
+    const { error } = await supabase.rpc('delete_snapshot', { p_date: dateStr });
+    if (error) alert("Erreur : " + error.message);
+    else { fetchHistory(); fetchLogs(); alert("Historique mis à jour !"); }
+    setLoading(false);
   }
 
   // --- LOGIQUE DE SYNCHRO ---
@@ -428,7 +481,7 @@ function App() {
   async function syncYahooAll() {
     const etfPositions = positions.filter(p => p.ticker && p.ticker.trim() !== '');
     if (etfPositions.length === 0) {
-      return alert("Aucun ETF configuré. Ajoute un ticker (ex: CW8.PA) et des parts dans la case Actions, puis Enregistre avant de Sync.");
+      return alert("Aucun ticker configuré. Ajoute un ticker et des parts dans les lignes, puis Enregistre avant de Sync.");
     }
     const tickers = [...new Set(etfPositions.map(p => p.ticker.trim()))];
     setSyncLoading(true);
@@ -456,7 +509,6 @@ function App() {
         updatedCount++;
         details += `- ${p.account_name} (${p.ticker}): ${price.toFixed(2)} €\n`;
         
-        // Mise à jour de l'objet positions pour l'interface
         const posIndex = newPositions.findIndex(np => np.id === p.id);
         if(posIndex > -1) newPositions[posIndex].value_eur = newVal;
 
@@ -471,7 +523,6 @@ function App() {
     setFormValues(newFormValues);
     setPositions(newPositions);
 
-    // Sauvegarde automatique en base de données
     if (updates.length > 0) {
       await supabase.from('positions').upsert(updates, { onConflict: 'date,owner,envelope,account_name,category' });
     }
@@ -479,7 +530,7 @@ function App() {
     setSyncLoading(false);
     
     if (updatedCount > 0) {
-      alert(`✅ ${updatedCount} ETF mis à jour et sauvegardés (${mode}) !\n\n${details}`);
+      alert(`✅ ${updatedCount} lignes mises à jour et sauvegardées (${mode}) !\n\n${details}`);
     } else {
       alert("Aucun cours trouvé pour tes tickers.");
     }
@@ -500,11 +551,8 @@ function App() {
     if (price) {
       const newVal = Math.round(p.quantity * price);
       setFormValues(prev => ({ ...prev, [p.id]: newVal }));
-      
-      // Mise à jour locale
       setPositions(prev => prev.map(item => item.id === p.id ? { ...item, value_eur: newVal } : item));
 
-      // Sauvegarde automatique en base de données
       const today = new Date().toISOString().split('T')[0];
       await supabase.from('positions').upsert([{ 
         date: today, owner: p.owner, envelope: p.envelope, account_name: p.account_name, 
@@ -520,9 +568,12 @@ function App() {
   }
 
   async function handleAddEtf(envName, contractName, ownerName) {
-    const newName = prompt("Nom de l'ETF (ex: CW8) :");
+    const newName = prompt("Nom de la ligne (ex: CW8) :");
     if (!newName) return;
     
+    const newCategory = prompt("Catégorie (Actions, Fonds diversifiés, etc.) :", "Actions");
+    if (!newCategory) return;
+
     const newTicker = prompt("Code Ticker Yahoo (ex: CW8.PA) :") || '';
     const newParts = prompt("Nombre de parts (ex: 10) :") || 0;
 
@@ -536,7 +587,7 @@ function App() {
       owner: ownerName, 
       envelope: envName, 
       account_name: baseName + ' - ' + cleanName, 
-      category: 'Actions', 
+      category: newCategory, 
       value_eur: 0, 
       is_liability: false, 
       is_professional: false,
@@ -687,6 +738,12 @@ function App() {
   const totalPassifs = filteredPositions.filter(p => p.value_eur < 0).reduce((sum, p) => sum + p.value_eur, 0);
   const totalNet = totalActifs + totalPassifs;
 
+  // STATS PROPRIÉTAIRES
+  const totalAubin = filteredPositions.filter(p => p.owner === 'Aubin').reduce((sum, p) => sum + p.value_eur, 0);
+  const totalOliwia = filteredPositions.filter(p => p.owner === 'Oliwia').reduce((sum, p) => sum + p.value_eur, 0);
+  const pctAubin = totalNet > 0 ? (totalAubin / totalNet) * 100 : 0;
+  const pctOliwia = totalNet > 0 ? (totalOliwia / totalNet) * 100 : 0;
+
   const fireData = useMemo(() => {
     const data = [];
     let current = totalNet;
@@ -830,8 +887,26 @@ function App() {
                   <div className="ap-item" style={{alignItems: 'flex-end'}}><span className="ap-label">Passifs</span><span className="ap-value negative">{totalPassifs.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span></div>
                 </div>
               </div>
+              
+              {/* NOUVEAU : RÉPARTITION AUBIN / OLIWIA */}
+              {ownerFilter === 'Tous' && (
+                <div className="card animate-in delay-2">
+                  <div className="ap-label" style={{marginBottom: '5px'}}>Répartition du Patrimoine</div>
+                  <div className="owner-split">
+                    <div className="owner-split-aubin" style={{width: pctAubin + '%'}}>{pctAubin > 10 ? `Aubin (${pctAubin.toFixed(0)}%)` : ''}</div>
+                    <div className="owner-split-oliwia" style={{width: pctOliwia + '%'}}>{pctOliwia > 10 ? `Oliwia (${pctOliwia.toFixed(0)}%)` : ''}</div>
+                  </div>
+                </div>
+              )}
+
+              {/* NOUVEAU : GRAPHIQUE PAR ENVELOPPE */}
               <div className="card animate-in delay-2">
-                <div className="ap-label" style={{marginBottom: '15px'}}>Allocation d'Actifs</div>
+                <div className="ap-label" style={{marginBottom: '15px'}}>Répartition par Enveloppe</div>
+                <EnvelopesBarChart sortedEnvelopes={sortedEnvelopes} color={isOliwia ? '#E07A5F' : '#D4AF37'} />
+              </div>
+
+              <div className="card animate-in delay-2">
+                <div className="ap-label" style={{marginBottom: '15px'}}>Allocation par Catégorie</div>
                 <div className="allocation-container">
                   <DonutChart sortedData={sortedChartData} colors={chartColors} />
                   <div className="legend-custom">
@@ -892,6 +967,7 @@ function App() {
             </div>
           )
         )}
+        
         {view === 'saisie' && (
           <div className="animate-in">
             <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
@@ -938,7 +1014,6 @@ function App() {
                       const contractTotal = positionsList.reduce((sum, p) => sum + (Number(formValues[p.id]) || 0), 0);
                       const isPolishAccount = baseContractName.includes('PKO') || baseContractName.includes('mBank');
                       const displayValue = isPolishAccount && plnRate ? Math.round(contractTotal * plnRate) : Math.round(contractTotal);
-                      const hasActions = positionsList.some(c => c.category === 'Actions');
                       return (
                         <div key={baseContractName} style={{marginTop: '10px'}}>
                           <div className="contract-header">
@@ -946,10 +1021,10 @@ function App() {
                             {positionsList.length > 1 && (<div className="total-input-container"><span>Total :</span><input type="number" className="total-input" value={displayValue} onChange={(e) => { const newVal = Number(e.target.value); const valInEuro = isPolishAccount && plnRate ? newVal / plnRate : newVal; handleContractTotalChange(baseContractName, positionsList, valInEuro); }} /></div>)}
                           </div>
                           <table className="update-table">
-                            <thead><tr><th>Support</th>{hasActions && <th>ETF</th>}<th style={{textAlign: 'right'}}>Valeur (€)</th></tr></thead>
+                            <thead><tr><th>Support</th><th>ETF / Ticker</th><th style={{textAlign: 'right'}}>Valeur (€)</th></tr></thead>
                             <tbody>
                               {positionsList.map(p => {
-                                const rowName = p.category === 'Actions' && p.account_name.includes(' - ')
+                                const rowName = p.account_name.includes(' - ')
                                   ? p.account_name.split(' - ')[1]
                                   : (p.category || 'Général');
 
@@ -957,21 +1032,17 @@ function App() {
                                   <tr key={p.id}>
                                     <td style={{color: 'var(--gold)'}}>
                                       {rowName}
-                                      <div style={{fontSize: '0.65rem', color: 'var(--text-light)'}}>{p.owner}</div>
+                                      <div style={{fontSize: '0.65rem', color: 'var(--text-light)'}}>{p.owner} • {p.category}</div>
                                     </td>
-                                    {hasActions && (
-                                      <td style={{textAlign: 'right'}}>
-                                        {p.category === 'Actions' ? (
-                                          <div className="etf-row">
-                                            <input className="small-input" placeholder="Ticker" value={p.ticker || ''} onChange={e => updatePositionEtf(p.id, 'ticker', e.target.value.toUpperCase())} title="Code Yahoo (ex: CW8.PA)" />
-                                            <input className="small-input" type="number" step="any" placeholder="Parts" value={p.quantity || ''} onChange={e => updatePositionEtf(p.id, 'quantity', e.target.value)} title="Nombre de parts" />
-                                            <button type="button" className="btn-sync-single" onClick={() => syncSingleEtf(p)} disabled={syncingId === p.id} title="Synchroniser et sauvegarder cette ligne">
-                                              <Icon name="refresh" size={14} />
-                                            </button>
-                                          </div>
-                                        ) : null}
-                                      </td>
-                                    )}
+                                    <td style={{textAlign: 'right'}}>
+                                      <div className="etf-row">
+                                        <input className="small-input" placeholder="Ticker" value={p.ticker || ''} onChange={e => updatePositionEtf(p.id, 'ticker', e.target.value.toUpperCase())} title="Code Yahoo (ex: CW8.PA)" />
+                                        <input className="small-input" type="number" step="any" placeholder="Parts" value={p.quantity || ''} onChange={e => updatePositionEtf(p.id, 'quantity', e.target.value)} title="Nombre de parts" />
+                                        <button type="button" className="btn-sync-single" onClick={() => syncSingleEtf(p)} disabled={syncingId === p.id} title="Synchroniser et sauvegarder">
+                                          <Icon name="refresh" size={14} />
+                                        </button>
+                                      </div>
+                                    </td>
                                     <td style={{textAlign: 'right'}}>
                                       <div className="input-wrapper">
                                         <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)}>-</button>
@@ -985,9 +1056,7 @@ function App() {
                               })}
                             </tbody>
                           </table>
-                          {hasActions && (
-                            <button type="button" onClick={() => handleAddEtf(envName, baseContractName, positionsList.find(c=>c.category==='Actions').owner)} style={{marginTop: '10px', background: 'none', border: '1px dashed var(--gold)', color: 'var(--gold)', padding: '8px', borderRadius: '8px', width: '100%', fontSize: '0.8rem', cursor: 'pointer'}}>+ Ajouter une ligne d'ETF</button>
-                          )}
+                          <button type="button" onClick={() => handleAddEtf(envName, baseContractName, positionsList[0].owner)} style={{marginTop: '10px', background: 'none', border: '1px dashed var(--gold)', color: 'var(--gold)', padding: '8px', borderRadius: '8px', width: '100%', fontSize: '0.8rem', cursor: 'pointer'}}>+ Ajouter une ligne (Ticker)</button>
                         </div>
                       );
                     })}
@@ -1087,20 +1156,27 @@ function App() {
         )}
         {view === 'journal' && (
           <div className="card animate-in">
-            <div className="ap-label" style={{marginBottom: '20px'}}>Journal des opérations</div>
+            <div className="ap-label" style={{marginBottom: '20px'}}>Journal & Historique</div>
+            <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '20px'}}>
+              Supprime une date pour corriger le graphique si tu as fait une erreur (ex: suppression d'un compte).
+            </p>
             {Object.keys(logs).length === 0 ? (
               <p style={{color: 'var(--text-light)', textAlign: 'center'}}>Aucune opération.</p>
             ) : (
               Object.entries(logs).map(pair => {
                 const date = pair[0]; const items = pair[1];
+                const dateObj = new Date(date);
+                const formattedDate = dateObj.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+                
                 return (
-                  <div key={date} style={{marginBottom: '20px'}}>
-                    <div style={{fontSize: '0.8rem', color: 'var(--gold)', fontWeight: 'bold', marginBottom: '10px'}}>{date}</div>
-                    {items.map((item, i) => (
-                      <div className="log-item" key={i}>
-                        <div className="log-content">Mise à jour de <strong>{item.account_name}</strong> ({item.owner}) à {Number(item.value_eur).toLocaleString('fr-FR')} €</div>
-                      </div>
-                    ))}
+                  <div key={date} style={{marginBottom: '20px', background: 'var(--input-bg)', padding: '15px', borderRadius: '12px'}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px'}}>
+                      <div style={{fontSize: '0.9rem', color: 'var(--gold)', fontWeight: 'bold', textTransform: 'capitalize'}}>{formattedDate}</div>
+                      <button onClick={() => deleteHistoryDay(date)} className="btn-delete-history">Supprimer ce jour</button>
+                    </div>
+                    <div style={{fontSize: '0.75rem', color: 'var(--text-light)'}}>
+                      {items.length} modification(s) enregistrée(s) ce jour.
+                    </div>
                   </div>
                 );
               })
