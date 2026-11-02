@@ -444,6 +444,9 @@ function App() {
     let updatedCount = 0;
     let details = "";
     const newFormValues = { ...formValues };
+    const newPositions = [...positions];
+    const today = new Date().toISOString().split('T')[0];
+    const updates = [];
 
     etfPositions.forEach(p => {
       const price = prices[p.ticker.trim()];
@@ -452,14 +455,31 @@ function App() {
         newFormValues[p.id] = newVal;
         updatedCount++;
         details += `- ${p.account_name} (${p.ticker}): ${price.toFixed(2)} €\n`;
+        
+        // Mise à jour de l'objet positions pour l'interface
+        const posIndex = newPositions.findIndex(np => np.id === p.id);
+        if(posIndex > -1) newPositions[posIndex].value_eur = newVal;
+
+        updates.push({ 
+          date: today, owner: p.owner, envelope: p.envelope, account_name: p.account_name, 
+          category: p.category, value_eur: newVal, is_liability: p.is_liability, 
+          is_professional: p.is_professional, ticker: p.ticker.trim(), quantity: Number(p.quantity) 
+        });
       }
     });
 
     setFormValues(newFormValues);
+    setPositions(newPositions);
+
+    // Sauvegarde automatique en base de données
+    if (updates.length > 0) {
+      await supabase.from('positions').upsert(updates, { onConflict: 'date,owner,envelope,account_name,category' });
+    }
+
     setSyncLoading(false);
     
     if (updatedCount > 0) {
-      alert(`✅ ${updatedCount} ETF mis à jour (${mode}) !\n\n${details}\n\nN'oublie pas d'enregistrer en bas.`);
+      alert(`✅ ${updatedCount} ETF mis à jour et sauvegardés (${mode}) !\n\n${details}`);
     } else {
       alert("Aucun cours trouvé pour tes tickers.");
     }
@@ -480,9 +500,21 @@ function App() {
     if (price) {
       const newVal = Math.round(p.quantity * price);
       setFormValues(prev => ({ ...prev, [p.id]: newVal }));
-      alert(`✅ ${p.account_name} mis à jour (${mode}) !\n\nPrix : ${price.toFixed(2)} €\nNouveau total : ${newVal.toLocaleString('fr-FR')} €\n\nN'oublie pas d'enregistrer en bas.`);
+      
+      // Mise à jour locale
+      setPositions(prev => prev.map(item => item.id === p.id ? { ...item, value_eur: newVal } : item));
+
+      // Sauvegarde automatique en base de données
+      const today = new Date().toISOString().split('T')[0];
+      await supabase.from('positions').upsert([{ 
+        date: today, owner: p.owner, envelope: p.envelope, account_name: p.account_name, 
+        category: p.category, value_eur: newVal, is_liability: p.is_liability, 
+        is_professional: p.is_professional, ticker: p.ticker.trim(), quantity: Number(p.quantity) 
+      }], { onConflict: 'date,owner,envelope,account_name,category' });
+
+      alert(`✅ ${p.account_name} mis à jour et sauvegardé (${mode}) !\n\nPrix : ${price.toFixed(2)} €\nNouveau total : ${newVal.toLocaleString('fr-FR')} €`);
     } else {
-      alert(`Erreur : Impossible de récupérer le cours pour ${p.ticker}`);
+      alert(`Erreur : Impossible de récupérer le cours pour ${p.ticker}\n\nVérifie que le code est correct (ex: VWCE.DE, CW8.PA).`);
     }
     setSyncingId(null);
   }
@@ -490,17 +522,26 @@ function App() {
   async function handleAddEtf(envName, contractName, ownerName) {
     const newName = prompt("Nom de l'ETF (ex: CW8) :");
     if (!newName) return;
+    
+    const newTicker = prompt("Code Ticker Yahoo (ex: CW8.PA) :") || '';
+    const newParts = prompt("Nombre de parts (ex: 10) :") || 0;
+
+    const cleanName = newName.includes(' - ') ? newName.split(' - ')[1] : newName;
+    const baseName = contractName.includes(' - ') ? contractName.split(' - ')[0] : contractName;
+
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
     const payload = { 
       date: today, 
       owner: ownerName, 
       envelope: envName, 
-      account_name: contractName + ' - ' + newName, 
+      account_name: baseName + ' - ' + cleanName, 
       category: 'Actions', 
       value_eur: 0, 
       is_liability: false, 
-      is_professional: false 
+      is_professional: false,
+      ticker: newTicker.toUpperCase(),
+      quantity: Number(newParts)
     };
     const { error } = await supabase.from('positions').insert([payload]);
     if (error) alert('Erreur : ' + error.message);
@@ -737,10 +778,12 @@ function App() {
 
   const groupedForSaisie = {};
   filteredPositions.forEach(p => {
+    const baseName = p.account_name.split(' - ')[0];
     if (!groupedForSaisie[p.envelope]) groupedForSaisie[p.envelope] = {};
-    if (!groupedForSaisie[p.envelope][p.account_name]) groupedForSaisie[p.envelope][p.account_name] = [];
-    groupedForSaisie[p.envelope][p.account_name].push(p);
+    if (!groupedForSaisie[p.envelope][baseName]) groupedForSaisie[p.envelope][baseName] = [];
+    groupedForSaisie[p.envelope][baseName].push(p);
   });
+  
   const sortedSaisieEnvelopes = Object.entries(groupedForSaisie).sort((a, b) => {
     const totalA = Object.values(a[1]).flat().reduce((sum, p) => sum + p.value_eur, 0);
     const totalB = Object.values(b[1]).flat().reduce((sum, p) => sum + p.value_eur, 0);
@@ -890,53 +933,60 @@ function App() {
                       <div style={{fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--gold)'}}>{Math.round(envTotal).toLocaleString('fr-FR')} €</div>
                     </div>
                     {Object.entries(contractsObj).map(contractPair => {
-                      const contractName = contractPair[0]; const categories = contractPair[1];
-                      const contractTotal = categories.reduce((sum, p) => sum + (Number(formValues[p.id]) || 0), 0);
-                      const isPolishAccount = contractName.includes('PKO') || contractName.includes('mBank');
+                      const baseContractName = contractPair[0];
+                      const positionsList = contractPair[1];
+                      const contractTotal = positionsList.reduce((sum, p) => sum + (Number(formValues[p.id]) || 0), 0);
+                      const isPolishAccount = baseContractName.includes('PKO') || baseContractName.includes('mBank');
                       const displayValue = isPolishAccount && plnRate ? Math.round(contractTotal * plnRate) : Math.round(contractTotal);
-                      const hasActions = categories.some(c => c.category === 'Actions');
+                      const hasActions = positionsList.some(c => c.category === 'Actions');
                       return (
-                        <div key={contractName} style={{marginTop: '10px'}}>
+                        <div key={baseContractName} style={{marginTop: '10px'}}>
                           <div className="contract-header">
-                            <span className="contract-title">{contractName} {isPolishAccount && <span style={{fontSize:'0.7rem', color:'var(--text-light)'}}>(en PLN)</span>}</span>
-                            {categories.length > 1 && (<div className="total-input-container"><span>Total :</span><input type="number" className="total-input" value={displayValue} onChange={(e) => { const newVal = Number(e.target.value); const valInEuro = isPolishAccount && plnRate ? newVal / plnRate : newVal; handleContractTotalChange(contractName, categories, valInEuro); }} /></div>)}
+                            <span className="contract-title">{baseContractName} {isPolishAccount && <span style={{fontSize:'0.7rem', color:'var(--text-light)'}}>(en PLN)</span>}</span>
+                            {positionsList.length > 1 && (<div className="total-input-container"><span>Total :</span><input type="number" className="total-input" value={displayValue} onChange={(e) => { const newVal = Number(e.target.value); const valInEuro = isPolishAccount && plnRate ? newVal / plnRate : newVal; handleContractTotalChange(baseContractName, positionsList, valInEuro); }} /></div>)}
                           </div>
                           <table className="update-table">
                             <thead><tr><th>Support</th>{hasActions && <th>ETF</th>}<th style={{textAlign: 'right'}}>Valeur (€)</th></tr></thead>
                             <tbody>
-                              {categories.map(p => (
-                                <tr key={p.id}>
-                                  <td style={{color: 'var(--gold)'}}>
-                                    {p.account_name.includes(' - ') && p.category === 'Actions' ? p.account_name.split(' - ')[1] : (p.category || 'Général')}
-                                    <div style={{fontSize: '0.65rem', color: 'var(--text-light)'}}>{p.owner}</div>
-                                  </td>
-                                  {hasActions && (
-                                    <td style={{textAlign: 'right'}}>
-                                      {p.category === 'Actions' ? (
-                                        <div className="etf-row">
-                                          <input className="small-input" placeholder="Ticker" value={p.ticker || ''} onChange={e => updatePositionEtf(p.id, 'ticker', e.target.value.toUpperCase())} title="Code Yahoo (ex: CW8.PA)" />
-                                          <input className="small-input" type="number" step="any" placeholder="Parts" value={p.quantity || ''} onChange={e => updatePositionEtf(p.id, 'quantity', e.target.value)} title="Nombre de parts" />
-                                          <button type="button" className="btn-sync-single" onClick={() => syncSingleEtf(p)} disabled={syncingId === p.id} title="Synchroniser cette ligne">
-                                            <Icon name="refresh" size={14} />
-                                          </button>
-                                        </div>
-                                      ) : null}
+                              {positionsList.map(p => {
+                                const rowName = p.category === 'Actions' && p.account_name.includes(' - ')
+                                  ? p.account_name.split(' - ')[1]
+                                  : (p.category || 'Général');
+
+                                return (
+                                  <tr key={p.id}>
+                                    <td style={{color: 'var(--gold)'}}>
+                                      {rowName}
+                                      <div style={{fontSize: '0.65rem', color: 'var(--text-light)'}}>{p.owner}</div>
                                     </td>
-                                  )}
-                                  <td style={{textAlign: 'right'}}>
-                                    <div className="input-wrapper">
-                                      <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)}>-</button>
-                                      <input type="number" step="any" value={formValues[p.id] ?? ''} onChange={e => setFormValues(prev => ({...prev, [p.id]: e.target.value}))} className="table-input" />
-                                      <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, 1000)}>+</button>
-                                      <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer"><Icon name="trash" size={16} /></button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
+                                    {hasActions && (
+                                      <td style={{textAlign: 'right'}}>
+                                        {p.category === 'Actions' ? (
+                                          <div className="etf-row">
+                                            <input className="small-input" placeholder="Ticker" value={p.ticker || ''} onChange={e => updatePositionEtf(p.id, 'ticker', e.target.value.toUpperCase())} title="Code Yahoo (ex: CW8.PA)" />
+                                            <input className="small-input" type="number" step="any" placeholder="Parts" value={p.quantity || ''} onChange={e => updatePositionEtf(p.id, 'quantity', e.target.value)} title="Nombre de parts" />
+                                            <button type="button" className="btn-sync-single" onClick={() => syncSingleEtf(p)} disabled={syncingId === p.id} title="Synchroniser et sauvegarder cette ligne">
+                                              <Icon name="refresh" size={14} />
+                                            </button>
+                                          </div>
+                                        ) : null}
+                                      </td>
+                                    )}
+                                    <td style={{textAlign: 'right'}}>
+                                      <div className="input-wrapper">
+                                        <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)}>-</button>
+                                        <input type="number" step="any" value={formValues[p.id] ?? ''} onChange={e => setFormValues(prev => ({...prev, [p.id]: e.target.value}))} className="table-input" />
+                                        <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, 1000)}>+</button>
+                                        <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer"><Icon name="trash" size={16} /></button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                           {hasActions && (
-                            <button type="button" onClick={() => handleAddEtf(envName, contractName, categories.find(c=>c.category==='Actions').owner)} style={{marginTop: '10px', background: 'none', border: '1px dashed var(--gold)', color: 'var(--gold)', padding: '8px', borderRadius: '8px', width: '100%', fontSize: '0.8rem', cursor: 'pointer'}}>+ Ajouter une ligne d'ETF</button>
+                            <button type="button" onClick={() => handleAddEtf(envName, baseContractName, positionsList.find(c=>c.category==='Actions').owner)} style={{marginTop: '10px', background: 'none', border: '1px dashed var(--gold)', color: 'var(--gold)', padding: '8px', borderRadius: '8px', width: '100%', fontSize: '0.8rem', cursor: 'pointer'}}>+ Ajouter une ligne d'ETF</button>
                           )}
                         </div>
                       );
