@@ -17,10 +17,9 @@
     --bg-dark: #050A14; --gold: #D4AF37; --gold-light: #F4EBD6;
     --gold-dark: #A6833C; --gold-trans: rgba(212, 175, 55, 0.15); --glow: 0 0 15px rgba(212, 175, 55, 0.2);
     --text-light: #94A3B8; --text-white: #F8FAFC; --red: #E11D48; --green: #10B981;
-    --shadow-3d: 0 20px 40px -10px rgba(0, 0, 0, 0.5); --border-color: rgba(255,255,255,0.05);
+    --shadow-3d: 0 20px 40px -10px rgba(0, 0, 0, 0.5); --border-color: rgba(255,255,255,0.08);
     --transition-theme: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, background-image 0.4s ease;
     
-    /* Variables par défaut, écrasées par le JS */
     --bg-card-dark: rgba(15, 23, 42, 0.4); 
     --nav-bg: rgba(5, 10, 20, 0.95); 
     --input-bg: rgba(0,0,0,0.2);
@@ -28,7 +27,7 @@
   body.light-theme {
     --bg-dark: #FDFBF7; --text-light: #64748B; --text-white: #1E293B; 
     --red: #BE123C; --green: #047857;
-    --shadow-3d: 0 10px 30px -10px rgba(0, 0, 0, 0.1); --border-color: rgba(0,0,0,0.05);
+    --shadow-3d: 0 10px 30px -10px rgba(0, 0, 0, 0.1); --border-color: rgba(0,0,0,0.08);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Inter', sans-serif; background-color: var(--bg-dark); color: var(--text-white); min-height: 100vh; overflow-x: hidden; transition: var(--transition-theme); }
@@ -323,7 +322,7 @@ function App() {
     try { const saved = localStorage.getItem('patrimoine_draft'); return saved ? JSON.parse(saved) : {}; }
     catch(e) { return {}; }
   });
-  const [expandedSaisieEnv, setExpandedSaisieEnv] = useState(null); // Nouvel état pour le dépliage
+  const [expandedSaisieEnv, setExpandedSaisieEnv] = useState(null);
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncingId, setSyncingId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -337,7 +336,7 @@ function App() {
   const [rebalanceAmount, setRebalanceAmount] = useState(1000);
   const [plnRate, setPlnRate] = useState(null);
 
-  // 🎨 LOGIQUE DES THÈMES (SABLE, FORÊT, TERRE) & HALO PLUS VISIBLE
+  // 🎨 LOGIQUE DES THÈMES (SABLE AVEC CONTRASTE, FORÊT, TERRE)
   useEffect(() => {
     const body = document.body;
     let theme = 'sable';
@@ -347,38 +346,38 @@ function App() {
     const themes = {
       sable: {
         dark: { 
-          gold: '#D4A373', dark: '#B87B45', light: '#F4EBD6', trans: 'rgba(212, 163, 115, 0.15)', glow: '0 0 15px rgba(212, 163, 115, 0.25)', 
-          bg: 'radial-gradient(circle at 50% 0%, rgba(212, 163, 115, 0.25) 0%, transparent 75%)',
-          card: 'rgba(30, 24, 20, 0.6)', nav: 'rgba(10, 10, 8, 0.95)', input: 'rgba(0,0,0,0.3)'
+          gold: '#E9C46A', dark: '#D4A373', light: '#F4EBD6', trans: 'rgba(233, 196, 106, 0.15)', glow: '0 0 15px rgba(233, 196, 106, 0.3)', 
+          bg: 'radial-gradient(circle at 50% 0%, rgba(233, 196, 106, 0.15) 0%, rgba(42, 157, 143, 0.08) 50%, transparent 80%)',
+          card: 'rgba(25, 28, 30, 0.85)', nav: 'rgba(15, 17, 18, 0.98)', input: 'rgba(0,0,0,0.4)', border: 'rgba(255, 255, 255, 0.12)'
         },
         light: { 
-          gold: '#C08552', dark: '#9E6330', light: '#F9F6F0', trans: 'rgba(192, 133, 82, 0.1)', glow: '0 4px 15px rgba(192, 133, 82, 0.15)', 
-          bg: 'radial-gradient(circle at 50% 0%, rgba(192, 133, 82, 0.2) 0%, transparent 75%)',
-          card: 'rgba(255, 255, 255, 0.7)', nav: 'rgba(253, 251, 247, 0.95)', input: 'rgba(255,255,255,0.5)'
+          gold: '#C08552', dark: '#9E6330', light: '#F9F6F0', trans: 'rgba(192, 133, 82, 0.15)', glow: '0 4px 15px rgba(192, 133, 82, 0.2)', 
+          bg: 'radial-gradient(circle at 50% 0%, rgba(233, 196, 106, 0.3) 0%, rgba(42, 157, 143, 0.15) 50%, transparent 80%)',
+          card: 'rgba(255, 255, 255, 0.95)', nav: 'rgba(249, 246, 240, 0.98)', input: 'rgba(255,255,255,0.6)', border: 'rgba(0, 0, 0, 0.1)'
         }
       },
       forest: {
         dark: { 
-          gold: '#84A98C', dark: '#52796F', light: '#CAD2C5', trans: 'rgba(132, 169, 140, 0.15)', glow: '0 0 15px rgba(132, 169, 140, 0.25)', 
+          gold: '#84A98C', dark: '#52796F', light: '#CAD2C5', trans: 'rgba(132, 169, 140, 0.15)', glow: '0 0 15px rgba(132, 169, 140, 0.3)', 
           bg: 'radial-gradient(circle at 50% 0%, rgba(132, 169, 140, 0.25) 0%, transparent 75%)',
-          card: 'rgba(18, 25, 20, 0.6)', nav: 'rgba(8, 15, 10, 0.95)', input: 'rgba(0,0,0,0.3)'
+          card: 'rgba(18, 25, 20, 0.8)', nav: 'rgba(8, 15, 10, 0.98)', input: 'rgba(0,0,0,0.3)', border: 'rgba(255, 255, 255, 0.08)'
         },
         light: { 
-          gold: '#5C8367', dark: '#3A5A42', light: '#E0E8E1', trans: 'rgba(92, 131, 103, 0.1)', glow: '0 4px 15px rgba(92, 131, 103, 0.15)', 
-          bg: 'radial-gradient(circle at 50% 0%, rgba(92, 131, 103, 0.2) 0%, transparent 75%)',
-          card: 'rgba(255, 255, 255, 0.7)', nav: 'rgba(253, 251, 247, 0.95)', input: 'rgba(255,255,255,0.5)'
+          gold: '#5C8367', dark: '#3A5A42', light: '#E0E8E1', trans: 'rgba(92, 131, 103, 0.15)', glow: '0 4px 15px rgba(92, 131, 103, 0.2)', 
+          bg: 'radial-gradient(circle at 50% 0%, rgba(92, 131, 103, 0.25) 0%, transparent 75%)',
+          card: 'rgba(255, 255, 255, 0.9)', nav: 'rgba(253, 251, 247, 0.98)', input: 'rgba(255,255,255,0.6)', border: 'rgba(0,0,0,0.08)'
         }
       },
       earth: {
         dark: { 
-          gold: '#D08C7A', dark: '#B06A58', light: '#F4EBE6', trans: 'rgba(208, 140, 122, 0.15)', glow: '0 0 15px rgba(208, 140, 122, 0.25)', 
+          gold: '#D08C7A', dark: '#B06A58', light: '#F4EBE6', trans: 'rgba(208, 140, 122, 0.15)', glow: '0 0 15px rgba(208, 140, 122, 0.3)', 
           bg: 'radial-gradient(circle at 50% 0%, rgba(208, 140, 122, 0.25) 0%, transparent 75%)',
-          card: 'rgba(25, 18, 18, 0.6)', nav: 'rgba(15, 8, 8, 0.95)', input: 'rgba(0,0,0,0.3)'
+          card: 'rgba(25, 18, 18, 0.8)', nav: 'rgba(15, 8, 8, 0.98)', input: 'rgba(0,0,0,0.3)', border: 'rgba(255, 255, 255, 0.08)'
         },
         light: { 
-          gold: '#B06A58', dark: '#8E4F3E', light: '#FAEDCD', trans: 'rgba(176, 106, 88, 0.1)', glow: '0 4px 15px rgba(176, 106, 88, 0.15)', 
-          bg: 'radial-gradient(circle at 50% 0%, rgba(176, 106, 88, 0.2) 0%, transparent 75%)',
-          card: 'rgba(255, 255, 255, 0.7)', nav: 'rgba(253, 251, 247, 0.95)', input: 'rgba(255,255,255,0.5)'
+          gold: '#B06A58', dark: '#8E4F3E', light: '#FAEDCD', trans: 'rgba(176, 106, 88, 0.15)', glow: '0 4px 15px rgba(176, 106, 88, 0.2)', 
+          bg: 'radial-gradient(circle at 50% 0%, rgba(176, 106, 88, 0.25) 0%, transparent 75%)',
+          card: 'rgba(255, 255, 255, 0.9)', nav: 'rgba(253, 251, 247, 0.98)', input: 'rgba(255,255,255,0.6)', border: 'rgba(0,0,0,0.08)'
         }
       }
     };
@@ -393,6 +392,7 @@ function App() {
     body.style.setProperty('--bg-card-dark', config.card);
     body.style.setProperty('--nav-bg', config.nav);
     body.style.setProperty('--input-bg', config.input);
+    body.style.setProperty('--border-color', config.border);
   }, [ownerFilter, isDarkMode]);
 
   useEffect(() => { if (isDarkMode) document.body.classList.remove('light-theme'); else document.body.classList.add('light-theme'); }, [isDarkMode]);
@@ -858,14 +858,14 @@ function App() {
   const isOliwia = ownerFilter === 'Oliwia';
   const isAubin = ownerFilter === 'Aubin';
   
-  // PALETTES ÉTENDUES ET NUANCÉES
+  // 🎨 PALETTES DES GRAPHIQUES : COULEURS COMPLÉMENTAIRES POUR LE SABLE
   const chartColors = isOliwia 
     ? ['#D08C7A', '#E5B299', '#B5838D', '#D4A373', '#CC978E', '#E6CCB2', '#9C6644', '#DDBEA9'] // Terre
     : isAubin 
       ? ['#84A98C', '#52796F', '#A3B18A', '#CAD2C5', '#588157', '#C2A884', '#3A5A40', '#8E9A76'] // Forêt
-      : ['#D4A373', '#E5B299', '#CC978E', '#9C6644', '#DDBEA9', '#B5838D', '#FAEDCD', '#F4A261']; // Sable
+      : ['#E9C46A', '#2A9D8F', '#E76F51', '#264653', '#F4A261', '#8AB17D', '#457B9D', '#D4A373']; // Sable + Teal + Orange + Navy (Fort contraste)
 
-  const currentThemeColor = isOliwia ? '#D08C7A' : (isAubin ? '#84A98C' : '#D4A373');
+  const currentThemeColor = isOliwia ? '#D08C7A' : (isAubin ? '#84A98C' : '#E9C46A');
 
   const groupedForSaisie = {};
   filteredPositions.forEach(p => {
