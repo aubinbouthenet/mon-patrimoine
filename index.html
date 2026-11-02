@@ -100,7 +100,9 @@
   .table-input { width: 70px; padding: 6px; border-radius: 6px; border: 1px solid var(--gold); text-align: right; font-weight: 600; color: var(--text-white); background: var(--input-bg); outline: none; font-size: 0.85rem; }
   .small-input { width: 55px; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center; font-size: 0.75rem; background: var(--input-bg); color: var(--text-light); outline: none; }
   .small-input:focus { border-color: var(--gold); }
-  .etf-row { display: flex; gap: 5px; margin-top: 5px; justify-content: flex-end; }
+  .etf-row { display: flex; gap: 5px; margin-top: 5px; justify-content: flex-end; align-items: center; }
+  .btn-sync-single { background: var(--gold-trans); border: 1px solid var(--gold); color: var(--gold); width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .btn-sync-single:active { background: var(--gold); color: #fff; }
   
   .quick-btn { width: 28px; height: 28px; border-radius: 6px; background: var(--gold-trans); border: 1px solid var(--border-color); color: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 1rem; cursor: pointer; }
   .quick-btn:active { background: var(--gold); color: #fff; }
@@ -316,6 +318,7 @@ function App() {
   });
   const [expandedEnv, setExpandedEnv] = useState(null);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [syncingId, setSyncingId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newAccount, setNewAccount] = useState({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', value_eur: '', is_liability: false, is_professional: false });
   const [fireEpargne, setFireEpargne] = useState(1500);
@@ -372,14 +375,8 @@ function App() {
     }
   }
 
-  async function syncYahooAll() {
-    const etfPositions = positions.filter(p => p.ticker && p.ticker.trim() !== '');
-    if (etfPositions.length === 0) {
-      return alert("Aucun ETF configuré. Ajoute un ticker (ex: CW8.PA) et des parts dans la case Actions, puis Enregistre avant de Sync.");
-    }
-    const tickers = [...new Set(etfPositions.map(p => p.ticker.trim()))];
-    setSyncLoading(true);
-    
+  // --- LOGIQUE DE SYNCHRO ---
+  async function fetchTickersPrices(tickers) {
     let prices = {};
     let mode = 'supabase-edge';
     const endpoint = SUPABASE_URL + '/functions/v1/yahoo-quotes-?tickers=' + encodeURIComponent(tickers.join(',')) + '&t=' + Date.now();
@@ -425,6 +422,18 @@ function App() {
         if (p) prices[t] = p;
       }));
     }
+    return { prices, mode };
+  }
+
+  async function syncYahooAll() {
+    const etfPositions = positions.filter(p => p.ticker && p.ticker.trim() !== '');
+    if (etfPositions.length === 0) {
+      return alert("Aucun ETF configuré. Ajoute un ticker (ex: CW8.PA) et des parts dans la case Actions, puis Enregistre avant de Sync.");
+    }
+    const tickers = [...new Set(etfPositions.map(p => p.ticker.trim()))];
+    setSyncLoading(true);
+    
+    const { prices, mode } = await fetchTickersPrices(tickers);
 
     if (Object.keys(prices).length === 0) {
       alert("Erreur : Impossible de récupérer les cours depuis Yahoo Finance. Vérifie tes codes (ex: CW8.PA).");
@@ -454,6 +463,28 @@ function App() {
     } else {
       alert("Aucun cours trouvé pour tes tickers.");
     }
+  }
+
+  async function syncSingleEtf(p) {
+    if (!p.ticker || p.ticker.trim() === '') {
+      return alert("Renseigne d'abord un Ticker (ex: CW8.PA).");
+    }
+    if (!p.quantity) {
+      return alert("Renseigne d'abord le nombre de Parts.");
+    }
+    
+    setSyncingId(p.id);
+    const { prices, mode } = await fetchTickersPrices([p.ticker.trim()]);
+    const price = prices[p.ticker.trim()];
+    
+    if (price) {
+      const newVal = Math.round(p.quantity * price);
+      setFormValues(prev => ({ ...prev, [p.id]: newVal }));
+      alert(`✅ ${p.account_name} mis à jour (${mode}) !\n\nPrix : ${price.toFixed(2)} €\nNouveau total : ${newVal.toLocaleString('fr-FR')} €\n\nN'oublie pas d'enregistrer en bas.`);
+    } else {
+      alert(`Erreur : Impossible de récupérer le cours pour ${p.ticker}`);
+    }
+    setSyncingId(null);
   }
 
   async function handleAddEtf(envName, contractName, ownerName) {
@@ -821,7 +852,7 @@ function App() {
         {view === 'saisie' && (
           <div className="animate-in">
             <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
-              <button type="button" onClick={syncYahooAll} disabled={syncLoading} className="btn-sync" style={{flex:1, marginBottom:0}}><Icon name="refresh" size={16} /> {syncLoading ? 'Sync...' : 'Sync Yahoo'}</button>
+              <button type="button" onClick={syncYahooAll} disabled={syncLoading} className="btn-sync" style={{flex:1, marginBottom:0}}><Icon name="refresh" size={16} /> {syncLoading ? 'Sync...' : 'Sync Tout'}</button>
               <button type="button" onClick={exportToJSON} className="btn-export" style={{flex:1, marginBottom:0}}><Icon name="download" size={16} /> Sauvegarde</button>
               <label className="btn-export" style={{flex:1, marginBottom:0, cursor: 'pointer'}}><Icon name="upload" size={16} /> Restaurer<input type="file" accept=".json" onChange={importFromJSON} style={{display: 'none'}} /></label>
             </div>
@@ -885,6 +916,9 @@ function App() {
                                         <div className="etf-row">
                                           <input className="small-input" placeholder="Ticker" value={p.ticker || ''} onChange={e => updatePositionEtf(p.id, 'ticker', e.target.value.toUpperCase())} title="Code Yahoo (ex: CW8.PA)" />
                                           <input className="small-input" type="number" step="any" placeholder="Parts" value={p.quantity || ''} onChange={e => updatePositionEtf(p.id, 'quantity', e.target.value)} title="Nombre de parts" />
+                                          <button type="button" className="btn-sync-single" onClick={() => syncSingleEtf(p)} disabled={syncingId === p.id} title="Synchroniser cette ligne">
+                                            <Icon name="refresh" size={14} />
+                                          </button>
                                         </div>
                                       ) : null}
                                     </td>
