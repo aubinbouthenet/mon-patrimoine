@@ -14,21 +14,24 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700&family=Inter:wght@400;500;600;700&display=swap');
   :root {
-    --bg-dark: #050A14; --bg-card-dark: rgba(15, 23, 42, 0.4); --gold: #D4AF37; --gold-light: #F4EBD6;
+    --bg-dark: #050A14; --gold: #D4AF37; --gold-light: #F4EBD6;
     --gold-dark: #A6833C; --gold-trans: rgba(212, 175, 55, 0.15); --glow: 0 0 15px rgba(212, 175, 55, 0.2);
     --text-light: #94A3B8; --text-white: #F8FAFC; --red: #E11D48; --green: #10B981;
     --shadow-3d: 0 20px 40px -10px rgba(0, 0, 0, 0.5); --border-color: rgba(255,255,255,0.05);
-    --nav-bg: rgba(5, 10, 20, 0.95); --input-bg: rgba(0,0,0,0.2); --transition-theme: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, background-image 0.4s ease;
+    --transition-theme: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, background-image 0.4s ease;
+    
+    /* Variables par défaut, écrasées par le JS */
+    --bg-card-dark: rgba(15, 23, 42, 0.4); 
+    --nav-bg: rgba(5, 10, 20, 0.95); 
+    --input-bg: rgba(0,0,0,0.2);
   }
   body.light-theme {
-    --bg-dark: #FDFBF7; --bg-card-dark: rgba(255, 255, 255, 0.7); --gold: #B8860B; --gold-light: #5C4033;
-    --gold-dark: #8B6508; --gold-trans: rgba(184, 134, 11, 0.1); --glow: 0 4px 15px rgba(184, 134, 11, 0.15);
-    --text-light: #64748B; --text-white: #1E293B; --red: #BE123C; --green: #047857;
+    --bg-dark: #FDFBF7; --text-light: #64748B; --text-white: #1E293B; 
+    --red: #BE123C; --green: #047857;
     --shadow-3d: 0 10px 30px -10px rgba(0, 0, 0, 0.1); --border-color: rgba(0,0,0,0.05);
-    --nav-bg: rgba(253, 251, 247, 0.95); --input-bg: rgba(255,255,255,0.5);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Inter', sans-serif; background-color: var(--bg-dark); background-image: radial-gradient(circle at 50% 0%, var(--gold-trans) 0%, transparent 50%); color: var(--text-white); min-height: 100vh; overflow-x: hidden; transition: var(--transition-theme); }
+  body { font-family: 'Inter', sans-serif; background-color: var(--bg-dark); color: var(--text-white); min-height: 100vh; overflow-x: hidden; transition: var(--transition-theme); }
   h1, h2, h3, .serif { font-family: 'Playfair Display', serif; }
   @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   .animate-in { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; }
@@ -320,6 +323,7 @@ function App() {
     try { const saved = localStorage.getItem('patrimoine_draft'); return saved ? JSON.parse(saved) : {}; }
     catch(e) { return {}; }
   });
+  const [expandedSaisieEnv, setExpandedSaisieEnv] = useState(null); // Nouvel état pour le dépliage
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncingId, setSyncingId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -333,25 +337,49 @@ function App() {
   const [rebalanceAmount, setRebalanceAmount] = useState(1000);
   const [plnRate, setPlnRate] = useState(null);
 
-  // 🎨 LOGIQUE DES THÈMES DE COULEUR (ATMOSPHÈRES, FORÊT, TERRE)
+  // 🎨 LOGIQUE DES THÈMES (SABLE, FORÊT, TERRE) & HALO PLUS VISIBLE
   useEffect(() => {
     const body = document.body;
-    let theme = 'celestial';
+    let theme = 'sable';
     if (ownerFilter === 'Aubin') theme = 'forest';
     if (ownerFilter === 'Oliwia') theme = 'earth';
 
     const themes = {
-      celestial: {
-        dark: { gold: '#A8B5D6', dark: '#6F7D9E', light: '#D6DEF0', trans: 'rgba(168, 181, 214, 0.15)', glow: '0 0 15px rgba(168, 181, 214, 0.25)', bg: 'radial-gradient(circle at 50% 0%, rgba(168, 181, 214, 0.15) 0%, transparent 60%)' },
-        light: { gold: '#7A8EB8', dark: '#56678C', light: '#F0F4FA', trans: 'rgba(122, 142, 184, 0.1)', glow: '0 4px 15px rgba(122, 142, 184, 0.15)', bg: 'radial-gradient(circle at 50% 0%, rgba(122, 142, 184, 0.15) 0%, transparent 60%)' }
+      sable: {
+        dark: { 
+          gold: '#D4A373', dark: '#B87B45', light: '#F4EBD6', trans: 'rgba(212, 163, 115, 0.15)', glow: '0 0 15px rgba(212, 163, 115, 0.25)', 
+          bg: 'radial-gradient(circle at 50% 0%, rgba(212, 163, 115, 0.25) 0%, transparent 75%)',
+          card: 'rgba(30, 24, 20, 0.6)', nav: 'rgba(10, 10, 8, 0.95)', input: 'rgba(0,0,0,0.3)'
+        },
+        light: { 
+          gold: '#C08552', dark: '#9E6330', light: '#F9F6F0', trans: 'rgba(192, 133, 82, 0.1)', glow: '0 4px 15px rgba(192, 133, 82, 0.15)', 
+          bg: 'radial-gradient(circle at 50% 0%, rgba(192, 133, 82, 0.2) 0%, transparent 75%)',
+          card: 'rgba(255, 255, 255, 0.7)', nav: 'rgba(253, 251, 247, 0.95)', input: 'rgba(255,255,255,0.5)'
+        }
       },
       forest: {
-        dark: { gold: '#84A98C', dark: '#52796F', light: '#CAD2C5', trans: 'rgba(132, 169, 140, 0.15)', glow: '0 0 15px rgba(132, 169, 140, 0.25)', bg: 'radial-gradient(circle at 50% 0%, rgba(132, 169, 140, 0.15) 0%, transparent 60%)' },
-        light: { gold: '#5C8367', dark: '#3A5A42', light: '#E0E8E1', trans: 'rgba(92, 131, 103, 0.1)', glow: '0 4px 15px rgba(92, 131, 103, 0.15)', bg: 'radial-gradient(circle at 50% 0%, rgba(92, 131, 103, 0.15) 0%, transparent 60%)' }
+        dark: { 
+          gold: '#84A98C', dark: '#52796F', light: '#CAD2C5', trans: 'rgba(132, 169, 140, 0.15)', glow: '0 0 15px rgba(132, 169, 140, 0.25)', 
+          bg: 'radial-gradient(circle at 50% 0%, rgba(132, 169, 140, 0.25) 0%, transparent 75%)',
+          card: 'rgba(18, 25, 20, 0.6)', nav: 'rgba(8, 15, 10, 0.95)', input: 'rgba(0,0,0,0.3)'
+        },
+        light: { 
+          gold: '#5C8367', dark: '#3A5A42', light: '#E0E8E1', trans: 'rgba(92, 131, 103, 0.1)', glow: '0 4px 15px rgba(92, 131, 103, 0.15)', 
+          bg: 'radial-gradient(circle at 50% 0%, rgba(92, 131, 103, 0.2) 0%, transparent 75%)',
+          card: 'rgba(255, 255, 255, 0.7)', nav: 'rgba(253, 251, 247, 0.95)', input: 'rgba(255,255,255,0.5)'
+        }
       },
       earth: {
-        dark: { gold: '#D08C7A', dark: '#B06A58', light: '#F4EBE6', trans: 'rgba(208, 140, 122, 0.15)', glow: '0 0 15px rgba(208, 140, 122, 0.25)', bg: 'radial-gradient(circle at 50% 0%, rgba(208, 140, 122, 0.15) 0%, transparent 60%)' },
-        light: { gold: '#B06A58', dark: '#8E4F3E', light: '#FAEDCD', trans: 'rgba(176, 106, 88, 0.1)', glow: '0 4px 15px rgba(176, 106, 88, 0.15)', bg: 'radial-gradient(circle at 50% 0%, rgba(176, 106, 88, 0.15) 0%, transparent 60%)' }
+        dark: { 
+          gold: '#D08C7A', dark: '#B06A58', light: '#F4EBE6', trans: 'rgba(208, 140, 122, 0.15)', glow: '0 0 15px rgba(208, 140, 122, 0.25)', 
+          bg: 'radial-gradient(circle at 50% 0%, rgba(208, 140, 122, 0.25) 0%, transparent 75%)',
+          card: 'rgba(25, 18, 18, 0.6)', nav: 'rgba(15, 8, 8, 0.95)', input: 'rgba(0,0,0,0.3)'
+        },
+        light: { 
+          gold: '#B06A58', dark: '#8E4F3E', light: '#FAEDCD', trans: 'rgba(176, 106, 88, 0.1)', glow: '0 4px 15px rgba(176, 106, 88, 0.15)', 
+          bg: 'radial-gradient(circle at 50% 0%, rgba(176, 106, 88, 0.2) 0%, transparent 75%)',
+          card: 'rgba(255, 255, 255, 0.7)', nav: 'rgba(253, 251, 247, 0.95)', input: 'rgba(255,255,255,0.5)'
+        }
       }
     };
 
@@ -362,6 +390,9 @@ function App() {
     body.style.setProperty('--gold-trans', config.trans);
     body.style.setProperty('--glow', config.glow);
     body.style.setProperty('background-image', config.bg);
+    body.style.setProperty('--bg-card-dark', config.card);
+    body.style.setProperty('--nav-bg', config.nav);
+    body.style.setProperty('--input-bg', config.input);
   }, [ownerFilter, isDarkMode]);
 
   useEffect(() => { if (isDarkMode) document.body.classList.remove('light-theme'); else document.body.classList.add('light-theme'); }, [isDarkMode]);
@@ -827,14 +858,14 @@ function App() {
   const isOliwia = ownerFilter === 'Oliwia';
   const isAubin = ownerFilter === 'Aubin';
   
-  // 🎨 PALETTES DES GRAPHIQUES ÉTENDUES ET NUANCÉES
+  // PALETTES ÉTENDUES ET NUANCÉES
   const chartColors = isOliwia 
-    ? ['#D08C7A', '#E5B299', '#B5838D', '#D4A373', '#CC978E', '#E6CCB2', '#9C6644', '#DDBEA9'] // Terre : terracotta, pêche, rose ancien, ocre, argile, sable, brun
+    ? ['#D08C7A', '#E5B299', '#B5838D', '#D4A373', '#CC978E', '#E6CCB2', '#9C6644', '#DDBEA9'] // Terre
     : isAubin 
-      ? ['#84A98C', '#52796F', '#A3B18A', '#CAD2C5', '#588157', '#C2A884', '#3A5A40', '#8E9A76'] // Forêt : sauge, forêt, mousse, cendre, vert, bois, kaki
-      : ['#A8B5D6', '#C2C9DD', '#F4D4D4', '#E8D5E3', '#B5C9D6', '#D6CFE0', '#F0E5D8', '#B1C4D6']; // Céleste : lavande, bleu clair, pêche, lilas, gris bleu, lavande pale, crème
+      ? ['#84A98C', '#52796F', '#A3B18A', '#CAD2C5', '#588157', '#C2A884', '#3A5A40', '#8E9A76'] // Forêt
+      : ['#D4A373', '#E5B299', '#CC978E', '#9C6644', '#DDBEA9', '#B5838D', '#FAEDCD', '#F4A261']; // Sable
 
-  const currentThemeColor = isOliwia ? '#D08C7A' : (isAubin ? '#84A98C' : '#A8B5D6');
+  const currentThemeColor = isOliwia ? '#D08C7A' : (isAubin ? '#84A98C' : '#D4A373');
 
   const groupedForSaisie = {};
   filteredPositions.forEach(p => {
@@ -979,6 +1010,7 @@ function App() {
               <label className="btn-export" style={{flex:1, marginBottom:0, cursor: 'pointer'}}><Icon name="upload" size={16} /> Restaurer<input type="file" accept=".json" onChange={importFromJSON} style={{display: 'none'}} /></label>
             </div>
             {plnRate && (<p style={{fontSize: '0.8rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '15px'}}>Taux de change actuel : 1 EUR = {plnRate} PLN</p>)}
+            
             <button onClick={() => setShowAddForm(!showAddForm)} className="btn-sync" style={{borderColor: 'var(--text-light)', color: 'var(--text-light)', marginBottom: '15px'}}>{showAddForm ? 'Fermer le formulaire' : '+ Ajouter un nouveau compte'}</button>
             {showAddForm && (
               <form onSubmit={handleAddAccount} className="add-form open">
@@ -1000,69 +1032,86 @@ function App() {
                 <button type="submit" className="btn-gold" style={{marginTop: '10px'}}>Ajouter ce compte</button>
               </form>
             )}
+
             <form onSubmit={handleSave}>
-              <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px'}}>Mets à jour tes valeurs. Le brouillon est sauvegardé automatiquement.</p>
+              <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px'}}>Clique sur une enveloppe pour la déplier et modifier tes valeurs.</p>
+              
               {sortedSaisieEnvelopes.map(pair => {
-                const envName = pair[0]; const contractsObj = pair[1];
+                const envName = pair[0]; 
+                const contractsObj = pair[1];
                 const envTotal = Object.values(contractsObj).flat().reduce((sum, p) => sum + (Number(formValues[p.id]) || 0), 0);
+                const isExpanded = expandedSaisieEnv === envName;
+
                 return (
-                  <div className="card" key={envName} style={{padding: '20px', marginBottom: '20px'}}>
-                    <div className="update-header">
-                      <h3 className="serif" style={{fontSize: '1.2rem', color: 'var(--text-white)'}}>{envName}</h3>
+                  <div className="card" key={envName} style={{padding: '20px', marginBottom: '15px'}}>
+                    <div 
+                      className="update-header" 
+                      onClick={() => setExpandedSaisieEnv(isExpanded ? null : envName)} 
+                      style={{cursor: 'pointer', marginBottom: isExpanded ? '15px' : '0', borderBottom: isExpanded ? '1px solid var(--border-color)' : 'none', paddingBottom: isExpanded ? '10px' : '0'}}
+                    >
+                      <h3 className="serif" style={{fontSize: '1.2rem', color: 'var(--text-white)', display: 'flex', alignItems: 'center', gap: '10px'}}>
+                        <span style={{fontSize: '0.8rem', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: 'var(--gold)'}}>▶</span> 
+                        {envName}
+                      </h3>
                       <div style={{fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--gold)'}}>{Math.round(envTotal).toLocaleString('fr-FR')} €</div>
                     </div>
-                    {Object.entries(contractsObj).map(contractPair => {
-                      const baseContractName = contractPair[0];
-                      const positionsList = contractPair[1];
-                      const contractTotal = positionsList.reduce((sum, p) => sum + (Number(formValues[p.id]) || 0), 0);
-                      const isPolishAccount = baseContractName.includes('PKO') || baseContractName.includes('mBank');
-                      const displayValue = isPolishAccount && plnRate ? Math.round(contractTotal * plnRate) : Math.round(contractTotal);
-                      return (
-                        <div key={baseContractName} style={{marginTop: '10px'}}>
-                          <div className="contract-header">
-                            <span className="contract-title">{baseContractName} {isPolishAccount && <span style={{fontSize:'0.7rem', color:'var(--text-light)'}}>(en PLN)</span>}</span>
-                            {positionsList.length > 1 && (<div className="total-input-container"><span>Total :</span><input type="number" className="total-input" value={displayValue} onChange={(e) => { const newVal = Number(e.target.value); const valInEuro = isPolishAccount && plnRate ? newVal / plnRate : newVal; handleContractTotalChange(baseContractName, positionsList, valInEuro); }} /></div>)}
-                          </div>
-                          <table className="update-table">
-                            <thead><tr><th>Support</th><th>ETF / Ticker</th><th style={{textAlign: 'right'}}>Valeur (€)</th></tr></thead>
-                            <tbody>
-                              {positionsList.map(p => {
-                                const rowName = p.account_name.includes(' - ')
-                                  ? p.account_name.split(' - ')[1]
-                                  : (p.category || 'Général');
+                    
+                    {isExpanded && (
+                      <div className="animate-in">
+                        {Object.entries(contractsObj).map(contractPair => {
+                          const baseContractName = contractPair[0];
+                          const positionsList = contractPair[1];
+                          const contractTotal = positionsList.reduce((sum, p) => sum + (Number(formValues[p.id]) || 0), 0);
+                          const isPolishAccount = baseContractName.includes('PKO') || baseContractName.includes('mBank');
+                          const displayValue = isPolishAccount && plnRate ? Math.round(contractTotal * plnRate) : Math.round(contractTotal);
+                          return (
+                            <div key={baseContractName} style={{marginTop: '10px'}}>
+                              <div className="contract-header">
+                                <span className="contract-title">{baseContractName} {isPolishAccount && <span style={{fontSize:'0.7rem', color:'var(--text-light)'}}>(en PLN)</span>}</span>
+                                {positionsList.length > 1 && (<div className="total-input-container"><span>Total :</span><input type="number" className="total-input" value={displayValue} onChange={(e) => { const newVal = Number(e.target.value); const valInEuro = isPolishAccount && plnRate ? newVal / plnRate : newVal; handleContractTotalChange(baseContractName, positionsList, valInEuro); }} /></div>)}
+                              </div>
+                              <table className="update-table">
+                                <thead><tr><th>Support</th><th>ETF / Ticker</th><th style={{textAlign: 'right'}}>Valeur (€)</th></tr></thead>
+                                <tbody>
+                                  {positionsList.map(p => {
+                                    const rowName = p.account_name.includes(' - ')
+                                      ? p.account_name.split(' - ')[1]
+                                      : (p.category || 'Général');
 
-                                return (
-                                  <tr key={p.id}>
-                                    <td style={{color: 'var(--gold)'}}>
-                                      {rowName}
-                                      <div style={{fontSize: '0.65rem', color: 'var(--text-light)'}}>{p.owner} • {p.category}</div>
-                                    </td>
-                                    <td style={{textAlign: 'right'}}>
-                                      <div className="etf-row">
-                                        <input className="small-input" placeholder="Ticker" value={p.ticker || ''} onChange={e => updatePositionEtf(p.id, 'ticker', e.target.value.toUpperCase())} title="Code Yahoo (ex: CW8.PA)" />
-                                        <input className="small-input" type="number" step="any" placeholder="Parts" value={p.quantity || ''} onChange={e => updatePositionEtf(p.id, 'quantity', e.target.value)} title="Nombre de parts" />
-                                        <button type="button" className="btn-sync-single" onClick={() => syncSingleEtf(p)} disabled={syncingId === p.id} title="Synchroniser et sauvegarder">
-                                          <Icon name="refresh" size={14} />
-                                        </button>
-                                      </div>
-                                    </td>
-                                    <td style={{textAlign: 'right'}}>
-                                      <div className="input-wrapper">
-                                        <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)}>-</button>
-                                        <input type="number" step="any" value={formValues[p.id] ?? ''} onChange={e => setFormValues(prev => ({...prev, [p.id]: e.target.value}))} className="table-input" />
-                                        <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, 1000)}>+</button>
-                                        <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer"><Icon name="trash" size={16} /></button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                          <button type="button" onClick={() => handleAddEtf(envName, baseContractName, positionsList[0].owner)} style={{marginTop: '10px', background: 'none', border: '1px dashed var(--gold)', color: 'var(--gold)', padding: '8px', borderRadius: '8px', width: '100%', fontSize: '0.8rem', cursor: 'pointer'}}>+ Ajouter une ligne (Ticker)</button>
-                        </div>
-                      );
-                    })}
+                                    return (
+                                      <tr key={p.id}>
+                                        <td style={{color: 'var(--gold)'}}>
+                                          {rowName}
+                                          <div style={{fontSize: '0.65rem', color: 'var(--text-light)'}}>{p.owner} • {p.category}</div>
+                                        </td>
+                                        <td style={{textAlign: 'right'}}>
+                                          <div className="etf-row">
+                                            <input className="small-input" placeholder="Ticker" value={p.ticker || ''} onChange={e => updatePositionEtf(p.id, 'ticker', e.target.value.toUpperCase())} title="Code Yahoo (ex: CW8.PA)" />
+                                            <input className="small-input" type="number" step="any" placeholder="Parts" value={p.quantity || ''} onChange={e => updatePositionEtf(p.id, 'quantity', e.target.value)} title="Nombre de parts" />
+                                            <button type="button" className="btn-sync-single" onClick={() => syncSingleEtf(p)} disabled={syncingId === p.id} title="Synchroniser et sauvegarder">
+                                              <Icon name="refresh" size={14} />
+                                            </button>
+                                          </div>
+                                        </td>
+                                        <td style={{textAlign: 'right'}}>
+                                          <div className="input-wrapper">
+                                            <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)}>-</button>
+                                            <input type="number" step="any" value={formValues[p.id] ?? ''} onChange={e => setFormValues(prev => ({...prev, [p.id]: e.target.value}))} className="table-input" />
+                                            <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, 1000)}>+</button>
+                                            <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer"><Icon name="trash" size={16} /></button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                              <button type="button" onClick={() => handleAddEtf(envName, baseContractName, positionsList[0].owner)} style={{marginTop: '10px', background: 'none', border: '1px dashed var(--gold)', color: 'var(--gold)', padding: '8px', borderRadius: '8px', width: '100%', fontSize: '0.8rem', cursor: 'pointer'}}>+ Ajouter une ligne (Ticker)</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}
