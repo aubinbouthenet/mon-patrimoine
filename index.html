@@ -50,8 +50,8 @@
   .btn-theme { background: none; border: none; cursor: pointer; color: var(--text-light); display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: 50%; }
   .btn-logout { background: none; border: none; color: var(--text-light); font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
   .filters-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;}
-  .owner-filter { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; }
-  .owner-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-light); padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.3s; }
+  .owner-filter { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; width: 100%; }
+  .owner-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-light); padding: 8px 16px; border-radius: 30px; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.3s; flex: 1; text-align: center; }
   .owner-btn.active { background: var(--gold); color: #fff; border-color: var(--gold); }
   .pro-toggle { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--text-light); cursor: pointer; background: var(--gold-trans); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border-color); }
   .pro-toggle input { accent-color: var(--gold); }
@@ -94,7 +94,8 @@
   .total-input-container span { font-size: 0.8rem; color: var(--gold); }
   .total-input { width: 100px; background: transparent; border: none; color: var(--gold); font-weight: bold; font-size: 1rem; text-align: right; outline: none; }
   .contract-header { display: flex; justify-content: space-between; align-items: center; margin-top: 15px; margin-bottom: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); }
-  .contract-title { font-size: 0.95rem; color: var(--text-white); font-weight: 500; }
+  .contract-title { font-size: 0.95rem; color: var(--text-white); font-weight: 500; display: flex; align-items: center; gap: 8px;}
+  .btn-edit-name { background: none; border: none; color: var(--text-light); cursor: pointer; font-size: 1rem; padding: 4px; }
   
   .update-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
   .update-table th { text-align: left; font-size: 0.65rem; color: var(--text-light); text-transform: uppercase; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); }
@@ -142,6 +143,12 @@
   .log-content strong { color: var(--gold); }
   .btn-delete-history { background: var(--red); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
   
+  .color-picker-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
+  .color-picker-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .color-input { -webkit-appearance: none; border: none; width: 32px; height: 32px; border-radius: 8px; padding: 0; cursor: pointer; background: transparent; }
+  .color-input::-webkit-color-swatch-wrapper { padding: 0; }
+  .color-input::-webkit-color-swatch { border: 2px solid var(--border-color); border-radius: 8px; }
+
   .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 75px; background: var(--nav-bg); backdrop-filter: blur(20px); border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; align-items: center; z-index: 100; padding: 0 10px; transition: var(--transition-theme); }
   .nav-item { display: flex; flex-direction: column; align-items: center; gap: 5px; background: none; border: none; cursor: pointer; color: var(--text-light); }
   .nav-item.active { color: var(--gold); }
@@ -276,15 +283,24 @@ const HistoryChart = memo(({ history, color }) => {
   return <div className="history-chart-container"><canvas ref={chartRef}></canvas></div>;
 });
 
-const DonutChart = memo(({ sortedData, colors }) => {
+const DonutChart = memo(({ sortedData, customColors, isOliwia, isAubin }) => {
   const chartRef = useRef(null);
   useEffect(() => {
     if (!chartRef.current || sortedData.length === 0) return;
     const ctx = chartRef.current.getContext('2d');
     const existing = Chart.getChart(ctx.canvas);
     if (existing) existing.destroy();
-    new Chart(ctx, { type: 'doughnut', data: { labels: sortedData.map(d => d[0]), datasets: [{ data: sortedData.map(d => d[1]), backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '80%', animation: { animateScale: true, animateRotate: true }, plugins: { legend: { display: false }, tooltip: { enabled: false } } } });
-  }, [sortedData, colors]);
+
+    const defaultPalette = isOliwia 
+      ? ['#D08C7A', '#E5B299', '#B5838D', '#D4A373', '#CC978E', '#E6CCB2', '#9C6644', '#DDBEA9'] // Terre
+      : isAubin 
+        ? ['#84A98C', '#52796F', '#A3B18A', '#CAD2C5', '#588157', '#C2A884', '#3A5A40', '#8E9A76'] // Forêt
+        : ['#E9C46A', '#2A9D8F', '#E76F51', '#264653', '#F4A261', '#8AB17D', '#457B9D', '#D4A373']; // Sable
+
+    const finalColors = sortedData.map((d, i) => customColors[d[0]] || defaultPalette[i % defaultPalette.length]);
+
+    new Chart(ctx, { type: 'doughnut', data: { labels: sortedData.map(d => d[0]), datasets: [{ data: sortedData.map(d => d[1]), backgroundColor: finalColors, borderWidth: 0, hoverOffset: 4 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '80%', animation: { animateScale: true, animateRotate: true }, plugins: { legend: { display: false }, tooltip: { enabled: false } } } });
+  }, [sortedData, customColors, isOliwia, isAubin]);
   return <div className="chart-donut"><canvas ref={chartRef}></canvas></div>;
 });
 
@@ -318,6 +334,12 @@ function App() {
   const [ownerFilter, setOwnerFilter] = useState('Tous');
   const [showPro, setShowPro] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  
+  const [saisieOwner, setSaisieOwner] = useState('Aubin');
+  const [customColors, setCustomColors] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('customChartColors')) || {}; } catch(e) { return {}; }
+  });
+
   const [formValues, setFormValues] = useState(() => {
     try { const saved = localStorage.getItem('patrimoine_draft'); return saved ? JSON.parse(saved) : {}; }
     catch(e) { return {}; }
@@ -335,6 +357,10 @@ function App() {
   const [showRebalance, setShowRebalance] = useState(false);
   const [rebalanceAmount, setRebalanceAmount] = useState(1000);
   const [plnRate, setPlnRate] = useState(null);
+
+  useEffect(() => {
+    localStorage.setItem('customChartColors', JSON.stringify(customColors));
+  }, [customColors]);
 
   // 🎨 LOGIQUE DES THÈMES (SABLE AVEC CONTRASTE, FORÊT, TERRE)
   useEffect(() => {
@@ -585,6 +611,22 @@ function App() {
       alert(`Erreur : Impossible de récupérer le cours pour ${p.ticker}\n\nVérifie que le code est correct (ex: VWCE.DE, CW8.PA).`);
     }
     setSyncingId(null);
+  }
+
+  async function handleRenamePosition(p) {
+    const isMultiLine = p.account_name.includes(' - ');
+    const currentName = isMultiLine ? p.account_name.split(' - ')[1] : p.account_name;
+    const newName = prompt("Renommer le support :", currentName);
+    if (!newName || newName === currentName) return;
+    
+    const baseName = isMultiLine ? p.account_name.split(' - ')[0] : p.account_name;
+    const finalName = isMultiLine ? baseName + ' - ' + newName : newName;
+
+    setLoading(true);
+    const { error } = await supabase.from('positions').update({ account_name: finalName }).match({ owner: p.owner, envelope: p.envelope, account_name: p.account_name, category: p.category });
+    if (error) alert("Erreur : " + error.message);
+    else { fetchPositions(); fetchHistory(); }
+    setLoading(false);
   }
 
   async function handleAddEtf(envName, contractName, ownerName) {
@@ -858,17 +900,13 @@ function App() {
   const isOliwia = ownerFilter === 'Oliwia';
   const isAubin = ownerFilter === 'Aubin';
   
-  // 🎨 PALETTES DES GRAPHIQUES : COULEURS COMPLÉMENTAIRES POUR LE SABLE
-  const chartColors = isOliwia 
-    ? ['#D08C7A', '#E5B299', '#B5838D', '#D4A373', '#CC978E', '#E6CCB2', '#9C6644', '#DDBEA9'] // Terre
-    : isAubin 
-      ? ['#84A98C', '#52796F', '#A3B18A', '#CAD2C5', '#588157', '#C2A884', '#3A5A40', '#8E9A76'] // Forêt
-      : ['#E9C46A', '#2A9D8F', '#E76F51', '#264653', '#F4A261', '#8AB17D', '#457B9D', '#D4A373']; // Sable + Teal + Orange + Navy (Fort contraste)
-
   const currentThemeColor = isOliwia ? '#D08C7A' : (isAubin ? '#84A98C' : '#E9C46A');
 
+  // FILTRAGE SPÉCIFIQUE POUR LA SAISIE
+  const saisiePositions = positions.filter(p => p.owner === saisieOwner && (showPro || !p.is_professional));
+  
   const groupedForSaisie = {};
-  filteredPositions.forEach(p => {
+  saisiePositions.forEach(p => {
     const baseName = p.account_name.split(' - ')[0];
     if (!groupedForSaisie[p.envelope]) groupedForSaisie[p.envelope] = {};
     if (!groupedForSaisie[p.envelope][baseName]) groupedForSaisie[p.envelope][baseName] = [];
@@ -953,13 +991,19 @@ function App() {
               <div className="card animate-in delay-2">
                 <div className="ap-label" style={{marginBottom: '15px'}}>Allocation par Catégorie</div>
                 <div className="allocation-container">
-                  <DonutChart sortedData={sortedChartData} colors={chartColors} />
+                  <DonutChart sortedData={sortedChartData} customColors={customColors} isOliwia={isOliwia} isAubin={isAubin} />
                   <div className="legend-custom">
                     {sortedChartData.map((entry, i) => {
                       const name = entry[0]; const value = entry[1];
                       const total = sortedChartData.reduce((a, b) => a + b[1], 0);
                       const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
-                      return (<div key={name} className="legend-item"><span className="legend-name"><span className="legend-color" style={{background: chartColors[i % chartColors.length]}}></span>{name}</span><span className="legend-percent">{pct}%</span></div>);
+                      const defaultPalette = isOliwia 
+                        ? ['#D08C7A', '#E5B299', '#B5838D', '#D4A373', '#CC978E', '#E6CCB2', '#9C6644', '#DDBEA9']
+                        : isAubin 
+                          ? ['#84A98C', '#52796F', '#A3B18A', '#CAD2C5', '#588157', '#C2A884', '#3A5A40', '#8E9A76']
+                          : ['#E9C46A', '#2A9D8F', '#E76F51', '#264653', '#F4A261', '#8AB17D', '#457B9D', '#D4A373'];
+                      const dotColor = customColors[name] || defaultPalette[i % defaultPalette.length];
+                      return (<div key={name} className="legend-item"><span className="legend-name"><span className="legend-color" style={{background: dotColor}}></span>{name}</span><span className="legend-percent">{pct}%</span></div>);
                     })}
                   </div>
                 </div>
@@ -1004,6 +1048,14 @@ function App() {
         
         {view === 'saisie' && (
           <div className="animate-in">
+            <div className="filters-container" style={{marginBottom: '15px'}}>
+              <div className="owner-filter">
+                {['Aubin', 'Oliwia'].map(owner => (
+                  <button key={owner} className={'owner-btn ' + (saisieOwner === owner ? 'active' : '')} onClick={() => { setSaisieOwner(owner); setOwnerFilter(owner); }}>{owner}</button>
+                ))}
+              </div>
+            </div>
+
             <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
               <button type="button" onClick={syncYahooAll} disabled={syncLoading} className="btn-sync" style={{flex:1, marginBottom:0}}><Icon name="refresh" size={16} /> {syncLoading ? 'Sync...' : 'Sync Tout'}</button>
               <button type="button" onClick={exportToJSON} className="btn-export" style={{flex:1, marginBottom:0}}><Icon name="download" size={16} /> Sauvegarde</button>
@@ -1011,7 +1063,7 @@ function App() {
             </div>
             {plnRate && (<p style={{fontSize: '0.8rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '15px'}}>Taux de change actuel : 1 EUR = {plnRate} PLN</p>)}
             
-            <button onClick={() => setShowAddForm(!showAddForm)} className="btn-sync" style={{borderColor: 'var(--text-light)', color: 'var(--text-light)', marginBottom: '15px'}}>{showAddForm ? 'Fermer le formulaire' : '+ Ajouter un nouveau compte'}</button>
+            <button onClick={() => setShowAddForm(!showAddForm)} className="btn-sync" style={{borderColor: 'var(--text-light)', color: 'var(--text-light)', marginBottom: '15px'}}>{showAddForm ? 'Fermer le formulaire' : '+ Ajouter un nouveau compte pour ' + saisieOwner}</button>
             {showAddForm && (
               <form onSubmit={handleAddAccount} className="add-form open">
                 <div className="add-form-grid">
@@ -1036,6 +1088,10 @@ function App() {
             <form onSubmit={handleSave}>
               <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px'}}>Clique sur une enveloppe pour la déplier et modifier tes valeurs.</p>
               
+              {sortedSaisieEnvelopes.length === 0 && (
+                <p style={{color: 'var(--text-light)', textAlign: 'center', padding: '20px'}}>Aucun compte enregistré pour {saisieOwner}.</p>
+              )}
+
               {sortedSaisieEnvelopes.map(pair => {
                 const envName = pair[0]; 
                 const contractsObj = pair[1];
@@ -1081,7 +1137,10 @@ function App() {
                                     return (
                                       <tr key={p.id}>
                                         <td style={{color: 'var(--gold)'}}>
-                                          {rowName}
+                                          <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
+                                            {rowName}
+                                            <button type="button" className="btn-edit-name" onClick={() => handleRenamePosition(p)} title="Renommer ce support">✏️</button>
+                                          </div>
                                           <div style={{fontSize: '0.65rem', color: 'var(--text-light)'}}>{p.owner} • {p.category}</div>
                                         </td>
                                         <td style={{textAlign: 'right'}}>
@@ -1117,6 +1176,31 @@ function App() {
               })}
               {positions.length > 0 && (<button type="submit" disabled={loading} className="btn-gold" style={{marginTop: '10px', marginBottom: '30px'}}>{loading ? 'Enregistrement...' : 'Enregistrer les modifications'}</button>)}
             </form>
+
+            {/* 🎨 PERSONNALISATION DES COULEURS */}
+            {sortedChartData.length > 0 && (
+              <div className="card animate-in delay-3" style={{marginTop: '20px'}}>
+                <div className="ap-label" style={{marginBottom: '15px'}}>Apparence des graphiques</div>
+                <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '15px'}}>
+                  Personnalise les couleurs de tes catégories pour le graphique en camembert (sauvegardé sur cet appareil).
+                </p>
+                {sortedChartData.map(d => {
+                  const catName = d[0];
+                  const defaultColor = '#888888'; // Fallback
+                  return (
+                    <div key={catName} className="color-picker-row">
+                      <span style={{fontSize: '0.9rem', color: 'var(--text-white)'}}>{catName}</span>
+                      <input 
+                        type="color" 
+                        className="color-input" 
+                        value={customColors[catName] || defaultColor} 
+                        onChange={(e) => setCustomColors({...customColors, [catName]: e.target.value})} 
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
         {view === 'projection' && (
