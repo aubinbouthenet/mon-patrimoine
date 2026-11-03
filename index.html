@@ -216,6 +216,7 @@ try {
 const { useState, useEffect, useRef, useMemo, memo } = React;
 const SUPABASE_URL = 'https://geykxuqyspwzocvwzqjj.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AsJvkk-erLkE5-pUbxiNnw_h2mmuuRN';
+const USER_EMAIL = 'admin@patrimoine.app';
 
 if (!window.supabase) throw new Error('Supabase CDN absent');
 
@@ -336,9 +337,13 @@ function App() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   
   const [saisieOwner, setSaisieOwner] = useState('Aubin');
+  
+  // 🎨 INITIALISATION DES PRÉFÉRENCES (Chargées depuis Supabase)
   const [customColors, setCustomColors] = useState(() => {
     try { return JSON.parse(localStorage.getItem('customChartColors')) || {}; } catch(e) { return {}; }
   });
+  const [fireEpargne, setFireEpargne] = useState(1500);
+  const [fireRendement, setFireRendement] = useState(7);
 
   const [formValues, setFormValues] = useState(() => {
     try { const saved = localStorage.getItem('patrimoine_draft'); return saved ? JSON.parse(saved) : {}; }
@@ -349,18 +354,12 @@ function App() {
   const [syncingId, setSyncingId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newAccount, setNewAccount] = useState({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', value_eur: '', is_liability: false, is_professional: false });
-  const [fireEpargne, setFireEpargne] = useState(1500);
-  const [fireRendement, setFireRendement] = useState(7);
   const [targets, setTargets] = useState({});
   const [editTargetsMode, setEditTargetsMode] = useState(false);
   const [tempTargets, setTempTargets] = useState({});
   const [showRebalance, setShowRebalance] = useState(false);
   const [rebalanceAmount, setRebalanceAmount] = useState(1000);
   const [plnRate, setPlnRate] = useState(null);
-
-  useEffect(() => {
-    localStorage.setItem('customChartColors', JSON.stringify(customColors));
-  }, [customColors]);
 
   // 🎨 LOGIQUE DES THÈMES (SABLE AVEC CONTRASTE, FORÊT, TERRE)
   useEffect(() => {
@@ -422,12 +421,67 @@ function App() {
   }, [ownerFilter, isDarkMode]);
 
   useEffect(() => { if (isDarkMode) document.body.classList.remove('light-theme'); else document.body.classList.add('light-theme'); }, [isDarkMode]);
+  
+  // Sauvegarde locale (Backup) et Supabase
   useEffect(() => {
-    try { if (Object.keys(formValues).length > 0) localStorage.setItem('patrimoine_draft', JSON.stringify(formValues)); }
-    catch(e) {}
+    try { if (Object.keys(formValues).length > 0) localStorage.setItem('patrimoine_draft', JSON.stringify(formValues)); } catch(e) {}
   }, [formValues]);
+
+  // Chargement initial des données Supabase
   useEffect(() => { supabase.auth.getSession().then(({ data }) => setSession(data.session || null)).catch(() => {}); }, []);
-  useEffect(() => { if (session) { fetchPositions(); fetchHistory(); fetchTargets(); fetchLogs(); fetchPlnRate(); } }, [session, ownerFilter]);
+  
+  useEffect(() => { 
+    if (session) { 
+      fetchPreferences();
+      fetchPositions(); 
+      fetchHistory(); 
+      fetchTargets(); 
+      fetchLogs(); 
+      fetchPlnRate(); 
+    } 
+  }, [session, ownerFilter]);
+
+  // Sauvegarde automatique des préférences dans Supabase
+  async function savePreferences(newColors, newFireParams) {
+    if (!session) return;
+    const payload = {
+      user_email: USER_EMAIL,
+      chart_colors: newColors !== undefined ? newColors : customColors,
+      fire_params: newFireParams !== undefined ? newFireParams : { epargne: fireEpargne, rendement: fireRendement },
+      updated_at: new Date().toISOString()
+    };
+    try {
+      await supabase.from('user_preferences').upsert([payload], { onConflict: 'user_email' });
+    } catch (e) { console.warn("Erreur sauvegarde préférences", e); }
+  }
+
+  async function fetchPreferences() {
+    try {
+      const { data, error } = await supabase.from('user_preferences').select('*').eq('user_email', USER_EMAIL).single();
+      if (!error && data) {
+        if (data.chart_colors) setCustomColors(data.chart_colors);
+        if (data.fire_params) {
+          if (data.fire_params.epargne !== undefined) setFireEpargne(data.fire_params.epargne);
+          if (data.fire_params.rendement !== undefined) setFireRendement(data.fire_params.rendement);
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Mise à jour des couleurs avec sauvegarde Supabase
+  const updateCustomColor = (catName, color) => {
+    const newColors = { ...customColors, [catName]: color };
+    setCustomColors(newColors);
+    try { localStorage.setItem('customChartColors', JSON.stringify(newColors)); } catch(e) {}
+    savePreferences(newColors, undefined);
+  };
+
+  // Mise à jour FIRE avec sauvegarde Supabase
+  const updateFireSettings = (newEp, newRen) => {
+    setFireEpargne(newEp);
+    setFireRendement(newRen);
+    savePreferences(undefined, { epargne: newEp, rendement: newRen });
+  };
 
   async function fetchPlnRate() {
     try { const res = await fetch('https://api.frankfurter.app/latest?from=EUR&to=PLN'); const data = await res.json(); if (data && data.rates && data.rates.PLN) setPlnRate(data.rates.PLN); } catch (err) {}
@@ -710,7 +764,7 @@ function App() {
   async function handleLogin(e) {
     e.preventDefault();
     setLoading(true); setError('');
-    const { error } = await supabase.auth.signInWithPassword({ email: 'admin@patrimoine.app', password: password });
+    const { error } = await supabase.auth.signInWithPassword({ email: USER_EMAIL, password: password });
     if (error) setError('Mot de passe incorrect');
     setLoading(false);
   }
@@ -1182,7 +1236,7 @@ function App() {
               <div className="card animate-in delay-3" style={{marginTop: '20px'}}>
                 <div className="ap-label" style={{marginBottom: '15px'}}>Apparence des graphiques</div>
                 <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '15px'}}>
-                  Personnalise les couleurs de tes catégories pour le graphique en camembert (sauvegardé sur cet appareil).
+                  Personnalise les couleurs de tes catégories pour le graphique en camembert (sauvegardé sur ton compte).
                 </p>
                 {sortedChartData.map(d => {
                   const catName = d[0];
@@ -1194,7 +1248,7 @@ function App() {
                         type="color" 
                         className="color-input" 
                         value={customColors[catName] || defaultColor} 
-                        onChange={(e) => setCustomColors({...customColors, [catName]: e.target.value})} 
+                        onChange={(e) => updateCustomColor(catName, e.target.value)} 
                       />
                     </div>
                   );
@@ -1209,11 +1263,11 @@ function App() {
               <div className="ap-label" style={{marginBottom: '20px'}}>Simulateur FIRE</div>
               <div className="slider-container">
                 <div className="slider-header"><span className="slider-label">Épargne mensuelle</span><span className="slider-value">{Number(fireEpargne).toLocaleString('fr-FR')} €</span></div>
-                <input type="range" min="0" max="20000" step="100" value={fireEpargne} onChange={e => setFireEpargne(e.target.value)} />
+                <input type="range" min="0" max="20000" step="100" value={fireEpargne} onChange={e => updateFireSettings(Number(e.target.value), fireRendement)} />
               </div>
               <div className="slider-container">
                 <div className="slider-header"><span className="slider-label">Rendement annuel estimé</span><span className="slider-value">{fireRendement} %</span></div>
-                <input type="range" min="1" max="15" step="0.5" value={fireRendement} onChange={e => setFireRendement(e.target.value)} />
+                <input type="range" min="1" max="15" step="0.5" value={fireRendement} onChange={e => updateFireSettings(fireEpargne, Number(e.target.value))} />
               </div>
               <FireChart data={fireData} color={currentThemeColor} />
               <div className="fire-result">
