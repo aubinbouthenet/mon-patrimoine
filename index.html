@@ -46,7 +46,7 @@
   .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 25px 0; }
   .header h2 { font-size: 1.5rem; color: var(--text-white); }
   .header-actions { display: flex; gap: 15px; align-items: center; }
-  .btn-theme { background: none; border: none; cursor: pointer; color: var(--text-light); display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: 50%; }
+  .btn-theme, .btn-eye { background: none; border: none; cursor: pointer; color: var(--text-light); display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: 50%; }
   .btn-logout { background: none; border: none; color: var(--text-light); font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
   .filters-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;}
   .owner-filter { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; width: 100%; }
@@ -260,6 +260,8 @@ const Icon = ({ name, size = 24 }) => {
     book: <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 1 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z" />,
     sun: <><circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" /></>,
     moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />,
+    eye: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></>,
+    eyeOff: <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></>,
     trash: <><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></>,
     refresh: <><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></>,
     download: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />,
@@ -268,7 +270,7 @@ const Icon = ({ name, size = 24 }) => {
   return <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icons[name]}</svg>;
 };
 
-const HistoryChart = memo(({ history, color }) => {
+const HistoryChart = memo(({ history, color, hideBalances }) => {
   const chartRef = useRef(null);
   useEffect(() => {
     if (!chartRef.current || !history || history.length === 0) return;
@@ -280,8 +282,8 @@ const HistoryChart = memo(({ history, color }) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, 180);
     gradient.addColorStop(0, color + '44');
     gradient.addColorStop(1, color + '00');
-    new Chart(ctx, { type: 'line', data: { labels, datasets: [{ data: dataPoints, borderColor: color, borderWidth: 2, backgroundColor: gradient, fill: true, tension: 0.3, pointRadius: history.length === 1 ? 4 : 0, pointHoverRadius: 5 }] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 800, easing: 'easeOutQuart' }, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { enabled: true, callbacks: { label: (ctx) => ctx.parsed.y.toLocaleString('fr-FR') + ' €' } } }, scales: { x: { display: false }, y: { display: false } } } });
-  }, [history, color]);
+    new Chart(ctx, { type: 'line', data: { labels, datasets: [{ data: dataPoints, borderColor: color, borderWidth: 2, backgroundColor: gradient, fill: true, tension: 0.3, pointRadius: history.length === 1 ? 4 : 0, pointHoverRadius: 5 }] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 800, easing: 'easeOutQuart' }, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { enabled: !hideBalances, callbacks: { label: (ctx) => ctx.parsed.y.toLocaleString('fr-FR') + ' €' } } }, scales: { x: { display: false }, y: { display: false } } } });
+  }, [history, color, hideBalances]);
   return <div className="history-chart-container"><canvas ref={chartRef}></canvas></div>;
 });
 
@@ -294,10 +296,10 @@ const DonutChart = memo(({ sortedData, customColors, isOliwia, isAubin }) => {
     if (existing) existing.destroy();
 
     const defaultPalette = isOliwia 
-      ? ['#D08C7A', '#E5B299', '#B5838D', '#D4A373', '#CC978E', '#E6CCB2', '#9C6644', '#DDBEA9'] // Terre
+      ? ['#D08C7A', '#E5B299', '#B5838D', '#D4A373', '#CC978E', '#E6CCB2', '#9C6644', '#DDBEA9'] 
       : isAubin 
-        ? ['#84A98C', '#52796F', '#A3B18A', '#CAD2C5', '#588157', '#C2A884', '#3A5A40', '#8E9A76'] // Forêt
-        : ['#E9C46A', '#2A9D8F', '#E76F51', '#264653', '#F4A261', '#8AB17D', '#457B9D', '#D4A373']; // Sable
+        ? ['#84A98C', '#52796F', '#A3B18A', '#CAD2C5', '#588157', '#C2A884', '#3A5A40', '#8E9A76'] 
+        : ['#E9C46A', '#2A9D8F', '#E76F51', '#264653', '#F4A261', '#8AB17D', '#457B9D', '#D4A373'];
 
     const finalColors = sortedData.map((d, i) => customColors[d[0]] || defaultPalette[i % defaultPalette.length]);
 
@@ -306,7 +308,7 @@ const DonutChart = memo(({ sortedData, customColors, isOliwia, isAubin }) => {
   return <div className="chart-donut"><canvas ref={chartRef}></canvas></div>;
 });
 
-const FireChart = memo(({ data, color }) => {
+const FireChart = memo(({ data, color, hideBalances }) => {
   const chartRef = useRef(null);
   useEffect(() => {
     if (!chartRef.current || data.length === 0) return;
@@ -318,8 +320,8 @@ const FireChart = memo(({ data, color }) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, 200);
     gradient.addColorStop(0, color + '44');
     gradient.addColorStop(1, color + '00');
-    new Chart(ctx, { type: 'line', data: { labels, datasets: [{ data: dataPoints, borderColor: color, borderWidth: 3, backgroundColor: gradient, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 1000 }, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { enabled: true, callbacks: { label: (ctx) => Math.round(ctx.parsed.y).toLocaleString('fr-FR') + ' €' } } }, scales: { x: { display: false }, y: { display: false } } } });
-  }, [data, color]);
+    new Chart(ctx, { type: 'line', data: { labels, datasets: [{ data: dataPoints, borderColor: color, borderWidth: 3, backgroundColor: gradient, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 1000 }, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { enabled: !hideBalances, callbacks: { label: (ctx) => Math.round(ctx.parsed.y).toLocaleString('fr-FR') + ' €' } } }, scales: { x: { display: false }, y: { display: false } } } });
+  }, [data, color, hideBalances]);
   return <div className="history-chart-container" style={{height: '200px'}}><canvas ref={chartRef}></canvas></div>;
 });
 
@@ -337,12 +339,12 @@ function App() {
   const [showPro, setShowPro] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   
+  // Confidentiel & Préférences
+  const [hideBalances, setHideBalances] = useState(false);
   const [saisieOwner, setSaisieOwner] = useState('Aubin');
-  
   const [customColors, setCustomColors] = useState(() => {
     try { return JSON.parse(localStorage.getItem('customChartColors')) || {}; } catch(e) { return {}; }
   });
-  
   const [fireEpargne, setFireEpargne] = useState(1500);
   const [fireRendement, setFireRendement] = useState(7);
   const [saveTimeout, setSaveTimeout] = useState(null);
@@ -363,6 +365,12 @@ function App() {
   const [rebalanceAmount, setRebalanceAmount] = useState(1000);
   const [plnRate, setPlnRate] = useState(null);
 
+  // Helper pour formater l'argent
+  const formatMoney = (value, decimals = 0) => {
+    if (hideBalances) return '••••••';
+    return Number(value).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: decimals });
+  };
+
   useEffect(() => {
     const body = document.body;
     let theme = 'sable';
@@ -371,40 +379,16 @@ function App() {
 
     const themes = {
       sable: {
-        dark: { 
-          gold: '#E9C46A', dark: '#D4A373', light: '#F4EBD6', trans: 'rgba(233, 196, 106, 0.15)', glow: '0 0 15px rgba(233, 196, 106, 0.3)', 
-          bg: 'radial-gradient(circle at 50% 0%, rgba(233, 196, 106, 0.15) 0%, rgba(42, 157, 143, 0.08) 50%, transparent 80%)',
-          card: 'rgba(25, 28, 30, 0.85)', nav: 'rgba(15, 17, 18, 0.98)', input: 'rgba(0,0,0,0.4)', border: 'rgba(255, 255, 255, 0.12)'
-        },
-        light: { 
-          gold: '#C08552', dark: '#9E6330', light: '#F9F6F0', trans: 'rgba(192, 133, 82, 0.15)', glow: '0 4px 15px rgba(192, 133, 82, 0.2)', 
-          bg: 'radial-gradient(circle at 50% 0%, rgba(233, 196, 106, 0.3) 0%, rgba(42, 157, 143, 0.15) 50%, transparent 80%)',
-          card: 'rgba(255, 255, 255, 0.95)', nav: 'rgba(249, 246, 240, 0.98)', input: 'rgba(255,255,255,0.6)', border: 'rgba(0, 0, 0, 0.1)'
-        }
+        dark: { gold: '#E9C46A', dark: '#D4A373', light: '#F4EBD6', trans: 'rgba(233, 196, 106, 0.15)', glow: '0 0 15px rgba(233, 196, 106, 0.3)', bg: 'radial-gradient(circle at 50% 0%, rgba(233, 196, 106, 0.15) 0%, rgba(42, 157, 143, 0.08) 50%, transparent 80%)', card: 'rgba(25, 28, 30, 0.85)', nav: 'rgba(15, 17, 18, 0.98)', input: 'rgba(0,0,0,0.4)', border: 'rgba(255, 255, 255, 0.12)' },
+        light: { gold: '#C08552', dark: '#9E6330', light: '#F9F6F0', trans: 'rgba(192, 133, 82, 0.15)', glow: '0 4px 15px rgba(192, 133, 82, 0.2)', bg: 'radial-gradient(circle at 50% 0%, rgba(233, 196, 106, 0.3) 0%, rgba(42, 157, 143, 0.15) 50%, transparent 80%)', card: 'rgba(255, 255, 255, 0.95)', nav: 'rgba(249, 246, 240, 0.98)', input: 'rgba(255,255,255,0.6)', border: 'rgba(0, 0, 0, 0.1)' }
       },
       forest: {
-        dark: { 
-          gold: '#84A98C', dark: '#52796F', light: '#CAD2C5', trans: 'rgba(132, 169, 140, 0.15)', glow: '0 0 15px rgba(132, 169, 140, 0.3)', 
-          bg: 'radial-gradient(circle at 50% 0%, rgba(132, 169, 140, 0.25) 0%, transparent 75%)',
-          card: 'rgba(18, 25, 20, 0.8)', nav: 'rgba(8, 15, 10, 0.98)', input: 'rgba(0,0,0,0.3)', border: 'rgba(255, 255, 255, 0.08)'
-        },
-        light: { 
-          gold: '#5C8367', dark: '#3A5A42', light: '#E0E8E1', trans: 'rgba(92, 131, 103, 0.15)', glow: '0 4px 15px rgba(92, 131, 103, 0.2)', 
-          bg: 'radial-gradient(circle at 50% 0%, rgba(92, 131, 103, 0.25) 0%, transparent 75%)',
-          card: 'rgba(255, 255, 255, 0.9)', nav: 'rgba(253, 251, 247, 0.98)', input: 'rgba(255,255,255,0.6)', border: 'rgba(0,0,0,0.08)'
-        }
+        dark: { gold: '#84A98C', dark: '#52796F', light: '#CAD2C5', trans: 'rgba(132, 169, 140, 0.15)', glow: '0 0 15px rgba(132, 169, 140, 0.3)', bg: 'radial-gradient(circle at 50% 0%, rgba(132, 169, 140, 0.25) 0%, transparent 75%)', card: 'rgba(18, 25, 20, 0.8)', nav: 'rgba(8, 15, 10, 0.98)', input: 'rgba(0,0,0,0.3)', border: 'rgba(255, 255, 255, 0.08)' },
+        light: { gold: '#5C8367', dark: '#3A5A42', light: '#E0E8E1', trans: 'rgba(92, 131, 103, 0.15)', glow: '0 4px 15px rgba(92, 131, 103, 0.2)', bg: 'radial-gradient(circle at 50% 0%, rgba(92, 131, 103, 0.25) 0%, transparent 75%)', card: 'rgba(255, 255, 255, 0.9)', nav: 'rgba(253, 251, 247, 0.98)', input: 'rgba(255,255,255,0.6)', border: 'rgba(0,0,0,0.08)' }
       },
       earth: {
-        dark: { 
-          gold: '#D08C7A', dark: '#B06A58', light: '#F4EBE6', trans: 'rgba(208, 140, 122, 0.15)', glow: '0 0 15px rgba(208, 140, 122, 0.3)', 
-          bg: 'radial-gradient(circle at 50% 0%, rgba(208, 140, 122, 0.25) 0%, transparent 75%)',
-          card: 'rgba(25, 18, 18, 0.8)', nav: 'rgba(15, 8, 8, 0.98)', input: 'rgba(0,0,0,0.3)', border: 'rgba(255, 255, 255, 0.08)'
-        },
-        light: { 
-          gold: '#B06A58', dark: '#8E4F3E', light: '#FAEDCD', trans: 'rgba(176, 106, 88, 0.15)', glow: '0 4px 15px rgba(176, 106, 88, 0.2)', 
-          bg: 'radial-gradient(circle at 50% 0%, rgba(176, 106, 88, 0.25) 0%, transparent 75%)',
-          card: 'rgba(255, 255, 255, 0.9)', nav: 'rgba(253, 251, 247, 0.98)', input: 'rgba(255,255,255,0.6)', border: 'rgba(0,0,0,0.08)'
-        }
+        dark: { gold: '#D08C7A', dark: '#B06A58', light: '#F4EBE6', trans: 'rgba(208, 140, 122, 0.15)', glow: '0 0 15px rgba(208, 140, 122, 0.3)', bg: 'radial-gradient(circle at 50% 0%, rgba(208, 140, 122, 0.25) 0%, transparent 75%)', card: 'rgba(25, 18, 18, 0.8)', nav: 'rgba(15, 8, 8, 0.98)', input: 'rgba(0,0,0,0.3)', border: 'rgba(255, 255, 255, 0.08)' },
+        light: { gold: '#B06A58', dark: '#8E4F3E', light: '#FAEDCD', trans: 'rgba(176, 106, 88, 0.15)', glow: '0 4px 15px rgba(176, 106, 88, 0.2)', bg: 'radial-gradient(circle at 50% 0%, rgba(176, 106, 88, 0.25) 0%, transparent 75%)', card: 'rgba(255, 255, 255, 0.9)', nav: 'rgba(253, 251, 247, 0.98)', input: 'rgba(255,255,255,0.6)', border: 'rgba(0,0,0,0.08)' }
       }
     };
 
@@ -543,6 +527,63 @@ function App() {
     setLoading(false);
   }
 
+  // --- CSV IMPORT ---
+  function handleImportCSV(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target.result;
+        const lines = text.split('\n').filter(l => l.trim() !== '');
+        if (lines.length < 2) throw new Error("Le fichier CSV est vide ou invalide.");
+        
+        const today = new Date().toISOString().split('T')[0];
+        const updates = [];
+        
+        // On saute la 1ère ligne (les en-têtes)
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i];
+            // Détection du séparateur (virgule ou point-virgule)
+            const separator = line.includes(';') ? ';' : ',';
+            const cols = line.split(separator).map(c => c.trim());
+            
+            if (cols.length >= 5) {
+                const owner = cols[0];
+                const envelope = cols[1];
+                const account_name = cols[2];
+                const category = cols[3];
+                const value_eur = parseFloat(cols[4].replace(',', '.')); // Gère les virgules françaises
+                
+                if ((owner === 'Aubin' || owner === 'Oliwia') && !isNaN(value_eur)) {
+                    updates.push({
+                        date: today, owner, envelope, account_name, category, 
+                        value_eur, is_liability: false, is_professional: false
+                    });
+                }
+            }
+        }
+        
+        if (updates.length === 0) throw new Error("Aucune ligne valide trouvée. Format attendu : Propriétaire,Enveloppe,Nom du compte,Catégorie,Montant");
+        
+        if (!window.confirm(`Voulez-vous importer ${updates.length} lignes depuis le CSV ?`)) return;
+        
+        setLoading(true);
+        const { error } = await supabase.from('positions').upsert(updates, { onConflict: 'date,owner,envelope,account_name,category' });
+        
+        if (error) alert('Erreur Supabase : ' + error.message);
+        else {
+            alert(`✅ ${updates.length} comptes importés avec succès !`);
+            fetchPositions(); fetchHistory();
+        }
+      } catch (err) { alert('Erreur de lecture CSV : ' + err.message); }
+      setLoading(false);
+      event.target.value = null; // Reset input
+    };
+    reader.readAsText(file);
+  }
+
+  // --- LOGIQUE DE SYNCHRO ---
   async function fetchTickersPrices(tickers) {
     let prices = {};
     let mode = 'supabase-edge';
@@ -674,7 +715,7 @@ function App() {
         is_professional: p.is_professional, ticker: p.ticker.trim(), quantity: Number(p.quantity) 
       }], { onConflict: 'date,owner,envelope,account_name,category' });
 
-      alert(`✅ ${p.account_name} mis à jour et sauvegardé (${mode}) !\n\nPrix : ${price.toFixed(2)} €\nNouveau total : ${newVal.toLocaleString('fr-FR')} €`);
+      alert(`✅ ${p.account_name} mis à jour et sauvegardé (${mode}) !\n\nPrix : ${price.toFixed(2)} €\nNouveau total : ${formatMoney(newVal)}`);
     } else {
       alert(`Erreur : Impossible de récupérer le cours pour ${p.ticker}\n\nVérifie que le code est correct (ex: VWCE.DE, CW8.PA).`);
     }
@@ -786,6 +827,25 @@ function App() {
   
   async function handleSave(e) {
     e.preventDefault();
+    
+    // 🚨 CONTRÔLE D'ANOMALIES
+    const anomalies = [];
+    Object.keys(formValues).forEach(id => {
+        const original = positions.find(p => p.id === id);
+        if (original && original.value_eur !== 0) {
+            const newVal = Number(formValues[id] ?? 0);
+            const diff = Math.abs(newVal - original.value_eur);
+            const pct = diff / Math.abs(original.value_eur);
+            if (pct > 0.3 && diff > 500) {
+                anomalies.push(`- ${original.account_name} : ${formatMoney(original.value_eur)} ➔ ${formatMoney(newVal)}`);
+            }
+        }
+    });
+    
+    if (anomalies.length > 0) {
+        if (!window.confirm(`⚠️ Attention, ces valeurs ont varié de plus de 30% :\n\n${anomalies.join('\n')}\n\nConfirmer l'enregistrement ?`)) return;
+    }
+    
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
     const newPositions = Object.keys(formValues).map(id => {
@@ -1004,6 +1064,9 @@ function App() {
       <header className="header animate-in">
         <h2 className="serif">Mon Patrimoine</h2>
         <div className="header-actions">
+          <button onClick={() => setHideBalances(!hideBalances)} className="btn-eye" title="Masquer les montants">
+            <Icon name={hideBalances ? 'eyeOff' : 'eye'} size={20} />
+          </button>
           <button onClick={() => setIsDarkMode(!isDarkMode)} className="btn-theme" title="Changer de thème"><Icon name={isDarkMode ? 'sun' : 'moon'} size={20} /></button>
           <button onClick={handleLogout} className="btn-logout">Déconnexion</button>
         </div>
@@ -1020,18 +1083,18 @@ function App() {
               <div className="card animate-in delay-2">
                 <div className="ap-label">Patrimoine net</div>
                 <div style={{display: 'flex', alignItems: 'baseline', flexWrap: 'wrap'}}>
-                  <div className="total-amount">{totalNet.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</div>
+                  <div className="total-amount">{formatMoney(totalNet)}</div>
                   {filteredHistory.length >= 2 && (
                     <div className={`perf-badge ${performance.diff >= 0 ? 'pos' : 'neg'}`}>
                       {performance.diff >= 0 ? '↗' : '↘'} {performance.pct >= 0 ? '+' : ''}{performance.pct.toFixed(1)}%
                     </div>
                   )}
                 </div>
-                <HistoryChart history={filteredHistory} color={currentThemeColor} />
+                <HistoryChart history={filteredHistory} color={currentThemeColor} hideBalances={hideBalances} />
                 <div className="time-filters">{['1J', '7J', '1M', '3M', '6M', 'YTD', '1A', 'TOUT'].map(range => (<button key={range} className={'time-btn ' + (timeRange === range ? 'active' : '')} onClick={() => setTimeRange(range)}>{range}</button>))}</div>
                 <div className="actifs-passifs">
-                  <div className="ap-item"><span className="ap-label">Actifs</span><span className="ap-value">+{totalActifs.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span></div>
-                  <div className="ap-item" style={{alignItems: 'flex-end'}}><span className="ap-label">Passifs</span><span className="ap-value negative">{totalPassifs.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}</span></div>
+                  <div className="ap-item"><span className="ap-label">Actifs</span><span className="ap-value">+{formatMoney(totalActifs)}</span></div>
+                  <div className="ap-item" style={{alignItems: 'flex-end'}}><span className="ap-label">Passifs</span><span className="ap-value negative">{formatMoney(totalPassifs)}</span></div>
                 </div>
               </div>
 
@@ -1048,7 +1111,7 @@ function App() {
                         </div>
                       </div>
                       <div style={{fontWeight: 'bold', color: 'var(--gold)'}}>
-                        {p.value_eur.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                        {formatMoney(p.value_eur)}
                       </div>
                     </div>
                   ))}
@@ -1088,7 +1151,7 @@ function App() {
                         return totB - totA;
                       }).map(pair => {
                         const env = pair[0]; const cats = pair[1];
-                        return (<tr key={env}><td>{env}</td>{exposureMatrix.activeCategories.map(cat => (<td key={cat}>{cats[cat] ? Math.round(cats[cat]).toLocaleString('fr-FR') : '-'}</td>))}</tr>);
+                        return (<tr key={env}><td>{env}</td>{exposureMatrix.activeCategories.map(cat => (<td key={cat}>{cats[cat] ? formatMoney(cats[cat]) : '-'}</td>))}</tr>);
                       })}
                     </tbody>
                     <tfoot>
@@ -1096,7 +1159,7 @@ function App() {
                         <td style={{fontWeight: 'bold', color: 'var(--gold)'}}>TOTAL</td>
                         {exposureMatrix.activeCategories.map(cat => (
                           <td key={cat} style={{fontWeight: 'bold', color: 'var(--text-white)'}}>
-                            {Math.round(exposureMatrix.colTotals[cat]).toLocaleString('fr-FR')}
+                            {formatMoney(exposureMatrix.colTotals[cat])}
                           </td>
                         ))}
                       </tr>
@@ -1128,6 +1191,14 @@ function App() {
               <button type="button" onClick={exportToJSON} className="btn-export" style={{flex:1, marginBottom:0}}><Icon name="download" size={16} /> Sauvegarde</button>
               <label className="btn-export" style={{flex:1, marginBottom:0, cursor: 'pointer'}}><Icon name="upload" size={16} /> Restaurer<input type="file" accept=".json" onChange={importFromJSON} style={{display: 'none'}} /></label>
             </div>
+
+            <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+              <label className="btn-sync" style={{flex:1, cursor: 'pointer', borderColor: 'var(--green)', color: 'var(--green)', marginBottom:0}}>
+                <Icon name="upload" size={16} /> Import CSV
+                <input type="file" accept=".csv" onChange={handleImportCSV} style={{display: 'none'}} />
+              </label>
+            </div>
+
             {plnRate && (<p style={{fontSize: '0.8rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '15px'}}>Taux de change actuel : 1 EUR = {plnRate} PLN</p>)}
             
             <button onClick={() => setShowAddForm(!showAddForm)} className="btn-sync" style={{borderColor: 'var(--text-light)', color: 'var(--text-light)', marginBottom: '15px'}}>{showAddForm ? 'Fermer le formulaire' : '+ Ajouter un nouveau compte pour ' + saisieOwner}</button>
@@ -1176,7 +1247,7 @@ function App() {
                         <span style={{fontSize: '0.8rem', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: 'var(--gold)'}}>▶</span> 
                         {envName}
                       </h3>
-                      <div style={{fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--gold)'}}>{Math.round(envTotal).toLocaleString('fr-FR')} €</div>
+                      <div style={{fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--gold)'}}>{formatMoney(envTotal)}</div>
                     </div>
                     
                     {isExpanded && (
@@ -1191,7 +1262,7 @@ function App() {
                             <div key={baseContractName} style={{marginTop: '10px'}}>
                               <div className="contract-header">
                                 <span className="contract-title">{baseContractName} {isPolishAccount && <span style={{fontSize:'0.7rem', color:'var(--text-light)'}}>(en PLN)</span>}</span>
-                                {positionsList.length > 1 && (<div className="total-input-container"><span>Total :</span><input type="number" className="total-input" value={displayValue} onChange={(e) => { const newVal = Number(e.target.value); const valInEuro = isPolishAccount && plnRate ? newVal / plnRate : newVal; handleContractTotalChange(baseContractName, positionsList, valInEuro); }} /></div>)}
+                                {positionsList.length > 1 && (<div className="total-input-container"><span>Total :</span><input type="number" className="total-input" value={hideBalances ? '••••' : displayValue} onChange={(e) => { const newVal = Number(e.target.value); const valInEuro = isPolishAccount && plnRate ? newVal / plnRate : newVal; handleContractTotalChange(baseContractName, positionsList, valInEuro); }} readOnly={hideBalances} /></div>)}
                               </div>
                               <table className="update-table">
                                 <thead><tr><th>Support</th><th>ETF / Ticker</th><th style={{textAlign: 'right'}}>Valeur (€)</th></tr></thead>
@@ -1221,10 +1292,10 @@ function App() {
                                         </td>
                                         <td style={{textAlign: 'right'}}>
                                           <div className="input-wrapper">
-                                            <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)}>-</button>
-                                            <input type="number" step="any" value={formValues[p.id] ?? ''} onChange={e => setFormValues(prev => ({...prev, [p.id]: e.target.value}))} className="table-input" />
-                                            <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, 1000)}>+</button>
-                                            <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer"><Icon name="trash" size={16} /></button>
+                                            <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)} disabled={hideBalances}>-</button>
+                                            <input type="number" step="any" value={hideBalances ? '••••' : (formValues[p.id] ?? '')} onChange={e => setFormValues(prev => ({...prev, [p.id]: e.target.value}))} className="table-input" readOnly={hideBalances} />
+                                            <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, 1000)} disabled={hideBalances}>+</button>
+                                            <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer" disabled={hideBalances}><Icon name="trash" size={16} /></button>
                                           </div>
                                         </td>
                                       </tr>
@@ -1241,7 +1312,7 @@ function App() {
                   </div>
                 );
               })}
-              {positions.length > 0 && (<button type="submit" disabled={loading} className="btn-gold" style={{marginTop: '10px', marginBottom: '30px'}}>{loading ? 'Enregistrement...' : 'Enregistrer les modifications'}</button>)}
+              {positions.length > 0 && (<button type="submit" disabled={loading || hideBalances} className="btn-gold" style={{marginTop: '10px', marginBottom: '30px'}}>{loading ? 'Enregistrement...' : 'Enregistrer les modifications'}</button>)}
             </form>
 
             {/* 🎨 PERSONNALISATION DES COULEURS */}
@@ -1253,7 +1324,7 @@ function App() {
                 </p>
                 {sortedChartData.map(d => {
                   const catName = d[0];
-                  const defaultColor = '#888888'; // Fallback
+                  const defaultColor = '#888888';
                   return (
                     <div key={catName} className="color-picker-row">
                       <span style={{fontSize: '0.9rem', color: 'var(--text-white)'}}>{catName}</span>
@@ -1276,19 +1347,19 @@ function App() {
             <div className="card">
               <div className="ap-label" style={{marginBottom: '20px'}}>Simulateur FIRE</div>
               <div className="slider-container">
-                <div className="slider-header"><span className="slider-label">Épargne mensuelle</span><span className="slider-value">{Number(fireEpargne).toLocaleString('fr-FR')} €</span></div>
-                <input type="range" min="0" max="20000" step="100" value={fireEpargne} onChange={e => updateFireSettings(Number(e.target.value), fireRendement)} />
+                <div className="slider-header"><span className="slider-label">Épargne mensuelle</span><span className="slider-value">{hideBalances ? '••••' : Number(fireEpargne).toLocaleString('fr-FR') + ' €'}</span></div>
+                <input type="range" min="0" max="20000" step="100" value={fireEpargne} onChange={e => updateFireSettings(Number(e.target.value), fireRendement)} disabled={hideBalances} />
               </div>
               <div className="slider-container">
                 <div className="slider-header"><span className="slider-label">Rendement annuel estimé</span><span className="slider-value">{fireRendement} %</span></div>
-                <input type="range" min="1" max="15" step="0.5" value={fireRendement} onChange={e => updateFireSettings(fireEpargne, Number(e.target.value))} />
+                <input type="range" min="1" max="15" step="0.5" value={fireRendement} onChange={e => updateFireSettings(fireEpargne, Number(e.target.value))} disabled={hideBalances} />
               </div>
-              <FireChart data={fireData} color={currentThemeColor} />
+              <FireChart data={fireData} color={currentThemeColor} hideBalances={hideBalances} />
               <div className="fire-result">
-                <div className="fire-box"><div className="fire-box-label">Dans 5 ans</div><div className="fire-box-value">{Math.round(fireData[5].value).toLocaleString('fr-FR')} €</div></div>
-                <div className="fire-box"><div className="fire-box-label">Dans 10 ans</div><div className="fire-box-value">{Math.round(fireData[10].value).toLocaleString('fr-FR')} €</div></div>
-                <div className="fire-box"><div className="fire-box-label">Dans 20 ans</div><div className="fire-box-value">{Math.round(fireData[20].value).toLocaleString('fr-FR')} €</div></div>
-                <div className="fire-box"><div className="fire-box-label">Dans 30 ans</div><div className="fire-box-value">{Math.round(fireData[30].value).toLocaleString('fr-FR')} €</div></div>
+                <div className="fire-box"><div className="fire-box-label">Dans 5 ans</div><div className="fire-box-value">{formatMoney(fireData[5].value)}</div></div>
+                <div className="fire-box"><div className="fire-box-label">Dans 10 ans</div><div className="fire-box-value">{formatMoney(fireData[10].value)}</div></div>
+                <div className="fire-box"><div className="fire-box-label">Dans 20 ans</div><div className="fire-box-value">{formatMoney(fireData[20].value)}</div></div>
+                <div className="fire-box"><div className="fire-box-label">Dans 30 ans</div><div className="fire-box-value">{formatMoney(fireData[30].value)}</div></div>
               </div>
             </div>
           </div>
@@ -1320,15 +1391,15 @@ function App() {
                   <div className="card" style={{border: '1px solid var(--gold)'}}>
                     <div className="ap-label" style={{marginBottom: '15px'}}>Plan d'investissement</div>
                     <div className="slider-container">
-                      <div className="slider-header"><span className="slider-label">Montant à investir</span><span className="slider-value">{Number(rebalanceAmount).toLocaleString('fr-FR')} €</span></div>
-                      <input type="range" min="0" max="50000" step="100" value={rebalanceAmount} onChange={e => setRebalanceAmount(e.target.value)} />
+                      <div className="slider-header"><span className="slider-label">Montant à investir</span><span className="slider-value">{formatMoney(rebalanceAmount)}</span></div>
+                      <input type="range" min="0" max="50000" step="100" value={rebalanceAmount} onChange={e => setRebalanceAmount(e.target.value)} disabled={hideBalances} />
                     </div>
                     <div style={{background: 'var(--input-bg)', padding: '15px', borderRadius: '12px'}}>
                       <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '10px'}}>Pour respecter ta cible, voici comment répartir cet argent :</p>
                       {rebalanceData.map(item => (
                         <div key={item.cat} style={{display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '5px'}}>
                           <span>{item.cat}</span>
-                          <span style={{color: item.diff > 0 ? 'var(--green)' : 'var(--red)', fontWeight: 'bold'}}>{item.diff > 0 ? '+' : ''}{Math.round(item.diff).toLocaleString('fr-FR')} €</span>
+                          <span style={{color: item.diff > 0 ? 'var(--green)' : 'var(--red)', fontWeight: 'bold'}}>{item.diff > 0 ? '+' : ''}{formatMoney(item.diff)}</span>
                         </div>
                       ))}
                       {rebalanceData.length === 0 && <p style={{fontSize:'0.8rem', textAlign:'center'}}>Ton allocation est déjà parfaite !</p>}
