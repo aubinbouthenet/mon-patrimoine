@@ -34,7 +34,8 @@
   @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   .animate-in { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; }
   .delay-1 { animation-delay: 0.1s; } .delay-2 { animation-delay: 0.2s; } .delay-3 { animation-delay: 0.3s; }
-  .login-screen { height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  
+  .login-screen, .lock-screen { height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9999; background: var(--bg-dark); }
   .login-card { background: var(--bg-card-dark); backdrop-filter: blur(20px); border: 1px solid var(--border-color); padding: 50px 30px; border-radius: 24px; width: 100%; max-width: 400px; text-align: center; box-shadow: var(--shadow-3d), var(--glow); }
   .login-card h1 { font-size: 2.2rem; color: var(--text-white); margin-bottom: 5px; }
   .login-card p { color: var(--gold); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 30px; }
@@ -42,11 +43,17 @@
   .login-input:focus { border-color: var(--gold); box-shadow: var(--glow); }
   .btn-gold { width: 100%; padding: 16px; background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: #fff; border: none; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; box-shadow: var(--glow); transition: var(--transition-theme); }
   .btn-gold:active { transform: scale(0.98); }
+  
+  .lock-screen { flex-direction: column; gap: 20px; }
+  .lock-icon { width: 80px; height: 80px; border-radius: 50%; background: var(--gold-trans); display: flex; align-items: center; justify-content: center; color: var(--gold); margin-bottom: 20px; border: 2px solid var(--gold); box-shadow: var(--glow); cursor: pointer; animation: pulseLock 2s infinite; }
+  @keyframes pulseLock { 0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.4); } 70% { box-shadow: 0 0 0 20px rgba(212, 175, 55, 0); } 100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); } }
+
   .app-container { max-width: 600px; margin: 0 auto; padding: 20px 20px 100px 20px; }
   .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0 25px 0; }
   .header h2 { font-size: 1.5rem; color: var(--text-white); }
   .header-actions { display: flex; gap: 15px; align-items: center; }
-  .btn-theme, .btn-eye { background: none; border: none; cursor: pointer; color: var(--text-light); display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: 50%; }
+  .btn-theme, .btn-eye, .btn-bio { background: none; border: none; cursor: pointer; color: var(--text-light); display: flex; align-items: center; justify-content: center; padding: 8px; border-radius: 50%; }
+  .btn-bio.active { color: var(--green); }
   .btn-logout { background: none; border: none; color: var(--text-light); font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
   .filters-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;}
   .owner-filter { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; width: 100%; }
@@ -262,6 +269,7 @@ const Icon = ({ name, size = 24 }) => {
     moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />,
     eye: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></>,
     eyeOff: <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" /></>,
+    fingerprint: <><path d="M12 12v4" /><path d="M8 20c0-4 2-6 4-6s4 2 4 6" /><path d="M6 16c0-6 4-10 6-10s6 4 6 10" /><path d="M4 12c0-8 6-12 8-12s8 4 8 12" /></>,
     trash: <><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></>,
     refresh: <><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></>,
     download: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />,
@@ -339,6 +347,10 @@ function App() {
   const [showPro, setShowPro] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   
+  // Biométrie
+  const [bioEnabled, setBioEnabled] = useState(() => localStorage.getItem('bioEnabled') === 'true');
+  const [isLocked, setIsLocked] = useState(() => localStorage.getItem('bioEnabled') === 'true');
+  
   // Confidentiel & Préférences
   const [hideBalances, setHideBalances] = useState(false);
   const [saisieOwner, setSaisieOwner] = useState('Aubin');
@@ -365,10 +377,80 @@ function App() {
   const [rebalanceAmount, setRebalanceAmount] = useState(1000);
   const [plnRate, setPlnRate] = useState(null);
 
-  // Helper pour formater l'argent
   const formatMoney = (value, decimals = 0) => {
     if (hideBalances) return '••••••';
     return Number(value).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: decimals });
+  };
+
+  // 🛡️ BIOMÉTRIE (WebAuthn local)
+  const registerBiometrics = async () => {
+    try {
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+      const userID = new Uint8Array(16);
+      window.crypto.getRandomValues(userID);
+
+      const publicKeyCredentialCreationOptions = {
+        challenge: challenge,
+        rp: { name: "Mon Patrimoine", id: window.location.hostname },
+        user: { id: userID, name: USER_EMAIL, displayName: "Admin" },
+        pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+        authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required" },
+        timeout: 60000,
+        attestation: "none"
+      };
+
+      const credential = await navigator.credentials.create({ publicKey: publicKeyCredentialCreationOptions });
+      
+      if (credential) {
+        localStorage.setItem('bioEnabled', 'true');
+        localStorage.setItem('bioCredId', btoa(String.fromCharCode(...new Uint8Array(credential.rawId))));
+        setBioEnabled(true);
+        alert("✅ Biométrie activée avec succès !");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Impossible d'activer la biométrie. Ton appareil ne la supporte peut-être pas ou tu as annulé.");
+    }
+  };
+
+  const unlockWithBiometrics = async () => {
+    try {
+      const credIdBase64 = localStorage.getItem('bioCredId');
+      if (!credIdBase64) return;
+      
+      const credId = Uint8Array.from(atob(credIdBase64), c => c.charCodeAt(0));
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+
+      const publicKeyCredentialRequestOptions = {
+        challenge: challenge,
+        allowCredentials: [{ id: credId, type: 'public-key' }],
+        timeout: 60000,
+        userVerification: "required"
+      };
+
+      const assertion = await navigator.credentials.get({ publicKey: publicKeyCredentialRequestOptions });
+      if (assertion) {
+        setIsLocked(false);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Échec du déverrouillage biométrique.");
+    }
+  };
+
+  const toggleBiometrics = () => {
+    if (bioEnabled) {
+      if (window.confirm("Désactiver le verrouillage biométrique ?")) {
+        localStorage.removeItem('bioEnabled');
+        localStorage.removeItem('bioCredId');
+        setBioEnabled(false);
+        setIsLocked(false);
+      }
+    } else {
+      registerBiometrics();
+    }
   };
 
   useEffect(() => {
@@ -527,63 +609,6 @@ function App() {
     setLoading(false);
   }
 
-  // --- CSV IMPORT ---
-  function handleImportCSV(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const text = e.target.result;
-        const lines = text.split('\n').filter(l => l.trim() !== '');
-        if (lines.length < 2) throw new Error("Le fichier CSV est vide ou invalide.");
-        
-        const today = new Date().toISOString().split('T')[0];
-        const updates = [];
-        
-        // On saute la 1ère ligne (les en-têtes)
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            // Détection du séparateur (virgule ou point-virgule)
-            const separator = line.includes(';') ? ';' : ',';
-            const cols = line.split(separator).map(c => c.trim());
-            
-            if (cols.length >= 5) {
-                const owner = cols[0];
-                const envelope = cols[1];
-                const account_name = cols[2];
-                const category = cols[3];
-                const value_eur = parseFloat(cols[4].replace(',', '.')); // Gère les virgules françaises
-                
-                if ((owner === 'Aubin' || owner === 'Oliwia') && !isNaN(value_eur)) {
-                    updates.push({
-                        date: today, owner, envelope, account_name, category, 
-                        value_eur, is_liability: false, is_professional: false
-                    });
-                }
-            }
-        }
-        
-        if (updates.length === 0) throw new Error("Aucune ligne valide trouvée. Format attendu : Propriétaire,Enveloppe,Nom du compte,Catégorie,Montant");
-        
-        if (!window.confirm(`Voulez-vous importer ${updates.length} lignes depuis le CSV ?`)) return;
-        
-        setLoading(true);
-        const { error } = await supabase.from('positions').upsert(updates, { onConflict: 'date,owner,envelope,account_name,category' });
-        
-        if (error) alert('Erreur Supabase : ' + error.message);
-        else {
-            alert(`✅ ${updates.length} comptes importés avec succès !`);
-            fetchPositions(); fetchHistory();
-        }
-      } catch (err) { alert('Erreur de lecture CSV : ' + err.message); }
-      setLoading(false);
-      event.target.value = null; // Reset input
-    };
-    reader.readAsText(file);
-  }
-
-  // --- LOGIQUE DE SYNCHRO ---
   async function fetchTickersPrices(tickers) {
     let prices = {};
     let mode = 'supabase-edge';
@@ -821,6 +846,7 @@ function App() {
     setLoading(true); setError('');
     const { error } = await supabase.auth.signInWithPassword({ email: USER_EMAIL, password: password });
     if (error) setError('Mot de passe incorrect');
+    else if (bioEnabled) setIsLocked(true); // Si on se connecte et que la bio est active, on verrouille direct
     setLoading(false);
   }
   async function handleLogout() { await supabase.auth.signOut(); setSession(null); }
@@ -828,7 +854,6 @@ function App() {
   async function handleSave(e) {
     e.preventDefault();
     
-    // 🚨 CONTRÔLE D'ANOMALIES
     const anomalies = [];
     Object.keys(formValues).forEach(id => {
         const original = positions.find(p => p.id === id);
@@ -1046,6 +1071,20 @@ function App() {
     return totalB - totalA;
   });
 
+  // ÉCRAN DE VERROUILLAGE BIOMÉTRIQUE
+  if (isLocked) {
+    return (
+      <div className="lock-screen">
+        <div className="lock-icon" onClick={unlockWithBiometrics}>
+          <Icon name="fingerprint" size={40} />
+        </div>
+        <h2 className="serif" style={{fontSize: '1.5rem', color: 'var(--text-white)'}}>Application verrouillée</h2>
+        <p style={{color: 'var(--text-light)', fontSize: '0.85rem', marginBottom: '20px'}}>Touche l'empreinte pour déverrouiller</p>
+        <button onClick={unlockWithBiometrics} className="btn-gold" style={{maxWidth: '250px'}}>Déverrouiller</button>
+      </div>
+    );
+  }
+
   if (!session) {
     return (
       <div className="login-screen animate-in">
@@ -1064,6 +1103,9 @@ function App() {
       <header className="header animate-in">
         <h2 className="serif">Mon Patrimoine</h2>
         <div className="header-actions">
+          <button onClick={toggleBiometrics} className={'btn-bio ' + (bioEnabled ? 'active' : '')} title="Activer/Désactiver la biométrie">
+            <Icon name="fingerprint" size={20} />
+          </button>
           <button onClick={() => setHideBalances(!hideBalances)} className="btn-eye" title="Masquer les montants">
             <Icon name={hideBalances ? 'eyeOff' : 'eye'} size={20} />
           </button>
@@ -1315,7 +1357,6 @@ function App() {
               {positions.length > 0 && (<button type="submit" disabled={loading || hideBalances} className="btn-gold" style={{marginTop: '10px', marginBottom: '30px'}}>{loading ? 'Enregistrement...' : 'Enregistrer les modifications'}</button>)}
             </form>
 
-            {/* 🎨 PERSONNALISATION DES COULEURS */}
             {sortedChartData.length > 0 && (
               <div className="card animate-in delay-3" style={{marginTop: '20px'}}>
                 <div className="ap-label" style={{marginBottom: '15px'}}>Apparence des graphiques</div>
