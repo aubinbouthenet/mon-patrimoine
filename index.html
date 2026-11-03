@@ -7,7 +7,6 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#050A14">
 
-<!-- 🛠️ ERUDA (Console mobile) -->
 <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
 <script>eruda.init();</script>
 
@@ -338,12 +337,13 @@ function App() {
   
   const [saisieOwner, setSaisieOwner] = useState('Aubin');
   
-  // 🎨 INITIALISATION DES PRÉFÉRENCES (Chargées depuis Supabase)
   const [customColors, setCustomColors] = useState(() => {
     try { return JSON.parse(localStorage.getItem('customChartColors')) || {}; } catch(e) { return {}; }
   });
+  
   const [fireEpargne, setFireEpargne] = useState(1500);
   const [fireRendement, setFireRendement] = useState(7);
+  const [saveTimeout, setSaveTimeout] = useState(null);
 
   const [formValues, setFormValues] = useState(() => {
     try { const saved = localStorage.getItem('patrimoine_draft'); return saved ? JSON.parse(saved) : {}; }
@@ -361,7 +361,6 @@ function App() {
   const [rebalanceAmount, setRebalanceAmount] = useState(1000);
   const [plnRate, setPlnRate] = useState(null);
 
-  // 🎨 LOGIQUE DES THÈMES (SABLE AVEC CONTRASTE, FORÊT, TERRE)
   useEffect(() => {
     const body = document.body;
     let theme = 'sable';
@@ -422,13 +421,18 @@ function App() {
 
   useEffect(() => { if (isDarkMode) document.body.classList.remove('light-theme'); else document.body.classList.add('light-theme'); }, [isDarkMode]);
   
-  // Sauvegarde locale (Backup) et Supabase
   useEffect(() => {
     try { if (Object.keys(formValues).length > 0) localStorage.setItem('patrimoine_draft', JSON.stringify(formValues)); } catch(e) {}
   }, [formValues]);
 
-  // Chargement initial des données Supabase
-  useEffect(() => { supabase.auth.getSession().then(({ data }) => setSession(data.session || null)).catch(() => {}); }, []);
+  useEffect(() => { 
+    // Écoute les changements de session (connexion / déconnexion)
+    supabase.auth.getSession().then(({ data }) => setSession(data.session || null)).catch(() => {});
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => authListener.subscription.unsubscribe();
+  }, []);
   
   useEffect(() => { 
     if (session) { 
@@ -441,7 +445,6 @@ function App() {
     } 
   }, [session, ownerFilter]);
 
-  // Sauvegarde automatique des préférences dans Supabase
   async function savePreferences(newColors, newFireParams) {
     if (!session) return;
     const payload = {
@@ -468,7 +471,6 @@ function App() {
     } catch (e) {}
   }
 
-  // Mise à jour des couleurs avec sauvegarde Supabase
   const updateCustomColor = (catName, color) => {
     const newColors = { ...customColors, [catName]: color };
     setCustomColors(newColors);
@@ -476,11 +478,17 @@ function App() {
     savePreferences(newColors, undefined);
   };
 
-  // Mise à jour FIRE avec sauvegarde Supabase
+  // 🛠️ CORRECTION : Debounce pour le FIRE
   const updateFireSettings = (newEp, newRen) => {
     setFireEpargne(newEp);
     setFireRendement(newRen);
-    savePreferences(undefined, { epargne: newEp, rendement: newRen });
+    
+    if (saveTimeout) clearTimeout(saveTimeout);
+    
+    const timeout = setTimeout(() => {
+      savePreferences(undefined, { epargne: newEp, rendement: newRen });
+    }, 1000); // Attend 1 seconde après le dernier mouvement
+    setSaveTimeout(timeout);
   };
 
   async function fetchPlnRate() {
@@ -528,7 +536,6 @@ function App() {
     setLoading(false);
   }
 
-  // --- LOGIQUE DE SYNCHRO ---
   async function fetchTickersPrices(tickers) {
     let prices = {};
     let mode = 'supabase-edge';
@@ -956,7 +963,6 @@ function App() {
   
   const currentThemeColor = isOliwia ? '#D08C7A' : (isAubin ? '#84A98C' : '#E9C46A');
 
-  // FILTRAGE SPÉCIFIQUE POUR LA SAISIE
   const saisiePositions = positions.filter(p => p.owner === saisieOwner && (showPro || !p.is_professional));
   
   const groupedForSaisie = {};
