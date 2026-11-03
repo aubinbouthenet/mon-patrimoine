@@ -419,6 +419,7 @@ function App() {
   const [fireEpargne, setFireEpargne] = useState(1500);
   const [fireRendement, setFireRendement] = useState(7);
   const [saveTimeout, setSaveTimeout] = useState(null);
+  const [plnRate, setPlnRate] = useState(null);
 
   const [formValues, setFormValues] = useState(() => {
     try { const saved = localStorage.getItem('patrimoine_draft'); return saved ? JSON.parse(saved) : {}; }
@@ -434,7 +435,6 @@ function App() {
   const [tempTargets, setTempTargets] = useState({});
   const [showRebalance, setShowRebalance] = useState(false);
   const [rebalanceAmount, setRebalanceAmount] = useState(1000);
-  const [plnRate, setPlnRate] = useState(null);
 
   const formatMoney = (value, decimals = 0) => {
     if (hideBalances) return '••••••';
@@ -495,16 +495,15 @@ function App() {
       }
     } catch (err) {
       console.error(err);
-      // On n'affiche pas d'alerte ici pour ne pas spammer si l'utilisateur annule
     }
   };
 
-  // Déclenchement automatique de la biométrie
+  // Déclenchement automatique de la biométrie (200ms)
   useEffect(() => {
     if (isLocked) {
       const timer = setTimeout(() => {
         unlockWithBiometrics();
-      }, 800); // Petit délai pour laisser l'écran s'afficher
+      }, 200); // Accéléré de 800ms à 200ms
       return () => clearTimeout(timer);
     }
   }, [isLocked]);
@@ -634,7 +633,18 @@ function App() {
   };
 
   async function fetchPlnRate() {
-    try { const res = await fetch('https://api.frankfurter.app/latest?from=EUR&to=PLN'); const data = await res.json(); if (data && data.rates && data.rates.PLN) setPlnRate(data.rates.PLN); } catch (err) {}
+    try { 
+      // On récupère le taux depuis la base de données Supabase (historique)
+      const { data, error } = await supabase.from('forex_rates').select('eur_pln').order('date', { ascending: false }).limit(1).single();
+      if (!error && data) {
+        setPlnRate(data.eur_pln);
+      } else {
+        // Fallback API si la base est vide
+        const res = await fetch('https://api.frankfurter.app/latest?from=EUR&to=PLN'); 
+        const json = await res.json(); 
+        if (json && json.rates && json.rates.PLN) setPlnRate(json.rates.PLN);
+      }
+    } catch (err) {}
   }
   async function fetchPositions() {
     setLoading(true);
@@ -1091,7 +1101,6 @@ function App() {
       results[0].push(current);
       for (let year = 1; year <= years; year++) {
         for (let month = 1; month <= 12; month++) {
-          // Rendement normal aléatoire (Box-Muller simplifié)
           const u1 = Math.random();
           const u2 = Math.random();
           const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
@@ -1190,11 +1199,8 @@ function App() {
     
     let amountLeft = Number(rebalanceAmount);
     const result = [];
-    
-    // On calcule l'écart de chaque catégorie par rapport à sa cible théorique basée sur le nouveau total
     const newTotal = totalCategorized + amountLeft;
     
-    // On stocke les écarts absolus en euros
     const gaps = TARGET_CATEGORIES.map(cat => {
       const currentVal = sortedChartData.find(d => d[0] === cat)?.[1] || 0;
       const targetPct = Number(targets[cat] || 0) / 100;
@@ -1202,10 +1208,8 @@ function App() {
       return { cat, gap: targetValue - currentVal };
     });
 
-    // On ne garde QUE les catégories en retard (gap positif)
     const deficits = gaps.filter(g => g.gap > 0).sort((a, b) => b.gap - a.gap);
 
-    // Si aucune catégorie n'est en retard (portefeuille parfaitement équilibré ou tout en excès), on investit selon la cible
     if (deficits.length === 0) {
         TARGET_CATEGORIES.forEach(cat => {
             const pct = Number(targets[cat] || 0) / 100;
@@ -1214,7 +1218,6 @@ function App() {
         return result.filter(r => r.amount > 0.5);
     }
 
-    // On remplit les déficits
     deficits.forEach(d => {
         if (amountLeft <= 0) return;
         const amountToAdd = Math.min(amountLeft, d.gap);
@@ -1222,7 +1225,6 @@ function App() {
         amountLeft -= amountToAdd;
     });
 
-    // S'il reste de l'argent après avoir comblé tous les déficits (portefeuille surpondéré globalement), on le répartit selon la cible
     if (amountLeft > 0) {
         const totalTargetPct = TARGET_CATEGORIES.reduce((sum, cat) => sum + Number(targets[cat] || 0), 0);
         if (totalTargetPct > 0) {
@@ -1287,6 +1289,10 @@ function App() {
     );
   }
 
+  // Calcul de l'exposition aux devises
+  const currencyExposure = filteredPositions.filter(p => p.account_name.includes('PKO') || p.account_name.includes('mBank')).reduce((sum, p) => sum + p.value_eur, 0);
+  const currencyExposurePct = totalNet > 0 ? (currencyExposure / totalNet) * 100 : 0;
+
   return (
     <div className="app-container">
       <header className="header animate-in">
@@ -1328,6 +1334,23 @@ function App() {
                   <div className="ap-item" style={{alignItems: 'flex-end'}}><span className="ap-label">Passifs</span><span className="ap-value negative">{formatMoney(totalPassifs)}</span></div>
                 </div>
               </div>
+
+              {/* 💱 CARTE EXPOSITION DEVISE */}
+              {currencyExposure > 0 && (
+                <div className="card animate-in delay-2">
+                  <div className="ap-label" style={{marginBottom: '5px'}}>Exposition Devise (PLN)</div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px'}}>
+                    <div>
+                      <div style={{fontWeight: 'bold', fontSize: '1.2rem'}}>{formatMoney(currencyExposure)}</div>
+                      <div style={{fontSize: '0.8rem', color: 'var(--text-light)'}}>{currencyExposurePct.toFixed(1)}% de ton patrimoine</div>
+                    </div>
+                    <div style={{textAlign: 'right'}}>
+                      <div style={{fontSize: '0.85rem', color: 'var(--text-light)'}}>Taux EUR/PLN</div>
+                      <div style={{fontWeight: 'bold', color: 'var(--gold)'}}>{plnRate ? plnRate.toFixed(4) : '...'}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="card animate-in delay-2">
                 <div className="ap-label" style={{marginBottom: '10px'}}>Top 5 des positions</div>
