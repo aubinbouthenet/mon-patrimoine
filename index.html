@@ -609,6 +609,62 @@ function App() {
     setLoading(false);
   }
 
+  // --- CSV IMPORT ---
+  function handleImportCSV(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target.result;
+        const lines = text.split('\n').filter(l => l.trim() !== '');
+        if (lines.length < 2) throw new Error("Le fichier CSV est vide ou invalide.");
+        
+        const today = new Date().toISOString().split('T')[0];
+        const updates = [];
+        
+        // On saute la 1ère ligne (les en-têtes)
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i];
+            const separator = line.includes(';') ? ';' : ',';
+            const cols = line.split(separator).map(c => c.trim());
+            
+            if (cols.length >= 5) {
+                const owner = cols[0];
+                const envelope = cols[1];
+                const account_name = cols[2];
+                const category = cols[3];
+                const value_eur = parseFloat(cols[4].replace(',', '.'));
+                
+                if ((owner === 'Aubin' || owner === 'Oliwia') && !isNaN(value_eur)) {
+                    updates.push({
+                        date: today, owner, envelope, account_name, category, 
+                        value_eur, is_liability: false, is_professional: false
+                    });
+                }
+            }
+        }
+        
+        if (updates.length === 0) throw new Error("Aucune ligne valide trouvée. Format attendu : Propriétaire,Enveloppe,Nom du compte,Catégorie,Montant");
+        
+        if (!window.confirm(`Voulez-vous importer ${updates.length} lignes depuis le CSV ?`)) return;
+        
+        setLoading(true);
+        const { error } = await supabase.from('positions').upsert(updates, { onConflict: 'date,owner,envelope,account_name,category' });
+        
+        if (error) alert('Erreur Supabase : ' + error.message);
+        else {
+            alert(`✅ ${updates.length} comptes importés avec succès !`);
+            fetchPositions(); fetchHistory();
+        }
+      } catch (err) { alert('Erreur de lecture CSV : ' + err.message); }
+      setLoading(false);
+      event.target.value = null;
+    };
+    reader.readAsText(file);
+  }
+
+  // --- LOGIQUE DE SYNCHRO ---
   async function fetchTickersPrices(tickers) {
     let prices = {};
     let mode = 'supabase-edge';
@@ -846,7 +902,7 @@ function App() {
     setLoading(true); setError('');
     const { error } = await supabase.auth.signInWithPassword({ email: USER_EMAIL, password: password });
     if (error) setError('Mot de passe incorrect');
-    else if (bioEnabled) setIsLocked(true); // Si on se connecte et que la bio est active, on verrouille direct
+    else if (bioEnabled) setIsLocked(true);
     setLoading(false);
   }
   async function handleLogout() { await supabase.auth.signOut(); setSession(null); }
