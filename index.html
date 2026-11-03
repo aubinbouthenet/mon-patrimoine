@@ -147,6 +147,8 @@
   .color-input { -webkit-appearance: none; border: none; width: 32px; height: 32px; border-radius: 8px; padding: 0; cursor: pointer; background: transparent; }
   .color-input::-webkit-color-swatch-wrapper { padding: 0; }
   .color-input::-webkit-color-swatch { border: 2px solid var(--border-color); border-radius: 8px; }
+  .btn-reset-colors { background: transparent; border: 1px solid var(--border-color); color: var(--text-light); padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; cursor: pointer; width: 100%; margin-top: 15px; transition: all 0.3s; }
+  .btn-reset-colors:hover { border-color: var(--gold); color: var(--gold); }
 
   .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 75px; background: var(--nav-bg); backdrop-filter: blur(20px); border-top: 1px solid var(--border-color); display: flex; justify-content: space-around; align-items: center; z-index: 100; padding: 0 10px; transition: var(--transition-theme); }
   .nav-item { display: flex; flex-direction: column; align-items: center; gap: 5px; background: none; border: none; cursor: pointer; color: var(--text-light); }
@@ -426,7 +428,6 @@ function App() {
   }, [formValues]);
 
   useEffect(() => { 
-    // Écoute les changements de session (connexion / déconnexion)
     supabase.auth.getSession().then(({ data }) => setSession(data.session || null)).catch(() => {});
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -478,7 +479,13 @@ function App() {
     savePreferences(newColors, undefined);
   };
 
-  // 🛠️ CORRECTION : Debounce pour le FIRE
+  const resetChartColors = () => {
+    if (!window.confirm("Voulez-vous vraiment réinitialiser toutes les couleurs du graphique selon votre thème actuel ?")) return;
+    setCustomColors({});
+    try { localStorage.removeItem('customChartColors'); } catch(e) {}
+    savePreferences({}, undefined);
+  };
+
   const updateFireSettings = (newEp, newRen) => {
     setFireEpargne(newEp);
     setFireRendement(newRen);
@@ -487,7 +494,7 @@ function App() {
     
     const timeout = setTimeout(() => {
       savePreferences(undefined, { epargne: newEp, rendement: newRen });
-    }, 1000); // Attend 1 seconde après le dernier mouvement
+    }, 1000);
     setSaveTimeout(timeout);
   };
 
@@ -1259,6 +1266,7 @@ function App() {
                     </div>
                   );
                 })}
+                <button type="button" onClick={resetChartColors} className="btn-reset-colors">Réinitialiser les couleurs du thème</button>
               </div>
             )}
           </div>
