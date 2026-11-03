@@ -44,8 +44,8 @@
   .btn-gold { width: 100%; padding: 16px; background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: #fff; border: none; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; box-shadow: var(--glow); transition: var(--transition-theme); }
   .btn-gold:active { transform: scale(0.98); }
   
-  .lock-screen { flex-direction: column; gap: 20px; }
-  .lock-icon { width: 80px; height: 80px; border-radius: 50%; background: var(--gold-trans); display: flex; align-items: center; justify-content: center; color: var(--gold); margin-bottom: 20px; border: 2px solid var(--gold); box-shadow: var(--glow); cursor: pointer; animation: pulseLock 2s infinite; }
+  .lock-screen { flex-direction: column; gap: 20px; cursor: pointer; }
+  .lock-icon { width: 80px; height: 80px; border-radius: 50%; background: var(--gold-trans); display: flex; align-items: center; justify-content: center; color: var(--gold); margin-bottom: 20px; border: 2px solid var(--gold); box-shadow: var(--glow); animation: pulseLock 2s infinite; }
   @keyframes pulseLock { 0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.4); } 70% { box-shadow: 0 0 0 20px rgba(212, 175, 55, 0); } 100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0); } }
 
   .app-container { max-width: 600px; margin: 0 auto; padding: 20px 20px 100px 20px; }
@@ -316,21 +316,82 @@ const DonutChart = memo(({ sortedData, customColors, isOliwia, isAubin }) => {
   return <div className="chart-donut"><canvas ref={chartRef}></canvas></div>;
 });
 
-const FireChart = memo(({ data, color, hideBalances }) => {
+const FireMonteCarloChart = memo(({ mcData, color, hideBalances }) => {
   const chartRef = useRef(null);
   useEffect(() => {
-    if (!chartRef.current || data.length === 0) return;
+    if (!chartRef.current || mcData.length === 0) return;
     const ctx = chartRef.current.getContext('2d');
     const existing = Chart.getChart(ctx.canvas);
     if (existing) existing.destroy();
-    const labels = data.map(d => 'Année ' + d.year);
-    const dataPoints = data.map(d => d.value);
-    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-    gradient.addColorStop(0, color + '44');
-    gradient.addColorStop(1, color + '00');
-    new Chart(ctx, { type: 'line', data: { labels, datasets: [{ data: dataPoints, borderColor: color, borderWidth: 3, backgroundColor: gradient, fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 1000 }, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { enabled: !hideBalances, callbacks: { label: (ctx) => Math.round(ctx.parsed.y).toLocaleString('fr-FR') + ' €' } } }, scales: { x: { display: false }, y: { display: false } } } });
-  }, [data, color, hideBalances]);
-  return <div className="history-chart-container" style={{height: '200px'}}><canvas ref={chartRef}></canvas></div>;
+
+    const labels = mcData.map(d => 'Année ' + d.year);
+
+    new Chart(ctx, { 
+      type: 'line', 
+      data: { 
+        labels, 
+        datasets: [
+          {
+            label: 'Pire scénario (10%)',
+            data: mcData.map(d => d.p10),
+            borderColor: color + '88',
+            borderWidth: 1.5,
+            borderDash: [4, 4],
+            backgroundColor: 'transparent',
+            tension: 0.4,
+            pointRadius: 0
+          },
+          {
+            label: 'Scénario médian (50%)',
+            data: mcData.map(d => d.p50),
+            borderColor: color,
+            borderWidth: 3,
+            backgroundColor: color + '22',
+            fill: {
+              target: { value: 0 },
+              above: color + '11'
+            },
+            tension: 0.4,
+            pointRadius: 0,
+            pointHoverRadius: 4
+          },
+          {
+            label: 'Bon scénario (90%)',
+            data: mcData.map(d => d.p90),
+            borderColor: color + '88',
+            borderWidth: 1.5,
+            borderDash: [4, 4],
+            backgroundColor: 'transparent',
+            tension: 0.4,
+            pointRadius: 0
+          }
+        ]
+      }, 
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false, 
+        animation: { duration: 1000 }, 
+        interaction: { intersect: false, mode: 'index' }, 
+        plugins: { 
+          legend: { 
+            display: true, 
+            labels: { color: '#94A3B8', font: { size: 10 }, boxWidth: 12 } 
+          }, 
+          tooltip: { 
+            enabled: !hideBalances, 
+            callbacks: { 
+              label: (ctx) => ` ${ctx.dataset.label}: ${Math.round(ctx.parsed.y).toLocaleString('fr-FR')} €` 
+            } 
+          } 
+        }, 
+        scales: { 
+          x: { display: false }, 
+          y: { display: false } 
+        } 
+      } 
+    });
+  }, [mcData, color, hideBalances]);
+  return <div className="history-chart-container" style={{height: '220px'}}><canvas ref={chartRef}></canvas></div>;
 });
 
 function App() {
@@ -347,11 +408,9 @@ function App() {
   const [showPro, setShowPro] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   
-  // Biométrie
   const [bioEnabled, setBioEnabled] = useState(() => localStorage.getItem('bioEnabled') === 'true');
   const [isLocked, setIsLocked] = useState(() => localStorage.getItem('bioEnabled') === 'true');
   
-  // Confidentiel & Préférences
   const [hideBalances, setHideBalances] = useState(false);
   const [saisieOwner, setSaisieOwner] = useState('Aubin');
   const [customColors, setCustomColors] = useState(() => {
@@ -436,9 +495,19 @@ function App() {
       }
     } catch (err) {
       console.error(err);
-      alert("Échec du déverrouillage biométrique.");
+      // On n'affiche pas d'alerte ici pour ne pas spammer si l'utilisateur annule
     }
   };
+
+  // Déclenchement automatique de la biométrie
+  useEffect(() => {
+    if (isLocked) {
+      const timer = setTimeout(() => {
+        unlockWithBiometrics();
+      }, 800); // Petit délai pour laisser l'écran s'afficher
+      return () => clearTimeout(timer);
+    }
+  }, [isLocked]);
 
   const toggleBiometrics = () => {
     if (bioEnabled) {
@@ -623,7 +692,6 @@ function App() {
         const today = new Date().toISOString().split('T')[0];
         const updates = [];
         
-        // On saute la 1ère ligne (les en-têtes)
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i];
             const separator = line.includes(';') ? ';' : ',';
@@ -1009,15 +1077,39 @@ function App() {
   const totalPassifs = filteredPositions.filter(p => p.value_eur < 0).reduce((sum, p) => sum + p.value_eur, 0);
   const totalNet = totalActifs + totalPassifs;
 
-  const fireData = useMemo(() => {
-    const data = [];
-    let current = totalNet;
+  // 📈 MONTE-CARLO FIRE
+  const fireMonteCarloData = useMemo(() => {
+    const years = 30;
+    const simulations = 500;
     const monthlyRate = (fireRendement / 100) / 12;
-    for (let year = 0; year <= 30; year++) {
-      if (year > 0) { for (let month = 1; month <= 12; month++) { current = current * (1 + monthlyRate) + Number(fireEpargne); } }
-      data.push({ year, value: current });
+    const monthlyVol = 0.15 / Math.sqrt(12); // Volatilité annualisée de 15%
+
+    let results = Array(years + 1).fill(0).map(() => []);
+
+    for (let s = 0; s < simulations; s++) {
+      let current = totalNet;
+      results[0].push(current);
+      for (let year = 1; year <= years; year++) {
+        for (let month = 1; month <= 12; month++) {
+          // Rendement normal aléatoire (Box-Muller simplifié)
+          const u1 = Math.random();
+          const u2 = Math.random();
+          const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+          
+          const monthlyReturn = monthlyRate + (monthlyVol * z);
+          current = current * (1 + monthlyReturn) + Number(fireEpargne);
+        }
+        results[year].push(current);
+      }
     }
-    return data;
+
+    return results.map((sims, year) => {
+      sims.sort((a, b) => a - b);
+      const p10 = sims[Math.floor(sims.length * 0.10)];
+      const p50 = sims[Math.floor(sims.length * 0.50)];
+      const p90 = sims[Math.floor(sims.length * 0.90)];
+      return { year, p10, p50, p90 };
+    });
   }, [totalNet, fireEpargne, fireRendement]);
 
   const filteredHistory = useMemo(() => {
@@ -1091,19 +1183,60 @@ function App() {
   const targetPctData = {};
   TARGET_CATEGORIES.forEach(cat => { targetPctData[cat] = Number(targets[cat] || 0); });
   const currentTargetTotal = Object.values(tempTargets).reduce((sum, val) => sum + Number(val || 0), 0);
+
+  // ⚖️ CASH-FLOW ONLY REBALANCING ALGORITHM
   const rebalanceData = useMemo(() => {
     if (!showRebalance) return [];
-    const amount = Number(rebalanceAmount);
-    const newTotal = totalCategorized + amount;
+    
+    let amountLeft = Number(rebalanceAmount);
     const result = [];
-    TARGET_CATEGORIES.forEach(cat => {
+    
+    // On calcule l'écart de chaque catégorie par rapport à sa cible théorique basée sur le nouveau total
+    const newTotal = totalCategorized + amountLeft;
+    
+    // On stocke les écarts absolus en euros
+    const gaps = TARGET_CATEGORIES.map(cat => {
       const currentVal = sortedChartData.find(d => d[0] === cat)?.[1] || 0;
       const targetPct = Number(targets[cat] || 0) / 100;
       const targetValue = newTotal * targetPct;
-      const diff = targetValue - currentVal;
-      if (Math.abs(diff) > 1) result.push({ cat, diff });
+      return { cat, gap: targetValue - currentVal };
     });
-    return result.sort((a,b) => b.diff - a.diff);
+
+    // On ne garde QUE les catégories en retard (gap positif)
+    const deficits = gaps.filter(g => g.gap > 0).sort((a, b) => b.gap - a.gap);
+
+    // Si aucune catégorie n'est en retard (portefeuille parfaitement équilibré ou tout en excès), on investit selon la cible
+    if (deficits.length === 0) {
+        TARGET_CATEGORIES.forEach(cat => {
+            const pct = Number(targets[cat] || 0) / 100;
+            result.push({ cat, amount: amountLeft * pct });
+        });
+        return result.filter(r => r.amount > 0.5);
+    }
+
+    // On remplit les déficits
+    deficits.forEach(d => {
+        if (amountLeft <= 0) return;
+        const amountToAdd = Math.min(amountLeft, d.gap);
+        result.push({ cat: d.cat, amount: amountToAdd });
+        amountLeft -= amountToAdd;
+    });
+
+    // S'il reste de l'argent après avoir comblé tous les déficits (portefeuille surpondéré globalement), on le répartit selon la cible
+    if (amountLeft > 0) {
+        const totalTargetPct = TARGET_CATEGORIES.reduce((sum, cat) => sum + Number(targets[cat] || 0), 0);
+        if (totalTargetPct > 0) {
+            TARGET_CATEGORIES.forEach(cat => {
+                const pct = Number(targets[cat] || 0) / totalTargetPct;
+                const extraAmount = amountLeft * pct;
+                const existing = result.find(r => r.cat === cat);
+                if (existing) existing.amount += extraAmount;
+                else result.push({ cat, amount: extraAmount });
+            });
+        }
+    }
+
+    return result.filter(r => r.amount > 0.5).sort((a,b) => b.amount - a.amount);
   }, [showRebalance, rebalanceAmount, sortedChartData, targets, totalCategorized]);
 
   const isOliwia = ownerFilter === 'Oliwia';
@@ -1130,13 +1263,13 @@ function App() {
   // ÉCRAN DE VERROUILLAGE BIOMÉTRIQUE
   if (isLocked) {
     return (
-      <div className="lock-screen">
-        <div className="lock-icon" onClick={unlockWithBiometrics}>
+      <div className="lock-screen" onClick={unlockWithBiometrics}>
+        <div className="lock-icon">
           <Icon name="fingerprint" size={40} />
         </div>
         <h2 className="serif" style={{fontSize: '1.5rem', color: 'var(--text-white)'}}>Application verrouillée</h2>
         <p style={{color: 'var(--text-light)', fontSize: '0.85rem', marginBottom: '20px'}}>Touche l'empreinte pour déverrouiller</p>
-        <button onClick={unlockWithBiometrics} className="btn-gold" style={{maxWidth: '250px'}}>Déverrouiller</button>
+        <button onClick={(e) => { e.stopPropagation(); unlockWithBiometrics(); }} className="btn-gold" style={{maxWidth: '250px'}}>Déverrouiller</button>
       </div>
     );
   }
@@ -1442,21 +1575,27 @@ function App() {
         {view === 'projection' && (
           <div className="animate-in">
             <div className="card">
-              <div className="ap-label" style={{marginBottom: '20px'}}>Simulateur FIRE</div>
+              <div className="ap-label" style={{marginBottom: '20px'}}>Simulateur FIRE (Monte-Carlo)</div>
               <div className="slider-container">
                 <div className="slider-header"><span className="slider-label">Épargne mensuelle</span><span className="slider-value">{hideBalances ? '••••' : Number(fireEpargne).toLocaleString('fr-FR') + ' €'}</span></div>
                 <input type="range" min="0" max="20000" step="100" value={fireEpargne} onChange={e => updateFireSettings(Number(e.target.value), fireRendement)} disabled={hideBalances} />
               </div>
               <div className="slider-container">
-                <div className="slider-header"><span className="slider-label">Rendement annuel estimé</span><span className="slider-value">{fireRendement} %</span></div>
+                <div className="slider-header"><span className="slider-label">Rendement moyen estimé</span><span className="slider-value">{fireRendement} %</span></div>
                 <input type="range" min="1" max="15" step="0.5" value={fireRendement} onChange={e => updateFireSettings(fireEpargne, Number(e.target.value))} disabled={hideBalances} />
               </div>
-              <FireChart data={fireData} color={currentThemeColor} hideBalances={hideBalances} />
-              <div className="fire-result">
-                <div className="fire-box"><div className="fire-box-label">Dans 5 ans</div><div className="fire-box-value">{formatMoney(fireData[5].value)}</div></div>
-                <div className="fire-box"><div className="fire-box-label">Dans 10 ans</div><div className="fire-box-value">{formatMoney(fireData[10].value)}</div></div>
-                <div className="fire-box"><div className="fire-box-label">Dans 20 ans</div><div className="fire-box-value">{formatMoney(fireData[20].value)}</div></div>
-                <div className="fire-box"><div className="fire-box-label">Dans 30 ans</div><div className="fire-box-value">{formatMoney(fireData[30].value)}</div></div>
+              
+              <FireMonteCarloChart mcData={fireMonteCarloData} color={currentThemeColor} hideBalances={hideBalances} />
+
+              <div style={{fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '10px', textAlign: 'center'}}>
+                * Simulation basée sur 500 scénarios avec une volatilité de marché de 15%.
+              </div>
+
+              <div className="fire-result" style={{marginTop: '20px'}}>
+                <div className="fire-box"><div className="fire-box-label">Dans 10 ans (Médian)</div><div className="fire-box-value">{formatMoney(fireMonteCarloData[10]?.p50 || 0)}</div></div>
+                <div className="fire-box"><div className="fire-box-label">Dans 20 ans (Médian)</div><div className="fire-box-value">{formatMoney(fireMonteCarloData[20]?.p50 || 0)}</div></div>
+                <div className="fire-box"><div className="fire-box-label">Pire scénario à 20 ans</div><div className="fire-box-value" style={{color: 'var(--red)'}}>{formatMoney(fireMonteCarloData[20]?.p10 || 0)}</div></div>
+                <div className="fire-box"><div className="fire-box-label">Bon scénario à 20 ans</div><div className="fire-box-value" style={{color: 'var(--green)'}}>{formatMoney(fireMonteCarloData[20]?.p90 || 0)}</div></div>
               </div>
             </div>
           </div>
@@ -1486,17 +1625,17 @@ function App() {
                 </div>
                 {showRebalance && (
                   <div className="card" style={{border: '1px solid var(--gold)'}}>
-                    <div className="ap-label" style={{marginBottom: '15px'}}>Plan d'investissement</div>
+                    <div className="ap-label" style={{marginBottom: '15px'}}>Plan d'investissement (Cash-Flow Only)</div>
                     <div className="slider-container">
                       <div className="slider-header"><span className="slider-label">Montant à investir</span><span className="slider-value">{formatMoney(rebalanceAmount)}</span></div>
                       <input type="range" min="0" max="50000" step="100" value={rebalanceAmount} onChange={e => setRebalanceAmount(e.target.value)} disabled={hideBalances} />
                     </div>
                     <div style={{background: 'var(--input-bg)', padding: '15px', borderRadius: '12px'}}>
-                      <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '10px'}}>Pour respecter ta cible, voici comment répartir cet argent :</p>
+                      <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '10px'}}>Voici comment investir cet argent (sans vendre) pour te rapprocher de ta cible :</p>
                       {rebalanceData.map(item => (
                         <div key={item.cat} style={{display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '5px'}}>
                           <span>{item.cat}</span>
-                          <span style={{color: item.diff > 0 ? 'var(--green)' : 'var(--red)', fontWeight: 'bold'}}>{item.diff > 0 ? '+' : ''}{formatMoney(item.diff)}</span>
+                          <span style={{color: 'var(--green)', fontWeight: 'bold'}}>+{formatMoney(item.amount)}</span>
                         </div>
                       ))}
                       {rebalanceData.length === 0 && <p style={{fontSize:'0.8rem', textAlign:'center'}}>Ton allocation est déjà parfaite !</p>}
