@@ -90,11 +90,11 @@
   .legend-name { color: var(--text-light); display: flex; align-items: center; flex: 1; }
   .legend-percent { color: var(--text-white); font-weight: 600; }
   
-  /* MATRICE INVERSÉE ET COMPACTE */
-  .matrix-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.7rem; table-layout: fixed; }
-  .matrix-table th { text-align: right; padding: 6px 2px; color: var(--text-light); border-bottom: 1px solid var(--border-color); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .matrix-table th:first-child { text-align: left; width: 80px; }
-  .matrix-table td { padding: 6px 2px; text-align: right; border-bottom: 1px solid var(--border-color); color: var(--text-white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* MATRICE COMPACTE */
+  .matrix-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.65rem; table-layout: auto; }
+  .matrix-table th { text-align: right; padding: 6px 2px; color: var(--text-light); border-bottom: 1px solid var(--border-color); font-weight: 500; white-space: nowrap; }
+  .matrix-table th:first-child { text-align: left; width: 70px; }
+  .matrix-table td { padding: 6px 2px; text-align: right; border-bottom: 1px solid var(--border-color); color: var(--text-white); white-space: nowrap; }
   .matrix-table td:first-child { text-align: left; font-weight: 600; color: var(--gold); }
   
   .update-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -443,6 +443,20 @@ function App() {
     return Number(value).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: decimals });
   };
 
+  // Nouvelle fonction : Format Compact (k€ / M€)
+  const formatCompactMoney = (value) => {
+    if (hideBalances) return '••••';
+    if (value === 0) return '0';
+    const absValue = Math.abs(value);
+    if (absValue >= 1000000) {
+      return (value / 1000000).toFixed(1).replace('.0', '') + 'M';
+    }
+    if (absValue >= 1000) {
+      return Math.round(value / 1000) + 'k';
+    }
+    return Math.round(value).toString();
+  };
+
   // 🛡️ BIOMÉTRIE (WebAuthn local)
   const registerBiometrics = async () => {
     try {
@@ -500,7 +514,6 @@ function App() {
     }
   };
 
-  // Déclenchement automatique de la biométrie (200ms)
   useEffect(() => {
     if (isLocked) {
       const timer = setTimeout(() => {
@@ -636,12 +649,10 @@ function App() {
 
   async function fetchPlnRate() {
     try { 
-      // On récupère le taux depuis la base de données Supabase (historique)
       const { data, error } = await supabase.from('forex_rates').select('eur_pln').order('date', { ascending: false }).limit(1).single();
       if (!error && data) {
         setPlnRate(data.eur_pln);
       } else {
-        // Fallback API si la base est vide
         const res = await fetch('https://api.frankfurter.app/latest?from=EUR&to=PLN'); 
         const json = await res.json(); 
         if (json && json.rates && json.rates.PLN) setPlnRate(json.rates.PLN);
@@ -690,7 +701,6 @@ function App() {
     setLoading(false);
   }
 
-  // --- CSV IMPORT ---
   function handleImportCSV(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -744,7 +754,6 @@ function App() {
     reader.readAsText(file);
   }
 
-  // --- LOGIQUE DE SYNCHRO ---
   async function fetchTickersPrices(tickers) {
     let prices = {};
     let mode = 'supabase-edge';
@@ -1089,7 +1098,6 @@ function App() {
   const totalPassifs = filteredPositions.filter(p => p.value_eur < 0).reduce((sum, p) => sum + p.value_eur, 0);
   const totalNet = totalActifs + totalPassifs;
 
-  // 📈 MONTE-CARLO FIRE
   const fireMonteCarloData = useMemo(() => {
     const years = 30;
     const simulations = 500;
@@ -1163,7 +1171,6 @@ function App() {
     return Object.entries(chartData).sort((a, b) => b[1] - a[1]);
   }, [filteredPositions]);
 
-  // MATRICE INVERSÉE (Enveloppes en colonnes, Catégories en lignes)
   const exposureMatrix = useMemo(() => {
     const matrix = {};
     const envelopes = new Set();
@@ -1266,7 +1273,6 @@ function App() {
     return totalB - totalA;
   });
 
-  // Calcul de l'exposition PLN
   const currencyExposure = filteredPositions.filter(p => 
     p.account_name.toLowerCase().includes('pk') || 
     p.account_name.toLowerCase().includes('mbank') || 
@@ -1275,7 +1281,6 @@ function App() {
   ).reduce((sum, p) => sum + p.value_eur, 0);
   const currencyExposurePct = totalNet > 0 ? (currencyExposure / totalNet) * 100 : 0;
 
-  // ÉCRAN DE VERROUILLAGE BIOMÉTRIQUE
   if (isLocked) {
     return (
       <div className="lock-screen" onClick={unlockWithBiometrics}>
@@ -1404,12 +1409,14 @@ function App() {
 
               <div className="card animate-in delay-3">
                 <div className="ap-label" style={{marginBottom: '10px'}}>Matrice d'Exposition</div>
-                <div>
+                <div style={{overflowX: 'auto', paddingBottom: '5px'}}>
                   <table className="matrix-table">
                     <thead>
                       <tr>
                         <th>Catégorie</th>
-                        {exposureMatrix.activeEnvelopes.map(env => (<th key={env}>{env}</th>))}
+                        {exposureMatrix.activeEnvelopes.map(env => (
+                          <th key={env} title={env}>{env.length > 8 ? env.substring(0, 6) + '..' : env}</th>
+                        ))}
                         <th>Total</th>
                       </tr>
                     </thead>
@@ -1417,8 +1424,14 @@ function App() {
                       {exposureMatrix.activeCategories.map(cat => (
                         <tr key={cat}>
                           <td>{cat}</td>
-                          {exposureMatrix.activeEnvelopes.map(env => (<td key={env}>{exposureMatrix.matrix[cat][env] ? formatMoney(exposureMatrix.matrix[cat][env]) : '-'}</td>))}
-                          <td style={{fontWeight: 'bold'}}>{formatMoney(exposureMatrix.rowTotals[cat])}</td>
+                          {exposureMatrix.activeEnvelopes.map(env => (
+                            <td key={env} title={formatMoney(exposureMatrix.matrix[cat][env] || 0)}>
+                              {exposureMatrix.matrix[cat][env] ? formatCompactMoney(exposureMatrix.matrix[cat][env]) : '-'}
+                            </td>
+                          ))}
+                          <td style={{fontWeight: 'bold'}} title={formatMoney(exposureMatrix.rowTotals[cat])}>
+                            {formatCompactMoney(exposureMatrix.rowTotals[cat])}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
