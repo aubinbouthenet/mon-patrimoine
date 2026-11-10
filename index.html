@@ -90,10 +90,11 @@
   .legend-name { color: var(--text-light); display: flex; align-items: center; flex: 1; }
   .legend-percent { color: var(--text-white); font-weight: 600; }
   
-  /* MATRICE COMPACTE */
-  .matrix-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.65rem; table-layout: auto; }
+  /* MATRICE COMPACTE SANS BORDURES */
+  .matrix-card { padding: 15px 10px !important; }
+  .matrix-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 0.65rem; table-layout: auto; }
   .matrix-table th { text-align: right; padding: 6px 2px; color: var(--text-light); border-bottom: 1px solid var(--border-color); font-weight: 500; white-space: nowrap; }
-  .matrix-table th:first-child { text-align: left; width: 70px; }
+  .matrix-table th:first-child { text-align: left; min-width: 60px; }
   .matrix-table td { padding: 6px 2px; text-align: right; border-bottom: 1px solid var(--border-color); color: var(--text-white); white-space: nowrap; }
   .matrix-table td:first-child { text-align: left; font-weight: 600; color: var(--gold); }
   
@@ -443,7 +444,6 @@ function App() {
     return Number(value).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: decimals });
   };
 
-  // Nouvelle fonction : Format Compact (k€ / M€)
   const formatCompactMoney = (value) => {
     if (hideBalances) return '••••';
     if (value === 0) return '0';
@@ -455,6 +455,16 @@ function App() {
       return Math.round(value / 1000) + 'k';
     }
     return Math.round(value).toString();
+  };
+
+  const getShortEnvelopeName = (env) => {
+    if (env.includes('Compte Courant')) return 'CC';
+    if (env.includes('Compte Bancaire')) return 'CB';
+    if (env.includes('Assurance-Vie')) return 'AV';
+    if (env.includes('Immobilier')) return 'Immo';
+    if (env.includes('Entreprise')) return 'Ent.';
+    if (env.includes('Crédit')) return 'Crédit';
+    return env;
   };
 
   // 🛡️ BIOMÉTRIE (WebAuthn local)
@@ -1349,7 +1359,6 @@ function App() {
                 </div>
               </div>
 
-              {/* 💱 CARTE EXPOSITION DEVISE */}
               {plnRate && (
                 <div className="card animate-in delay-2">
                   <div className="ap-label" style={{marginBottom: '5px'}}>Exposition Devise (PLN)</div>
@@ -1407,15 +1416,15 @@ function App() {
                 </div>
               </div>
 
-              <div className="card animate-in delay-3">
+              <div className="card animate-in delay-3 matrix-card">
                 <div className="ap-label" style={{marginBottom: '10px'}}>Matrice d'Exposition</div>
-                <div style={{overflowX: 'auto', paddingBottom: '5px'}}>
+                <div style={{overflowX: 'auto'}}>
                   <table className="matrix-table">
                     <thead>
                       <tr>
                         <th>Catégorie</th>
                         {exposureMatrix.activeEnvelopes.map(env => (
-                          <th key={env} title={env}>{env.length > 8 ? env.substring(0, 6) + '..' : env}</th>
+                          <th key={env} title={env}>{getShortEnvelopeName(env)}</th>
                         ))}
                         <th>Total</th>
                       </tr>
