@@ -89,10 +89,12 @@
   .legend-color { width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
   .legend-name { color: var(--text-light); display: flex; align-items: center; flex: 1; }
   .legend-percent { color: var(--text-white); font-weight: 600; }
-  .matrix-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.8rem; }
-  .matrix-table th { text-align: right; padding: 8px; color: var(--text-light); border-bottom: 1px solid var(--border-color); font-weight: 500;}
-  .matrix-table th:first-child { text-align: left; }
-  .matrix-table td { padding: 8px; text-align: right; border-bottom: 1px solid var(--border-color); color: var(--text-white);}
+  
+  /* MATRICE INVERSÉE ET COMPACTE */
+  .matrix-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.7rem; table-layout: fixed; }
+  .matrix-table th { text-align: right; padding: 6px 2px; color: var(--text-light); border-bottom: 1px solid var(--border-color); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .matrix-table th:first-child { text-align: left; width: 80px; }
+  .matrix-table td { padding: 6px 2px; text-align: right; border-bottom: 1px solid var(--border-color); color: var(--text-white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .matrix-table td:first-child { text-align: left; font-weight: 600; color: var(--gold); }
   
   .update-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -503,7 +505,7 @@ function App() {
     if (isLocked) {
       const timer = setTimeout(() => {
         unlockWithBiometrics();
-      }, 200); // Accéléré de 800ms à 200ms
+      }, 200);
       return () => clearTimeout(timer);
     }
   }, [isLocked]);
@@ -1092,7 +1094,7 @@ function App() {
     const years = 30;
     const simulations = 500;
     const monthlyRate = (fireRendement / 100) / 12;
-    const monthlyVol = 0.15 / Math.sqrt(12); // Volatilité annualisée de 15%
+    const monthlyVol = 0.15 / Math.sqrt(12);
 
     let results = Array(years + 1).fill(0).map(() => []);
 
@@ -1161,25 +1163,29 @@ function App() {
     return Object.entries(chartData).sort((a, b) => b[1] - a[1]);
   }, [filteredPositions]);
 
+  // MATRICE INVERSÉE (Enveloppes en colonnes, Catégories en lignes)
   const exposureMatrix = useMemo(() => {
     const matrix = {};
+    const envelopes = new Set();
     filteredPositions.forEach(p => {
       let cat = p.category;
       if (cat === 'Immobilier Brut') cat = 'Immobilier';
       if (cat === 'Dette Immobilière') return;
       if (!cat || cat === 'Dettes Conso') return;
-      if (!matrix[p.envelope]) matrix[p.envelope] = {};
-      if (!matrix[p.envelope][cat]) matrix[p.envelope][cat] = 0;
-      matrix[p.envelope][cat] += p.value_eur;
+      envelopes.add(p.envelope);
+      if (!matrix[cat]) matrix[cat] = {};
+      if (!matrix[cat][p.envelope]) matrix[cat][p.envelope] = 0;
+      matrix[cat][p.envelope] += p.value_eur;
     });
-    const activeCategories = TARGET_CATEGORIES.filter(cat => Object.values(matrix).some(env => env[cat] && env[cat] > 0));
+    const activeEnvelopes = Array.from(envelopes).sort();
+    const activeCategories = TARGET_CATEGORIES.filter(cat => matrix[cat] && Object.values(matrix[cat]).some(v => v > 0));
     
-    const colTotals = {};
+    const rowTotals = {};
     activeCategories.forEach(cat => {
-      colTotals[cat] = Object.values(matrix).reduce((sum, env) => sum + (env[cat] || 0), 0);
+      rowTotals[cat] = Object.values(matrix[cat]).reduce((sum, v) => sum + v, 0);
     });
 
-    return { matrix, activeCategories, colTotals };
+    return { matrix, activeEnvelopes, activeCategories, rowTotals };
   }, [filteredPositions]);
 
   const topHoldings = useMemo(() => {
@@ -1193,10 +1199,8 @@ function App() {
   TARGET_CATEGORIES.forEach(cat => { targetPctData[cat] = Number(targets[cat] || 0); });
   const currentTargetTotal = Object.values(tempTargets).reduce((sum, val) => sum + Number(val || 0), 0);
 
-  // ⚖️ CASH-FLOW ONLY REBALANCING ALGORITHM
   const rebalanceData = useMemo(() => {
     if (!showRebalance) return [];
-    
     let amountLeft = Number(rebalanceAmount);
     const result = [];
     const newTotal = totalCategorized + amountLeft;
@@ -1262,6 +1266,15 @@ function App() {
     return totalB - totalA;
   });
 
+  // Calcul de l'exposition PLN
+  const currencyExposure = filteredPositions.filter(p => 
+    p.account_name.toLowerCase().includes('pk') || 
+    p.account_name.toLowerCase().includes('mbank') || 
+    p.account_name.toLowerCase().includes('pln') || 
+    p.account_name.toLowerCase().includes('pologne')
+  ).reduce((sum, p) => sum + p.value_eur, 0);
+  const currencyExposurePct = totalNet > 0 ? (currencyExposure / totalNet) * 100 : 0;
+
   // ÉCRAN DE VERROUILLAGE BIOMÉTRIQUE
   if (isLocked) {
     return (
@@ -1288,10 +1301,6 @@ function App() {
       </div>
     );
   }
-
-  // Calcul de l'exposition aux devises
-  const currencyExposure = filteredPositions.filter(p => p.account_name.includes('PKO') || p.account_name.includes('mBank')).reduce((sum, p) => sum + p.value_eur, 0);
-  const currencyExposurePct = totalNet > 0 ? (currencyExposure / totalNet) * 100 : 0;
 
   return (
     <div className="app-container">
@@ -1336,7 +1345,7 @@ function App() {
               </div>
 
               {/* 💱 CARTE EXPOSITION DEVISE */}
-              {currencyExposure > 0 && (
+              {plnRate && (
                 <div className="card animate-in delay-2">
                   <div className="ap-label" style={{marginBottom: '5px'}}>Exposition Devise (PLN)</div>
                   <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px'}}>
@@ -1346,7 +1355,7 @@ function App() {
                     </div>
                     <div style={{textAlign: 'right'}}>
                       <div style={{fontSize: '0.85rem', color: 'var(--text-light)'}}>Taux EUR/PLN</div>
-                      <div style={{fontWeight: 'bold', color: 'var(--gold)'}}>{plnRate ? plnRate.toFixed(4) : '...'}</div>
+                      <div style={{fontWeight: 'bold', color: 'var(--gold)'}}>{plnRate.toFixed(4)}</div>
                     </div>
                   </div>
                 </div>
@@ -1395,29 +1404,24 @@ function App() {
 
               <div className="card animate-in delay-3">
                 <div className="ap-label" style={{marginBottom: '10px'}}>Matrice d'Exposition</div>
-                <div style={{overflowX: 'auto'}}>
+                <div>
                   <table className="matrix-table">
-                    <thead><tr><th>Enveloppe</th>{exposureMatrix.activeCategories.map(cat => (<th key={cat}>{cat}</th>))}</tr></thead>
-                    <tbody>
-                      {Object.entries(exposureMatrix.matrix).sort((a,b) => {
-                        const totA = Object.values(a[1]).reduce((s,v)=>s+v,0);
-                        const totB = Object.values(b[1]).reduce((s,v)=>s+v,0);
-                        return totB - totA;
-                      }).map(pair => {
-                        const env = pair[0]; const cats = pair[1];
-                        return (<tr key={env}><td>{env}</td>{exposureMatrix.activeCategories.map(cat => (<td key={cat}>{cats[cat] ? formatMoney(cats[cat]) : '-'}</td>))}</tr>);
-                      })}
-                    </tbody>
-                    <tfoot>
-                      <tr style={{borderTop: '2px solid var(--gold)'}}>
-                        <td style={{fontWeight: 'bold', color: 'var(--gold)'}}>TOTAL</td>
-                        {exposureMatrix.activeCategories.map(cat => (
-                          <td key={cat} style={{fontWeight: 'bold', color: 'var(--text-white)'}}>
-                            {formatMoney(exposureMatrix.colTotals[cat])}
-                          </td>
-                        ))}
+                    <thead>
+                      <tr>
+                        <th>Catégorie</th>
+                        {exposureMatrix.activeEnvelopes.map(env => (<th key={env}>{env}</th>))}
+                        <th>Total</th>
                       </tr>
-                    </tfoot>
+                    </thead>
+                    <tbody>
+                      {exposureMatrix.activeCategories.map(cat => (
+                        <tr key={cat}>
+                          <td>{cat}</td>
+                          {exposureMatrix.activeEnvelopes.map(env => (<td key={env}>{exposureMatrix.matrix[cat][env] ? formatMoney(exposureMatrix.matrix[cat][env]) : '-'}</td>))}
+                          <td style={{fontWeight: 'bold'}}>{formatMoney(exposureMatrix.rowTotals[cat])}</td>
+                        </tr>
+                      ))}
+                    </tbody>
                   </table>
                 </div>
               </div>
