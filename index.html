@@ -7,8 +7,14 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#050A14">
 
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
+<script>
+if (window.location.search.includes('debug=1')) {
+  var erudaScript = document.createElement('script');
+  erudaScript.src = 'https://cdn.jsdelivr.net/npm/eruda';
+  erudaScript.onload = function() { if (window.eruda) window.eruda.init(); };
+  document.head.appendChild(erudaScript);
+}
+</script>
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700&family=Inter:wght@400;500;600;700&display=swap');
@@ -90,7 +96,6 @@
   .legend-name { color: var(--text-light); display: flex; align-items: center; flex: 1; }
   .legend-percent { color: var(--text-white); font-weight: 600; }
   
-  /* MATRICE COMPACTE SANS BORDURES */
   .matrix-card { padding: 15px 10px !important; }
   .matrix-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 0.65rem; table-layout: auto; }
   .matrix-table th { text-align: right; padding: 6px 2px; color: var(--text-light); border-bottom: 1px solid var(--border-color); font-weight: 500; white-space: nowrap; }
@@ -112,6 +117,7 @@
   .update-table td:last-child { border-bottom: none; }
   .input-wrapper { display: flex; justify-content: flex-end; align-items: center; gap: 5px; }
   .table-input { width: 70px; padding: 6px; border-radius: 6px; border: 1px solid var(--gold); text-align: right; font-weight: 600; color: var(--text-white); background: var(--input-bg); outline: none; font-size: 0.85rem; transition: var(--transition-theme); }
+  .table-input.dirty { border-color: var(--green); box-shadow: 0 0 8px rgba(16, 185, 129, 0.35); }
   .small-input { width: 55px; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center; font-size: 0.75rem; background: var(--input-bg); color: var(--text-light); outline: none; }
   .small-input:focus { border-color: var(--gold); }
   .etf-row { display: flex; gap: 5px; margin-top: 5px; justify-content: flex-end; align-items: center; }
@@ -123,6 +129,8 @@
   .btn-delete { background: transparent; border: none; color: var(--red); font-size: 1.1rem; cursor: pointer; padding: 5px; margin-left: 5px; }
   .btn-sync { background: var(--gold-trans); border: 1px solid var(--gold); color: var(--gold); padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; }
   .btn-export { background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-light); padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 20px; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; }
+  .draft-banner { background: rgba(16, 185, 129, 0.12); border: 1px solid var(--green); border-radius: 12px; padding: 12px 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-white); gap: 10px; }
+  .btn-discard-draft { background: transparent; border: 1px solid var(--red); color: var(--red); padding: 5px 10px; border-radius: 8px; font-size: 0.75rem; cursor: pointer; white-space: nowrap; }
   .add-form { background: var(--gold-trans); border: 1px dashed var(--gold); border-radius: 12px; padding: 20px; margin-bottom: 20px; display: none; }
   .add-form.open { display: block; }
   .add-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
@@ -147,9 +155,8 @@
   .total-indicator { text-align: center; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; padding: 10px; border-radius: 8px; background: var(--input-bg); }
   .total-indicator.ok { color: var(--green); border: 1px solid var(--green); }
   .total-indicator.not-ok { color: var(--red); border: 1px solid var(--red); }
-  .log-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid var(--border-color); }
-  .log-content { font-size: 0.85rem; color: var(--text-white); line-height: 1.5; }
-  .log-content strong { color: var(--gold); }
+  .log-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: 1px solid var(--border-color); font-size: 0.8rem; gap: 8px; }
+  .log-row:first-of-type { border-top: none; }
   .btn-delete-history { background: var(--red); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; }
   
   .color-picker-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
@@ -196,8 +203,8 @@ window.__showFatalError = function(title, details) {
     '<div class="fatal-error">' +
     '<h1>⚠️ ' + (title || 'Erreur') + '</h1>' +
     '<pre>' + (details || 'Aucun détail disponible.') + '</pre>' +
-    '<p><strong style="color:#D4AF37">Que faire ?</strong></p>' +
-    '<p>Ouvre la console en bas à droite (Eruda) et regarde l\'onglet "Console" pour voir les erreurs en rouge.</p>' +
+    '<p><strong style="color:#D4AF37">Diagnostic :</strong></p>' +
+    '<p>Ajoutez <code>?debug=1</code> à la fin de l\'URL pour ouvrir la console technique.</p>' +
     '</div>';
 };
 
@@ -216,7 +223,7 @@ setTimeout(function() {
   if (document.getElementById('boot-loading')) {
     window.__showFatalError(
       'L\'application ne démarre pas',
-      'React n\'a pas pu démarrer dans les 10 secondes.\nOuvre la console Eruda en bas à droite pour voir l\'erreur exacte.'
+      'React n\'a pas pu démarrer dans les 10 secondes.\nAjoutez ?debug=1 à l\'URL pour inspecter la console.'
     );
   }
 }, 10000);
@@ -235,7 +242,7 @@ let supabase;
 try {
   supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 } catch (e) {
-  window.__showFatalError("Erreur d'initialisation Supabase", e.message + "\n\nVérifie que ta clé API est correcte.");
+  window.__showFatalError("Erreur d'initialisation Supabase", e.message);
   throw e;
 }
 
@@ -247,9 +254,8 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div style={{padding: '20px', color: 'white', background: '#E11D48', fontFamily: 'monospace', minHeight: '100vh'}}>
-          <h2>💥 L'application a planté (Erreur React)</h2>
+          <h2>💥 Erreur d'exécution React</h2>
           <p style={{marginTop: '15px', background: 'rgba(0,0,0,0.3)', padding: '10px', borderRadius: '5px'}}>{this.state.error.toString()}</p>
-          <p style={{marginTop: '15px'}}>Ouvre la console Eruda en bas à droite pour voir la "Stack Trace" complète.</p>
         </div>
       );
     }
@@ -293,7 +299,8 @@ const HistoryChart = memo(({ history, color, hideBalances }) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, 180);
     gradient.addColorStop(0, color + '44');
     gradient.addColorStop(1, color + '00');
-    new Chart(ctx, { type: 'line', data: { labels, datasets: [{ data: dataPoints, borderColor: color, borderWidth: 2, backgroundColor: gradient, fill: true, tension: 0.3, pointRadius: history.length === 1 ? 4 : 0, pointHoverRadius: 5 }] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 800, easing: 'easeOutQuart' }, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { enabled: !hideBalances, callbacks: { label: (ctx) => ctx.parsed.y.toLocaleString('fr-FR') + ' €' } } }, scales: { x: { display: false }, y: { display: false } } } });
+    const instance = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ data: dataPoints, borderColor: color, borderWidth: 2, backgroundColor: gradient, fill: true, tension: 0.3, pointRadius: history.length === 1 ? 4 : 0, pointHoverRadius: 5 }] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 800, easing: 'easeOutQuart' }, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { enabled: !hideBalances, callbacks: { label: (ctx) => ctx.parsed.y.toLocaleString('fr-FR') + ' €' } } }, scales: { x: { display: false }, y: { display: false } } } });
+    return () => instance.destroy();
   }, [history, color, hideBalances]);
   return <div className="history-chart-container"><canvas ref={chartRef}></canvas></div>;
 });
@@ -314,7 +321,8 @@ const DonutChart = memo(({ sortedData, customColors, isOliwia, isAubin }) => {
 
     const finalColors = sortedData.map((d, i) => customColors[d[0]] || defaultPalette[i % defaultPalette.length]);
 
-    new Chart(ctx, { type: 'doughnut', data: { labels: sortedData.map(d => d[0]), datasets: [{ data: sortedData.map(d => d[1]), backgroundColor: finalColors, borderWidth: 0, hoverOffset: 4 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '80%', animation: { animateScale: true, animateRotate: true }, plugins: { legend: { display: false }, tooltip: { enabled: false } } } });
+    const instance = new Chart(ctx, { type: 'doughnut', data: { labels: sortedData.map(d => d[0]), datasets: [{ data: sortedData.map(d => d[1]), backgroundColor: finalColors, borderWidth: 0, hoverOffset: 4 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '80%', animation: { animateScale: true, animateRotate: true }, plugins: { legend: { display: false }, tooltip: { enabled: false } } } });
+    return () => instance.destroy();
   }, [sortedData, customColors, isOliwia, isAubin]);
   return <div className="chart-donut"><canvas ref={chartRef}></canvas></div>;
 });
@@ -329,7 +337,7 @@ const FireMonteCarloChart = memo(({ mcData, color, hideBalances }) => {
 
     const labels = mcData.map(d => 'Année ' + d.year);
 
-    new Chart(ctx, { 
+    const instance = new Chart(ctx, { 
       type: 'line', 
       data: { 
         labels, 
@@ -393,6 +401,7 @@ const FireMonteCarloChart = memo(({ mcData, color, hideBalances }) => {
         } 
       } 
     });
+    return () => instance.destroy();
   }, [mcData, color, hideBalances]);
   return <div className="history-chart-container" style={{height: '220px'}}><canvas ref={chartRef}></canvas></div>;
 });
@@ -424,10 +433,15 @@ function App() {
   const [saveTimeout, setSaveTimeout] = useState(null);
   const [plnRate, setPlnRate] = useState(null);
 
-  const [formValues, setFormValues] = useState(() => {
-    try { const saved = localStorage.getItem('patrimoine_draft'); return saved ? JSON.parse(saved) : {}; }
-    catch(e) { return {}; }
+  const [dirtyValues, setDirtyValues] = useState(() => {
+    try {
+      localStorage.removeItem('patrimoine_draft');
+      const saved = localStorage.getItem('patrimoine_dirty_draft');
+      return saved ? JSON.parse(saved) : {};
+    } catch(e) { return {}; }
   });
+  const [dirtyMeta, setDirtyMeta] = useState({});
+
   const [expandedSaisieEnv, setExpandedSaisieEnv] = useState(null);
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncingId, setSyncingId] = useState(null);
@@ -438,6 +452,12 @@ function App() {
   const [tempTargets, setTempTargets] = useState({});
   const [showRebalance, setShowRebalance] = useState(false);
   const [rebalanceAmount, setRebalanceAmount] = useState(1000);
+
+  const getRawVal = (p) => (dirtyValues[p.id] !== undefined ? dirtyValues[p.id] : p.value_eur);
+  const getNumVal = (p) => {
+    const n = Number(getRawVal(p));
+    return isNaN(n) ? 0 : n;
+  };
 
   const formatMoney = (value, decimals = 0) => {
     if (hideBalances) return '••••••';
@@ -467,7 +487,6 @@ function App() {
     return env;
   };
 
-  // 🛡️ BIOMÉTRIE (WebAuthn local)
   const registerBiometrics = async () => {
     try {
       const challenge = new Uint8Array(32);
@@ -495,7 +514,7 @@ function App() {
       }
     } catch (err) {
       console.error(err);
-      alert("Impossible d'activer la biométrie. Ton appareil ne la supporte peut-être pas ou tu as annulé.");
+      alert("Impossible d'activer la biométrie sur cet appareil.");
     }
   };
 
@@ -559,11 +578,11 @@ function App() {
       },
       forest: {
         dark: { gold: '#84A98C', dark: '#52796F', light: '#CAD2C5', trans: 'rgba(132, 169, 140, 0.15)', glow: '0 0 15px rgba(132, 169, 140, 0.3)', bg: 'radial-gradient(circle at 50% 0%, rgba(132, 169, 140, 0.25) 0%, transparent 75%)', card: 'rgba(18, 25, 20, 0.8)', nav: 'rgba(8, 15, 10, 0.98)', input: 'rgba(0,0,0,0.3)', border: 'rgba(255, 255, 255, 0.08)' },
-        light: { gold: '#5C8367', dark: '#3A5A42', light: '#E0E8E1', trans: 'rgba(92, 131, 103, 0.15)', glow: '0 4px 15px rgba(92, 131, 103, 0.2)', bg: 'radial-gradient(circle at 50% 0%, rgba(92, 131, 103, 0.25) 0%, transparent 75%)', card: 'rgba(255, 255, 255, 0.9)', nav: 'rgba(253, 251, 247, 0.98)', input: 'rgba(255,255,255,0.6)', border: 'rgba(0,0,0,0.08)' }
+        light: { gold: '#5C8367', dark: '#3A5A42', light: '#E0E8E1', trans: 'rgba(92, 131, 103, 0.15)', glow: '0 4px 15px rgba(92, 131, 103, 0.2)', bg: 'radial-gradient(circle at 50% 0%, rgba(92, 131, 103, 0.25) 0%, transparent 75%)', card: 'rgba(255, 255, 255, 0.9)', nav: 'rgba(253, 251, 247, 0.98)', input: 'rgba(255,255,255,0.6)', border: 'rgba(0, 0, 0, 0.08)' }
       },
       earth: {
         dark: { gold: '#D08C7A', dark: '#B06A58', light: '#F4EBE6', trans: 'rgba(208, 140, 122, 0.15)', glow: '0 0 15px rgba(208, 140, 122, 0.3)', bg: 'radial-gradient(circle at 50% 0%, rgba(208, 140, 122, 0.25) 0%, transparent 75%)', card: 'rgba(25, 18, 18, 0.8)', nav: 'rgba(15, 8, 8, 0.98)', input: 'rgba(0,0,0,0.3)', border: 'rgba(255, 255, 255, 0.08)' },
-        light: { gold: '#B06A58', dark: '#8E4F3E', light: '#FAEDCD', trans: 'rgba(176, 106, 88, 0.15)', glow: '0 4px 15px rgba(176, 106, 88, 0.2)', bg: 'radial-gradient(circle at 50% 0%, rgba(176, 106, 88, 0.25) 0%, transparent 75%)', card: 'rgba(255, 255, 255, 0.9)', nav: 'rgba(253, 251, 247, 0.98)', input: 'rgba(255,255,255,0.6)', border: 'rgba(0,0,0,0.08)' }
+        light: { gold: '#B06A58', dark: '#8E4F3E', light: '#FAEDCD', trans: 'rgba(176, 106, 88, 0.15)', glow: '0 4px 15px rgba(176, 106, 88, 0.2)', bg: 'radial-gradient(circle at 50% 0%, rgba(176, 106, 88, 0.25) 0%, transparent 75%)', card: 'rgba(255, 255, 255, 0.9)', nav: 'rgba(253, 251, 247, 0.98)', input: 'rgba(255,255,255,0.6)', border: 'rgba(0, 0, 0, 0.08)' }
       }
     };
 
@@ -583,8 +602,14 @@ function App() {
   useEffect(() => { if (isDarkMode) document.body.classList.remove('light-theme'); else document.body.classList.add('light-theme'); }, [isDarkMode]);
   
   useEffect(() => {
-    try { if (Object.keys(formValues).length > 0) localStorage.setItem('patrimoine_draft', JSON.stringify(formValues)); } catch(e) {}
-  }, [formValues]);
+    try {
+      if (Object.keys(dirtyValues).length > 0) {
+        localStorage.setItem('patrimoine_dirty_draft', JSON.stringify(dirtyValues));
+      } else {
+        localStorage.removeItem('patrimoine_dirty_draft');
+      }
+    } catch(e) {}
+  }, [dirtyValues]);
 
   useEffect(() => { 
     supabase.auth.getSession().then(({ data }) => setSession(data.session || null)).catch(() => {});
@@ -594,16 +619,23 @@ function App() {
     return () => authListener.subscription.unsubscribe();
   }, []);
   
+  // Chargement initial des données uniquement après déverrouillage biométrique
   useEffect(() => { 
-    if (session) { 
+    if (session && !isLocked) { 
       fetchPreferences();
       fetchPositions(); 
-      fetchHistory(); 
       fetchTargets(); 
       fetchLogs(); 
       fetchPlnRate(); 
     } 
-  }, [session, ownerFilter]);
+  }, [session, isLocked]);
+
+  // Actualisation de la courbe historique selon le propriétaire et l'inclusion du Pro
+  useEffect(() => {
+    if (session && !isLocked) {
+      fetchHistory();
+    }
+  }, [session, ownerFilter, showPro, isLocked]);
 
   async function savePreferences(newColors, newFireParams) {
     if (!session) return;
@@ -639,7 +671,7 @@ function App() {
   };
 
   const resetChartColors = () => {
-    if (!window.confirm("Voulez-vous vraiment réinitialiser toutes les couleurs du graphique selon votre thème actuel ?")) return;
+    if (!window.confirm("Réinitialiser toutes les couleurs du graphique selon le thème actuel ?")) return;
     setCustomColors({});
     try { localStorage.removeItem('customChartColors'); } catch(e) {}
     savePreferences({}, undefined);
@@ -648,9 +680,7 @@ function App() {
   const updateFireSettings = (newEp, newRen) => {
     setFireEpargne(newEp);
     setFireRendement(newRen);
-    
     if (saveTimeout) clearTimeout(saveTimeout);
-    
     const timeout = setTimeout(() => {
       savePreferences(undefined, { epargne: newEp, rendement: newRen });
     }, 1000);
@@ -669,32 +699,74 @@ function App() {
       }
     } catch (err) {}
   }
+
   async function fetchPositions() {
     setLoading(true);
     const { data, error } = await supabase.from('latest_positions').select('*');
     if (error) setError('Erreur de chargement : ' + error.message);
     else if (data) {
       setPositions(data);
-      const newFormValues = { ...formValues };
-      let hasChanged = false;
-      data.forEach(p => { if (newFormValues[p.id] === undefined) { newFormValues[p.id] = p.value_eur; hasChanged = true; } });
-      if (hasChanged) setFormValues(newFormValues);
+      setDirtyValues(prev => {
+        const next = { ...prev };
+        let changed = false;
+        Object.keys(next).forEach(id => {
+          const pos = data.find(p => p.id === id);
+          if (!pos || Number(next[id]) === Number(pos.value_eur)) {
+            delete next[id];
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
     }
     setLoading(false);
   }
+
   async function fetchHistory() {
-    const { data, error } = await supabase.rpc('get_wealth_history', { p_owner: ownerFilter });
+    const { data, error } = await supabase.rpc('get_wealth_history', {
+      p_owner: ownerFilter,
+      p_include_pro: showPro
+    });
     if (!error && data) setHistoryData(data);
   }
+
   async function fetchTargets() {
     const { data, error } = await supabase.from('target_allocations').select('*');
     if (!error && data) { const t = {}; data.forEach(row => t[row.category] = row.target_percentage); setTargets(t); setTempTargets(t); }
   }
+
   async function fetchLogs() {
-    const { data, error } = await supabase.from('positions').select('created_at, date, account_name, owner, value_eur').order('date', { ascending: false }).limit(100);
+    const { data, error } = await supabase
+      .from('positions')
+      .select('created_at, date, owner, envelope, account_name, category, value_eur')
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(300);
+
     if (!error && data) {
+      const byAccount = {};
+      data.forEach(row => {
+        const key = `${row.owner}|${row.envelope}|${row.account_name}|${row.category || ''}`;
+        if (!byAccount[key]) byAccount[key] = [];
+        byAccount[key].push(row);
+      });
+
+      const enriched = [];
+      Object.values(byAccount).forEach(rows => {
+        rows.forEach((row, idx) => {
+          const prevRow = rows[idx + 1];
+          const diff = prevRow !== undefined ? Number(row.value_eur) - Number(prevRow.value_eur) : null;
+          enriched.push({ ...row, diff });
+        });
+      });
+
+      enriched.sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return (b.created_at || '').localeCompare(a.created_at || '');
+      });
+
       const grouped = {};
-      data.forEach(d => {
+      enriched.forEach(d => {
         if (!grouped[d.date]) grouped[d.date] = [];
         grouped[d.date].push(d);
       });
@@ -703,7 +775,7 @@ function App() {
   }
 
   async function deleteHistoryDay(dateStr) {
-    if (!window.confirm("Attention : supprimer cette date va effacer toutes les données enregistrées ce jour-là. Le graphique sera recalculé. Continuer ?")) return;
+    if (!window.confirm("Supprimer cette date effacera toutes les données enregistrées ce jour-là et recalculera le graphique. Continuer ?")) return;
     setLoading(true);
     const { error } = await supabase.rpc('delete_snapshot', { p_date: dateStr });
     if (error) alert("Erreur : " + error.message);
@@ -747,7 +819,7 @@ function App() {
         
         if (updates.length === 0) throw new Error("Aucune ligne valide trouvée. Format attendu : Propriétaire,Enveloppe,Nom du compte,Catégorie,Montant");
         
-        if (!window.confirm(`Voulez-vous importer ${updates.length} lignes depuis le CSV ?`)) return;
+        if (!window.confirm(`Importer ${updates.length} lignes depuis le CSV ?`)) return;
         
         setLoading(true);
         const { error } = await supabase.from('positions').upsert(updates, { onConflict: 'date,owner,envelope,account_name,category' });
@@ -755,7 +827,7 @@ function App() {
         if (error) alert('Erreur Supabase : ' + error.message);
         else {
             alert(`✅ ${updates.length} comptes importés avec succès !`);
-            fetchPositions(); fetchHistory();
+            fetchPositions(); fetchHistory(); fetchLogs();
         }
       } catch (err) { alert('Erreur de lecture CSV : ' + err.message); }
       setLoading(false);
@@ -816,7 +888,7 @@ function App() {
   async function syncYahooAll() {
     const etfPositions = positions.filter(p => p.ticker && p.ticker.trim() !== '');
     if (etfPositions.length === 0) {
-      return alert("Aucun ticker configuré. Ajoute un ticker et des parts dans les lignes, puis Enregistre avant de Sync.");
+      return alert("Aucun ticker configuré. Renseignez un ticker et un nombre de parts puis enregistrez.");
     }
     const tickers = [...new Set(etfPositions.map(p => p.ticker.trim()))];
     setSyncLoading(true);
@@ -824,28 +896,28 @@ function App() {
     const { prices, mode } = await fetchTickersPrices(tickers);
 
     if (Object.keys(prices).length === 0) {
-      alert("Erreur : Impossible de récupérer les cours depuis Yahoo Finance. Vérifie tes codes (ex: CW8.PA).");
+      alert("Erreur : Impossible de récupérer les cours depuis Yahoo Finance.");
       setSyncLoading(false);
       return;
     }
 
     let updatedCount = 0;
     let details = "";
-    const newFormValues = { ...formValues };
     const newPositions = [...positions];
     const today = new Date().toISOString().split('T')[0];
     const updates = [];
+    const syncedIds = [];
 
     etfPositions.forEach(p => {
       const price = prices[p.ticker.trim()];
       if (price && p.quantity) {
         const newVal = Math.round(p.quantity * price);
-        newFormValues[p.id] = newVal;
         updatedCount++;
+        syncedIds.push(p.id);
         details += `- ${p.account_name} (${p.ticker}): ${price.toFixed(2)} €\n`;
         
         const posIndex = newPositions.findIndex(np => np.id === p.id);
-        if(posIndex > -1) newPositions[posIndex].value_eur = newVal;
+        if (posIndex > -1) newPositions[posIndex].value_eur = newVal;
 
         updates.push({ 
           date: today, owner: p.owner, envelope: p.envelope, account_name: p.account_name, 
@@ -855,11 +927,22 @@ function App() {
       }
     });
 
-    setFormValues(newFormValues);
     setPositions(newPositions);
+    setDirtyValues(prev => {
+      const next = { ...prev };
+      syncedIds.forEach(id => delete next[id]);
+      return next;
+    });
+    setDirtyMeta(prev => {
+      const next = { ...prev };
+      syncedIds.forEach(id => delete next[id]);
+      return next;
+    });
 
     if (updates.length > 0) {
       await supabase.from('positions').upsert(updates, { onConflict: 'date,owner,envelope,account_name,category' });
+      fetchHistory();
+      fetchLogs();
     }
 
     setSyncLoading(false);
@@ -867,16 +950,16 @@ function App() {
     if (updatedCount > 0) {
       alert(`✅ ${updatedCount} lignes mises à jour et sauvegardées (${mode}) !\n\n${details}`);
     } else {
-      alert("Aucun cours trouvé pour tes tickers.");
+      alert("Aucun cours trouvé pour ces tickers.");
     }
   }
 
   async function syncSingleEtf(p) {
     if (!p.ticker || p.ticker.trim() === '') {
-      return alert("Renseigne d'abord un Ticker (ex: CW8.PA).");
+      return alert("Renseignez d'abord un Ticker (ex: CW8.PA).");
     }
     if (!p.quantity) {
-      return alert("Renseigne d'abord le nombre de Parts.");
+      return alert("Renseignez d'abord le nombre de Parts.");
     }
     
     setSyncingId(p.id);
@@ -885,8 +968,9 @@ function App() {
     
     if (price) {
       const newVal = Math.round(p.quantity * price);
-      setFormValues(prev => ({ ...prev, [p.id]: newVal }));
       setPositions(prev => prev.map(item => item.id === p.id ? { ...item, value_eur: newVal } : item));
+      setDirtyValues(prev => { const next = { ...prev }; delete next[p.id]; return next; });
+      setDirtyMeta(prev => { const next = { ...prev }; delete next[p.id]; return next; });
 
       const today = new Date().toISOString().split('T')[0];
       await supabase.from('positions').upsert([{ 
@@ -895,9 +979,11 @@ function App() {
         is_professional: p.is_professional, ticker: p.ticker.trim(), quantity: Number(p.quantity) 
       }], { onConflict: 'date,owner,envelope,account_name,category' });
 
+      fetchHistory();
+      fetchLogs();
       alert(`✅ ${p.account_name} mis à jour et sauvegardé (${mode}) !\n\nPrix : ${price.toFixed(2)} €\nNouveau total : ${formatMoney(newVal)}`);
     } else {
-      alert(`Erreur : Impossible de récupérer le cours pour ${p.ticker}\n\nVérifie que le code est correct (ex: VWCE.DE, CW8.PA).`);
+      alert(`Erreur : Impossible de récupérer le cours pour ${p.ticker}`);
     }
     setSyncingId(null);
   }
@@ -914,7 +1000,7 @@ function App() {
     setLoading(true);
     const { error } = await supabase.from('positions').update({ account_name: finalName }).match({ owner: p.owner, envelope: p.envelope, account_name: p.account_name, category: p.category });
     if (error) alert("Erreur : " + error.message);
-    else { fetchPositions(); fetchHistory(); }
+    else { fetchPositions(); fetchHistory(); fetchLogs(); }
     setLoading(false);
   }
 
@@ -947,7 +1033,7 @@ function App() {
     };
     const { error } = await supabase.from('positions').insert([payload]);
     if (error) alert('Erreur : ' + error.message);
-    else { fetchPositions(); fetchHistory(); }
+    else { fetchPositions(); fetchHistory(); fetchLogs(); }
     setLoading(false);
   }
 
@@ -962,6 +1048,7 @@ function App() {
     link.click();
     document.body.removeChild(link);
   }
+
   function importFromJSON(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -970,7 +1057,7 @@ function App() {
       try {
         const data = JSON.parse(e.target.result);
         if (!data.positions || !Array.isArray(data.positions)) throw new Error('Format invalide');
-        if (!window.confirm('Attention : cela va remplacer TOUTES tes données actuelles. Continuer ?')) return;
+        if (!window.confirm('Attention : cette action va remplacer toutes les données actuelles. Continuer ?')) return;
         setLoading(true);
         await supabase.from('positions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         await supabase.from('positions').insert(data.positions);
@@ -978,22 +1065,50 @@ function App() {
           const updates = TARGET_CATEGORIES.map(cat => ({ category: cat, target_percentage: Number(data.targets[cat] || 0) }));
           await supabase.from('target_allocations').upsert(updates, { onConflict: 'category' });
         }
+        setDirtyValues({});
+        setDirtyMeta({});
         alert('Restauration terminée !');
-        fetchPositions(); fetchHistory(); fetchTargets();
+        fetchPositions(); fetchHistory(); fetchTargets(); fetchLogs();
       } catch (err) { alert('Erreur de lecture du fichier : ' + err.message); }
       setLoading(false);
     };
     reader.readAsText(file);
   }
-  function quickAdd(id, amount) { setFormValues(prev => ({ ...prev, [id]: (Number(prev[id]) || 0) + amount })); }
+
+  function handleInputChange(id, rawValue) {
+    setDirtyValues(prev => ({ ...prev, [id]: rawValue }));
+  }
+
+  function quickAdd(id, amount) {
+    const p = positions.find(item => item.id === id);
+    if (!p) return;
+    const current = getNumVal(p);
+    setDirtyValues(prev => ({ ...prev, [id]: current + amount }));
+  }
+
   function handleContractTotalChange(accountName, categories, newTotal) {
-    const oldTotal = categories.reduce((sum, acc) => sum + (Number(formValues[acc.id]) || 0), 0);
+    const oldTotal = categories.reduce((sum, acc) => sum + getNumVal(acc), 0);
     const newTotalNum = Number(newTotal);
-    if (oldTotal === 0) { setFormValues(prev => ({ ...prev, [categories[0].id]: newTotalNum })); return; }
+    if (oldTotal === 0) {
+      setDirtyValues(prev => ({ ...prev, [categories[0].id]: newTotalNum }));
+      return;
+    }
     const ratio = newTotalNum / oldTotal;
-    const newValues = { ...formValues };
-    categories.forEach(acc => { newValues[acc.id] = Math.round((Number(formValues[acc.id]) || 0) * ratio); });
-    setFormValues(newValues);
+    setDirtyValues(prev => {
+      const updated = { ...prev };
+      categories.forEach(acc => {
+        updated[acc.id] = Math.round(getNumVal(acc) * ratio);
+      });
+      return updated;
+    });
+  }
+
+  function discardDraft() {
+    if (!window.confirm("Annuler toutes les modifications locales non enregistrées ?")) return;
+    setDirtyValues({});
+    setDirtyMeta({});
+    try { localStorage.removeItem('patrimoine_dirty_draft'); } catch(e) {}
+    fetchPositions();
   }
 
   async function handleLogin(e) {
@@ -1009,35 +1124,42 @@ function App() {
   async function handleSave(e) {
     e.preventDefault();
     
+    const modifiedIds = Array.from(new Set([...Object.keys(dirtyValues), ...Object.keys(dirtyMeta)]));
+    if (modifiedIds.length === 0) {
+      alert('Aucune modification locale à enregistrer.');
+      return;
+    }
+
     const anomalies = [];
-    Object.keys(formValues).forEach(id => {
-        const original = positions.find(p => p.id === id);
-        if (original && original.value_eur !== 0) {
-            const newVal = Number(formValues[id] ?? 0);
-            const diff = Math.abs(newVal - original.value_eur);
-            const pct = diff / Math.abs(original.value_eur);
-            if (pct > 0.3 && diff > 500) {
-                anomalies.push(`- ${original.account_name} : ${formatMoney(original.value_eur)} ➔ ${formatMoney(newVal)}`);
-            }
+    modifiedIds.forEach(id => {
+      const original = positions.find(p => p.id === id);
+      if (original && original.value_eur !== 0 && dirtyValues[id] !== undefined) {
+        const newVal = Number(dirtyValues[id] || 0);
+        const diff = Math.abs(newVal - original.value_eur);
+        const pct = diff / Math.abs(original.value_eur);
+        if (pct > 0.3 && diff > 500) {
+          anomalies.push(`- ${original.account_name} : ${formatMoney(original.value_eur)} ➔ ${formatMoney(newVal)}`);
         }
+      }
     });
     
     if (anomalies.length > 0) {
-        if (!window.confirm(`⚠️ Attention, ces valeurs ont varié de plus de 30% :\n\n${anomalies.join('\n')}\n\nConfirmer l'enregistrement ?`)) return;
+      if (!window.confirm(`⚠️ Ces valeurs ont varié de plus de 30% :\n\n${anomalies.join('\n')}\n\nConfirmer l'enregistrement ?`)) return;
     }
     
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
-    const newPositions = Object.keys(formValues).map(id => {
+    const newPositions = modifiedIds.map(id => {
       const original = positions.find(p => p.id === id);
       if (!original) return null;
+      const finalVal = dirtyValues[id] !== undefined ? Number(dirtyValues[id] || 0) : Number(original.value_eur || 0);
       return { 
         date: today, 
         owner: original.owner, 
         envelope: original.envelope, 
         account_name: original.account_name, 
         category: original.category || '', 
-        value_eur: Number(formValues[id] ?? 0), 
+        value_eur: finalVal, 
         is_liability: original.is_liability, 
         is_professional: original.is_professional || false,
         ticker: original.ticker || null,
@@ -1048,8 +1170,10 @@ function App() {
     const { error } = await supabase.from('positions').upsert(newPositions, { onConflict: 'date,owner,envelope,account_name,category' });
     if (error) alert('Erreur : ' + error.message);
     else {
-      try { localStorage.removeItem('patrimoine_draft'); } catch(e) {}
-      alert('Mise à jour enregistrée !');
+      setDirtyValues({});
+      setDirtyMeta({});
+      try { localStorage.removeItem('patrimoine_dirty_draft'); } catch(e) {}
+      alert(`${newPositions.length} modification(s) enregistrée(s) !`);
       setView('dashboard');
       fetchPositions(); fetchHistory(); fetchLogs();
     }
@@ -1058,6 +1182,7 @@ function App() {
 
   function updatePositionEtf(id, field, value) {
     setPositions(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+    setDirtyMeta(prev => ({ ...prev, [id]: true }));
   }
 
   async function handleAddAccount(e) {
@@ -1074,14 +1199,19 @@ function App() {
     }
     setLoading(false);
   }
+
   async function handleDeleteAccount(account) {
-    if (!window.confirm('Supprimer définitivement "' + account.account_name + '" ?')) return;
+    if (!window.confirm('Supprimer définitivement "' + account.account_name + '" (et son historique) ?\n\nConseil : si le compte a simplement été soldé ou vendu, mettez sa valeur à 0 € plutôt que de le supprimer.')) return;
     setLoading(true);
     const { error } = await supabase.from('positions').delete().match({ owner: account.owner, envelope: account.envelope, account_name: account.account_name, category: account.category || '' });
     if (error) alert('Erreur : ' + error.message);
-    else { fetchPositions(); fetchHistory(); fetchLogs(); }
+    else {
+      setDirtyValues(prev => { const next = { ...prev }; delete next[account.id]; return next; });
+      fetchPositions(); fetchHistory(); fetchLogs();
+    }
     setLoading(false);
   }
+
   async function saveTargets() {
     if (Math.round(currentTargetTotal) !== 100) return alert('Le total doit être exactement de 100%.');
     setLoading(true);
@@ -1091,6 +1221,7 @@ function App() {
     else { setTargets(tempTargets); setEditTargetsMode(false); }
     setLoading(false);
   }
+
   function handleTargetSliderChange(cat, value) {
     const newValue = Number(value);
     const oldValue = Number(tempTargets[cat] || 0);
@@ -1124,7 +1255,6 @@ function App() {
           const u1 = Math.random();
           const u2 = Math.random();
           const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-          
           const monthlyReturn = monthlyRate + (monthlyVol * z);
           current = current * (1 + monthlyReturn) + Number(fireEpargne);
         }
@@ -1264,7 +1394,6 @@ function App() {
 
   const isOliwia = ownerFilter === 'Oliwia';
   const isAubin = ownerFilter === 'Aubin';
-  
   const currentThemeColor = isOliwia ? '#D08C7A' : (isAubin ? '#84A98C' : '#E9C46A');
 
   const saisiePositions = positions.filter(p => p.owner === saisieOwner && (showPro || !p.is_professional));
@@ -1278,10 +1407,12 @@ function App() {
   });
   
   const sortedSaisieEnvelopes = Object.entries(groupedForSaisie).sort((a, b) => {
-    const totalA = Object.values(a[1]).flat().reduce((sum, p) => sum + p.value_eur, 0);
-    const totalB = Object.values(b[1]).flat().reduce((sum, p) => sum + p.value_eur, 0);
+    const totalA = Object.values(a[1]).flat().reduce((sum, p) => sum + getNumVal(p), 0);
+    const totalB = Object.values(b[1]).flat().reduce((sum, p) => sum + getNumVal(p), 0);
     return totalB - totalA;
   });
+
+  const pendingModificationsCount = new Set([...Object.keys(dirtyValues), ...Object.keys(dirtyMeta)]).size;
 
   const currencyExposure = filteredPositions.filter(p => 
     p.account_name.toLowerCase().includes('pk') || 
@@ -1298,7 +1429,7 @@ function App() {
           <Icon name="fingerprint" size={40} />
         </div>
         <h2 className="serif" style={{fontSize: '1.5rem', color: 'var(--text-white)'}}>Application verrouillée</h2>
-        <p style={{color: 'var(--text-light)', fontSize: '0.85rem', marginBottom: '20px'}}>Touche l'empreinte pour déverrouiller</p>
+        <p style={{color: 'var(--text-light)', fontSize: '0.85rem', marginBottom: '20px'}}>Touchez l'empreinte pour déverrouiller</p>
         <button onClick={(e) => { e.stopPropagation(); unlockWithBiometrics(); }} className="btn-gold" style={{maxWidth: '250px'}}>Déverrouiller</button>
       </div>
     );
@@ -1365,7 +1496,7 @@ function App() {
                   <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px'}}>
                     <div>
                       <div style={{fontWeight: 'bold', fontSize: '1.2rem'}}>{formatMoney(currencyExposure)}</div>
-                      <div style={{fontSize: '0.8rem', color: 'var(--text-light)'}}>{currencyExposurePct.toFixed(1)}% de ton patrimoine</div>
+                      <div style={{fontSize: '0.8rem', color: 'var(--text-light)'}}>{currencyExposurePct.toFixed(1)}% du patrimoine affiché</div>
                     </div>
                     <div style={{textAlign: 'right'}}>
                       <div style={{fontSize: '0.85rem', color: 'var(--text-light)'}}>Taux EUR/PLN</div>
@@ -1466,6 +1597,13 @@ function App() {
               </div>
             </div>
 
+            {pendingModificationsCount > 0 && (
+              <div className="draft-banner">
+                <span>{pendingModificationsCount} ligne(s) modifiée(s) localement en attente d'enregistrement.</span>
+                <button type="button" onClick={discardDraft} className="btn-discard-draft">Annuler</button>
+              </div>
+            )}
+
             <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
               <button type="button" onClick={syncYahooAll} disabled={syncLoading} className="btn-sync" style={{flex:1, marginBottom:0}}><Icon name="refresh" size={16} /> {syncLoading ? 'Sync...' : 'Sync Tout'}</button>
               <button type="button" onClick={exportToJSON} className="btn-export" style={{flex:1, marginBottom:0}}><Icon name="download" size={16} /> Sauvegarde</button>
@@ -1504,7 +1642,7 @@ function App() {
             )}
 
             <form onSubmit={handleSave}>
-              <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px'}}>Clique sur une enveloppe pour la déplier et modifier tes valeurs.</p>
+              <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px'}}>Sélectionnez une enveloppe pour la déplier et modifier vos valeurs.</p>
               
               {sortedSaisieEnvelopes.length === 0 && (
                 <p style={{color: 'var(--text-light)', textAlign: 'center', padding: '20px'}}>Aucun compte enregistré pour {saisieOwner}.</p>
@@ -1513,7 +1651,7 @@ function App() {
               {sortedSaisieEnvelopes.map(pair => {
                 const envName = pair[0]; 
                 const contractsObj = pair[1];
-                const envTotal = Object.values(contractsObj).flat().reduce((sum, p) => sum + (Number(formValues[p.id]) || 0), 0);
+                const envTotal = Object.values(contractsObj).flat().reduce((sum, p) => sum + getNumVal(p), 0);
                 const isExpanded = expandedSaisieEnv === envName;
 
                 return (
@@ -1535,7 +1673,7 @@ function App() {
                         {Object.entries(contractsObj).map(contractPair => {
                           const baseContractName = contractPair[0];
                           const positionsList = contractPair[1];
-                          const contractTotal = positionsList.reduce((sum, p) => sum + (Number(formValues[p.id]) || 0), 0);
+                          const contractTotal = positionsList.reduce((sum, p) => sum + getNumVal(p), 0);
                           const isPolishAccount = baseContractName.includes('PKO') || baseContractName.includes('mBank');
                           const displayValue = isPolishAccount && plnRate ? Math.round(contractTotal * plnRate) : Math.round(contractTotal);
                           return (
@@ -1551,6 +1689,7 @@ function App() {
                                     const rowName = p.account_name.includes(' - ')
                                       ? p.account_name.split(' - ')[1]
                                       : (p.category || 'Général');
+                                    const isDirty = dirtyValues[p.id] !== undefined;
 
                                     return (
                                       <tr key={p.id}>
@@ -1573,7 +1712,7 @@ function App() {
                                         <td style={{textAlign: 'right'}}>
                                           <div className="input-wrapper">
                                             <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)} disabled={hideBalances}>-</button>
-                                            <input type="number" step="any" value={hideBalances ? '••••' : (formValues[p.id] ?? '')} onChange={e => setFormValues(prev => ({...prev, [p.id]: e.target.value}))} className="table-input" readOnly={hideBalances} />
+                                            <input type="number" step="any" value={hideBalances ? '••••' : getRawVal(p)} onChange={e => handleInputChange(p.id, e.target.value)} className={'table-input ' + (isDirty ? 'dirty' : '')} readOnly={hideBalances} />
                                             <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, 1000)} disabled={hideBalances}>+</button>
                                             <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer" disabled={hideBalances}><Icon name="trash" size={16} /></button>
                                           </div>
@@ -1592,14 +1731,14 @@ function App() {
                   </div>
                 );
               })}
-              {positions.length > 0 && (<button type="submit" disabled={loading || hideBalances} className="btn-gold" style={{marginTop: '10px', marginBottom: '30px'}}>{loading ? 'Enregistrement...' : 'Enregistrer les modifications'}</button>)}
+              {positions.length > 0 && (<button type="submit" disabled={loading || hideBalances} className="btn-gold" style={{marginTop: '10px', marginBottom: '30px'}}>{loading ? 'Enregistrement...' : `Enregistrer les modifications${pendingModificationsCount > 0 ? ` (${pendingModificationsCount})` : ''}`}</button>)}
             </form>
 
             {sortedChartData.length > 0 && (
               <div className="card animate-in delay-3" style={{marginTop: '20px'}}>
                 <div className="ap-label" style={{marginBottom: '15px'}}>Apparence des graphiques</div>
                 <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '15px'}}>
-                  Personnalise les couleurs de tes catégories pour le graphique en camembert (sauvegardé sur ton compte).
+                  Personnalisation des couleurs des catégories pour le graphique en anneau (sauvegardée sur le compte).
                 </p>
                 {sortedChartData.map(d => {
                   const catName = d[0];
@@ -1653,7 +1792,7 @@ function App() {
           <div className="animate-in">
             {editTargetsMode ? (
               <div className="card">
-                <div className="ap-label" style={{marginBottom: '10px'}}>Définir mes cibles (%)</div>
+                <div className="ap-label" style={{marginBottom: '10px'}}>Définir les cibles (%)</div>
                 <div className={'total-indicator ' + (Math.round(currentTargetTotal) === 100 ? 'ok' : 'not-ok')}>Total : {currentTargetTotal.toFixed(0)}% / 100%</div>
                 {TARGET_CATEGORIES.map(cat => (
                   <div className="slider-container" key={cat}>
@@ -1680,14 +1819,14 @@ function App() {
                       <input type="range" min="0" max="50000" step="100" value={rebalanceAmount} onChange={e => setRebalanceAmount(e.target.value)} disabled={hideBalances} />
                     </div>
                     <div style={{background: 'var(--input-bg)', padding: '15px', borderRadius: '12px'}}>
-                      <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '10px'}}>Voici comment investir cet argent (sans vendre) pour te rapprocher de ta cible :</p>
+                      <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '10px'}}>Répartition recommandée sans cession d'actifs existants :</p>
                       {rebalanceData.map(item => (
                         <div key={item.cat} style={{display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '5px'}}>
                           <span>{item.cat}</span>
                           <span style={{color: 'var(--green)', fontWeight: 'bold'}}>+{formatMoney(item.amount)}</span>
                         </div>
                       ))}
-                      {rebalanceData.length === 0 && <p style={{fontSize:'0.8rem', textAlign:'center'}}>Ton allocation est déjà parfaite !</p>}
+                      {rebalanceData.length === 0 && <p style={{fontSize:'0.8rem', textAlign:'center'}}>L'allocation actuelle correspond déjà à la cible.</p>}
                     </div>
                   </div>
                 )}
@@ -1718,7 +1857,7 @@ function App() {
           <div className="card animate-in">
             <div className="ap-label" style={{marginBottom: '20px'}}>Journal & Historique</div>
             <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '20px'}}>
-              Supprime une date pour corriger le graphique si tu as fait une erreur (ex: suppression d'un compte).
+              Détail des variations par compte et par date. Supprimez une date erronée pour recalculer le graphique.
             </p>
             {Object.keys(logs).length === 0 ? (
               <p style={{color: 'var(--text-light)', textAlign: 'center'}}>Aucune opération.</p>
@@ -1730,12 +1869,27 @@ function App() {
                 
                 return (
                   <div key={date} style={{marginBottom: '20px', background: 'var(--input-bg)', padding: '15px', borderRadius: '12px'}}>
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px'}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'}}>
                       <div style={{fontSize: '0.9rem', color: 'var(--gold)', fontWeight: 'bold', textTransform: 'capitalize'}}>{formattedDate}</div>
                       <button onClick={() => deleteHistoryDay(date)} className="btn-delete-history">Supprimer ce jour</button>
                     </div>
-                    <div style={{fontSize: '0.75rem', color: 'var(--text-light)'}}>
-                      {items.length} modification(s) enregistrée(s) ce jour.
+                    <div>
+                      {items.map((item, idx) => (
+                        <div key={idx} className="log-row">
+                          <div style={{flex: 1}}>
+                            <div style={{color: 'var(--text-white)', fontWeight: '500'}}>{item.account_name}</div>
+                            <div style={{fontSize: '0.7rem', color: 'var(--text-light)'}}>{item.owner} • {item.envelope}</div>
+                          </div>
+                          <div style={{textAlign: 'right'}}>
+                            <div style={{fontWeight: '600', color: 'var(--text-white)'}}>{formatMoney(item.value_eur)}</div>
+                            {item.diff !== null && (
+                              <div style={{fontSize: '0.72rem', fontWeight: '600', color: item.diff > 0 ? 'var(--green)' : item.diff < 0 ? 'var(--red)' : 'var(--text-light)'}}>
+                                {hideBalances ? '••••' : `${item.diff > 0 ? '+' : ''}${Math.round(item.diff).toLocaleString('fr-FR')} €`}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 );
