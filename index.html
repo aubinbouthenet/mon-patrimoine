@@ -136,17 +136,24 @@ if (window.location.search.includes('debug=1')) {
   .add-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
   .add-input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-white); outline: none; font-size: 0.85rem;}
   .add-input:focus { border-color: var(--gold); }
-  .slider-container { margin-bottom: 25px; }
-  .slider-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem; }
+  .slider-container { margin-bottom: 18px; }
+  .slider-header { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem; }
   .slider-label { color: var(--text-light); }
-  .slider-value { font-weight: 600; color: var(--gold); font-size: 1.1rem; transition: var(--transition-theme); }
+  .slider-value { font-weight: 600; color: var(--gold); font-size: 1rem; transition: var(--transition-theme); }
   input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
   input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; border-radius: 50%; background: var(--gold); cursor: pointer; margin-top: -8px; box-shadow: var(--glow); transition: background-color 0.4s; }
   input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: var(--border-color); border-radius: 2px; }
-  .fire-result { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; text-align: center; }
-  .fire-box { background: var(--gold-trans); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); }
-  .fire-box-label { font-size: 0.75rem; color: var(--text-light); margin-bottom: 5px; }
-  .fire-box-value { font-weight: 700; font-size: 1.1rem; color: var(--gold); }
+  .fire-result { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; text-align: center; }
+  .fire-box { background: var(--gold-trans); padding: 14px 10px; border-radius: 12px; border: 1px solid var(--border-color); }
+  .fire-box-label { font-size: 0.72rem; color: var(--text-light); margin-bottom: 5px; }
+  .fire-box-value { font-weight: 700; font-size: 1.05rem; color: var(--gold); }
+  .fire-box-sub { font-size: 0.68rem; color: var(--text-light); margin-top: 3px; }
+  .fire-alloc-banner { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .btn-apply-alloc { background: var(--gold-trans); border: 1px solid var(--gold); color: var(--gold); padding: 7px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .btn-apply-alloc:active { background: var(--gold); color: #fff; }
+  .segmented-toggle { display: flex; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 3px; margin-bottom: 18px; }
+  .segmented-btn { flex: 1; background: transparent; border: none; color: var(--text-light); padding: 7px 8px; border-radius: 8px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .segmented-btn.active { background: var(--gold); color: #fff; }
   .target-bar-container { margin-bottom: 15px; }
   .target-bar-label { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 5px; }
   .target-bar-bg { height: 12px; background: var(--border-color); border-radius: 6px; overflow: hidden; position: relative; }
@@ -267,6 +274,18 @@ const ENVELOPPES_LIST = [ 'Compte Courant / Livret', 'Compte Bancaire', 'PEA', '
 const CATEGORIES_LIST = [ 'Actions', 'Fonds euros', 'Livrets', 'SCPI', 'Private equity', 'Fonds diversifiés', 'Obligataire', 'Immobilier Brut', 'Dette Immobilière', 'Dettes Conso', 'Autre' ];
 const TARGET_CATEGORIES = ['Actions', 'Fonds euros', 'Livrets', 'SCPI', 'Private equity', 'Fonds diversifiés', 'Obligataire', 'Immobilier'];
 
+const CATEGORY_ASSUMPTIONS = {
+  'Actions': { ret: 0.080, vol: 0.160 },
+  'Private equity': { ret: 0.100, vol: 0.200 },
+  'Fonds diversifiés': { ret: 0.075, vol: 0.130 },
+  'SCPI': { ret: 0.055, vol: 0.060 },
+  'Immobilier': { ret: 0.040, vol: 0.050 },
+  'Obligataire': { ret: 0.038, vol: 0.060 },
+  'Fonds euros': { ret: 0.028, vol: 0.005 },
+  'Livrets': { ret: 0.025, vol: 0.002 },
+  'Autre': { ret: 0.040, vol: 0.080 }
+};
+
 const Icon = ({ name, size = 24 }) => {
   const icons = {
     dashboard: <path d="M3 3h7v7H3V3zm11 0h7v7h-7V3zm0 11h7v7h-7v-7zM3 14h7v7H3v-7z" />,
@@ -327,7 +346,7 @@ const DonutChart = memo(({ sortedData, customColors, isOliwia, isAubin }) => {
   return <div className="chart-donut"><canvas ref={chartRef}></canvas></div>;
 });
 
-const FireMonteCarloChart = memo(({ mcData, color, hideBalances }) => {
+const FireMonteCarloChart = memo(({ mcData, fireTargetLine, color, hideBalances }) => {
   const chartRef = useRef(null);
   useEffect(() => {
     if (!chartRef.current || mcData.length === 0) return;
@@ -335,53 +354,66 @@ const FireMonteCarloChart = memo(({ mcData, color, hideBalances }) => {
     const existing = Chart.getChart(ctx.canvas);
     if (existing) existing.destroy();
 
-    const labels = mcData.map(d => 'Année ' + d.year);
+    const currentYear = new Date().getFullYear();
+    const labels = mcData.map(d => `${currentYear + d.year} (+${d.year}a)`);
+
+    const datasets = [
+      {
+        label: 'Pire (10%)',
+        data: mcData.map(d => d.p10),
+        borderColor: color + '88',
+        borderWidth: 1.5,
+        borderDash: [4, 4],
+        backgroundColor: 'transparent',
+        tension: 0.35,
+        pointRadius: 0
+      },
+      {
+        label: 'Médian (50%)',
+        data: mcData.map(d => d.p50),
+        borderColor: color,
+        borderWidth: 3,
+        backgroundColor: color + '22',
+        fill: {
+          target: { value: 0 },
+          above: color + '11'
+        },
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 4
+      },
+      {
+        label: 'Favorable (90%)',
+        data: mcData.map(d => d.p90),
+        borderColor: color + '88',
+        borderWidth: 1.5,
+        borderDash: [4, 4],
+        backgroundColor: 'transparent',
+        tension: 0.35,
+        pointRadius: 0
+      }
+    ];
+
+    if (fireTargetLine && fireTargetLine.length > 0) {
+      datasets.push({
+        label: 'Seuil FIRE',
+        data: fireTargetLine,
+        borderColor: '#10B981',
+        borderWidth: 1.5,
+        borderDash: [6, 3],
+        backgroundColor: 'transparent',
+        tension: 0,
+        pointRadius: 0
+      });
+    }
 
     const instance = new Chart(ctx, { 
       type: 'line', 
-      data: { 
-        labels, 
-        datasets: [
-          {
-            label: 'Pire scénario (10%)',
-            data: mcData.map(d => d.p10),
-            borderColor: color + '88',
-            borderWidth: 1.5,
-            borderDash: [4, 4],
-            backgroundColor: 'transparent',
-            tension: 0.4,
-            pointRadius: 0
-          },
-          {
-            label: 'Scénario médian (50%)',
-            data: mcData.map(d => d.p50),
-            borderColor: color,
-            borderWidth: 3,
-            backgroundColor: color + '22',
-            fill: {
-              target: { value: 0 },
-              above: color + '11'
-            },
-            tension: 0.4,
-            pointRadius: 0,
-            pointHoverRadius: 4
-          },
-          {
-            label: 'Bon scénario (90%)',
-            data: mcData.map(d => d.p90),
-            borderColor: color + '88',
-            borderWidth: 1.5,
-            borderDash: [4, 4],
-            backgroundColor: 'transparent',
-            tension: 0.4,
-            pointRadius: 0
-          }
-        ]
-      }, 
+      data: { labels, datasets }, 
       options: { 
         responsive: true, 
         maintainAspectRatio: false, 
-        animation: { duration: 1000 }, 
+        animation: { duration: 700 }, 
         interaction: { intersect: false, mode: 'index' }, 
         plugins: { 
           legend: { 
@@ -402,8 +434,8 @@ const FireMonteCarloChart = memo(({ mcData, color, hideBalances }) => {
       } 
     });
     return () => instance.destroy();
-  }, [mcData, color, hideBalances]);
-  return <div className="history-chart-container" style={{height: '220px'}}><canvas ref={chartRef}></canvas></div>;
+  }, [mcData, fireTargetLine, color, hideBalances]);
+  return <div className="history-chart-container" style={{height: '230px'}}><canvas ref={chartRef}></canvas></div>;
 });
 
 function App() {
@@ -428,8 +460,16 @@ function App() {
   const [customColors, setCustomColors] = useState(() => {
     try { return JSON.parse(localStorage.getItem('customChartColors')) || {}; } catch(e) { return {}; }
   });
+
+  // Paramètres simulateur FIRE (sauvegardés dans fire_params JSONB)
   const [fireEpargne, setFireEpargne] = useState(1500);
   const [fireRendement, setFireRendement] = useState(7);
+  const [fireVolatilite, setFireVolatilite] = useState(15);
+  const [fireInflation, setFireInflation] = useState(2);
+  const [fireDepense, setFireDepense] = useState(3000);
+  const [fireSwr, setFireSwr] = useState(3.5);
+  const [fireRealTerms, setFireRealTerms] = useState(true);
+
   const [saveTimeout, setSaveTimeout] = useState(null);
   const [plnRate, setPlnRate] = useState(null);
 
@@ -619,7 +659,6 @@ function App() {
     return () => authListener.subscription.unsubscribe();
   }, []);
   
-  // Chargement initial des données uniquement après déverrouillage biométrique
   useEffect(() => { 
     if (session && !isLocked) { 
       fetchPreferences();
@@ -630,7 +669,6 @@ function App() {
     } 
   }, [session, isLocked]);
 
-  // Actualisation de la courbe historique selon le propriétaire et l'inclusion du Pro
   useEffect(() => {
     if (session && !isLocked) {
       fetchHistory();
@@ -642,7 +680,15 @@ function App() {
     const payload = {
       user_email: USER_EMAIL,
       chart_colors: newColors !== undefined ? newColors : customColors,
-      fire_params: newFireParams !== undefined ? newFireParams : { epargne: fireEpargne, rendement: fireRendement },
+      fire_params: newFireParams !== undefined ? newFireParams : {
+        epargne: fireEpargne,
+        rendement: fireRendement,
+        volatilite: fireVolatilite,
+        inflation: fireInflation,
+        depense: fireDepense,
+        swr: fireSwr,
+        realTerms: fireRealTerms
+      },
       updated_at: new Date().toISOString()
     };
     try {
@@ -658,6 +704,11 @@ function App() {
         if (data.fire_params) {
           if (data.fire_params.epargne !== undefined) setFireEpargne(data.fire_params.epargne);
           if (data.fire_params.rendement !== undefined) setFireRendement(data.fire_params.rendement);
+          if (data.fire_params.volatilite !== undefined) setFireVolatilite(data.fire_params.volatilite);
+          if (data.fire_params.inflation !== undefined) setFireInflation(data.fire_params.inflation);
+          if (data.fire_params.depense !== undefined) setFireDepense(data.fire_params.depense);
+          if (data.fire_params.swr !== undefined) setFireSwr(data.fire_params.swr);
+          if (data.fire_params.realTerms !== undefined) setFireRealTerms(data.fire_params.realTerms);
         }
       }
     } catch (e) {}
@@ -677,13 +728,29 @@ function App() {
     savePreferences({}, undefined);
   };
 
-  const updateFireSettings = (newEp, newRen) => {
-    setFireEpargne(newEp);
-    setFireRendement(newRen);
+  const updateFireSettings = (updates) => {
+    const nextParams = {
+      epargne: updates.epargne !== undefined ? updates.epargne : fireEpargne,
+      rendement: updates.rendement !== undefined ? updates.rendement : fireRendement,
+      volatilite: updates.volatilite !== undefined ? updates.volatilite : fireVolatilite,
+      inflation: updates.inflation !== undefined ? updates.inflation : fireInflation,
+      depense: updates.depense !== undefined ? updates.depense : fireDepense,
+      swr: updates.swr !== undefined ? updates.swr : fireSwr,
+      realTerms: updates.realTerms !== undefined ? updates.realTerms : fireRealTerms
+    };
+
+    if (updates.epargne !== undefined) setFireEpargne(updates.epargne);
+    if (updates.rendement !== undefined) setFireRendement(updates.rendement);
+    if (updates.volatilite !== undefined) setFireVolatilite(updates.volatilite);
+    if (updates.inflation !== undefined) setFireInflation(updates.inflation);
+    if (updates.depense !== undefined) setFireDepense(updates.depense);
+    if (updates.swr !== undefined) setFireSwr(updates.swr);
+    if (updates.realTerms !== undefined) setFireRealTerms(updates.realTerms);
+
     if (saveTimeout) clearTimeout(saveTimeout);
     const timeout = setTimeout(() => {
-      savePreferences(undefined, { epargne: newEp, rendement: newRen });
-    }, 1000);
+      savePreferences(undefined, nextParams);
+    }, 800);
     setSaveTimeout(timeout);
   };
 
@@ -1239,37 +1306,152 @@ function App() {
   const totalPassifs = filteredPositions.filter(p => p.value_eur < 0).reduce((sum, p) => sum + p.value_eur, 0);
   const totalNet = totalActifs + totalPassifs;
 
-  const fireMonteCarloData = useMemo(() => {
-    const years = 30;
-    const simulations = 500;
-    const monthlyRate = (fireRendement / 100) / 12;
-    const monthlyVol = 0.15 / Math.sqrt(12);
+  const sortedChartData = useMemo(() => {
+    const chartData = {};
+    filteredPositions.forEach(p => {
+      let cat = p.category;
+      if (cat === 'Immobilier Brut') cat = 'Immobilier';
+      if (cat === 'Dette Immobilière') return;
+      if (p.value_eur > 0 || cat === 'Immobilier') { chartData[cat] = (chartData[cat] || 0) + p.value_eur; }
+    });
+    const debtImmo = filteredPositions.filter(p => p.category === 'Dette Immobilière').reduce((sum, p) => sum + p.value_eur, 0);
+    if (chartData['Immobilier']) chartData['Immobilier'] += debtImmo;
+    return Object.entries(chartData).sort((a, b) => b[1] - a[1]);
+  }, [filteredPositions]);
 
-    let results = Array(years + 1).fill(0).map(() => []);
+  // Calcul rendement nominal et volatilité pondérés par l'allocation réelle affichée
+  const portfolioAssumptions = useMemo(() => {
+    const positiveEntries = sortedChartData.filter(([, val]) => val > 0);
+    const totalPos = positiveEntries.reduce((sum, [, val]) => sum + val, 0);
+    if (totalPos <= 0) return { expectedReturn: 7.0, volatility: 15.0 };
 
-    for (let s = 0; s < simulations; s++) {
-      let current = totalNet;
-      results[0].push(current);
-      for (let year = 1; year <= years; year++) {
-        for (let month = 1; month <= 12; month++) {
-          const u1 = Math.random();
-          const u2 = Math.random();
-          const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-          const monthlyReturn = monthlyRate + (monthlyVol * z);
-          current = current * (1 + monthlyReturn) + Number(fireEpargne);
-        }
-        results[year].push(current);
+    const weights = positiveEntries.map(([cat, val]) => {
+      const assumption = CATEGORY_ASSUMPTIONS[cat] || CATEGORY_ASSUMPTIONS['Autre'];
+      return { cat, w: val / totalPos, ret: assumption.ret, vol: assumption.vol };
+    });
+
+    const expRet = weights.reduce((sum, item) => sum + item.w * item.ret, 0);
+
+    let variance = 0;
+    for (let i = 0; i < weights.length; i++) {
+      for (let j = 0; j < weights.length; j++) {
+        const a = weights[i];
+        const b = weights[j];
+        let rho = 0;
+        if (i === j) rho = 1.0;
+        else if (a.vol > 0.01 && b.vol > 0.01) rho = 0.25;
+        variance += a.w * b.w * a.vol * b.vol * rho;
       }
     }
 
-    return results.map((sims, year) => {
+    return {
+      expectedReturn: Number((expRet * 100).toFixed(1)),
+      volatility: Number((Math.sqrt(variance) * 100).toFixed(1))
+    };
+  }, [sortedChartData]);
+
+  // Simulation Monte-Carlo avancée (40 ans, log-normale, inflation, bascule en rente)
+  const fireSimulation = useMemo(() => {
+    const years = 40;
+    const simulations = 500;
+    const mu = fireRendement / 100;
+    const sigma = fireVolatilite / 100;
+    const infl = fireInflation / 100;
+    const swr = fireSwr / 100;
+
+    const monthlyDrift = (mu - 0.5 * sigma * sigma) / 12;
+    const monthlyVol = sigma / Math.sqrt(12);
+    const monthlyInfl = Math.pow(1 + infl, 1 / 12);
+
+    const fireTargetConstant = swr > 0 ? (Number(fireDepense) * 12) / swr : 0;
+    const realReturnAnnual = ((1 + mu) / (1 + infl)) - 1;
+
+    const seriesResults = Array(years + 1).fill(0).map(() => []);
+    const fireReachedYears = [];
+    const coastFireYears = [];
+    let survivedCount = 0;
+
+    for (let s = 0; s < simulations; s++) {
+      let currentNominal = totalNet;
+      let inflFactor = 1.0;
+      let fireReached = currentNominal >= fireTargetConstant;
+      let fireYear = fireReached ? 0 : null;
+
+      const coastFactor0 = Math.pow(Math.max(0.01, 1 + realReturnAnnual), 30);
+      let coastYear = (currentNominal * coastFactor0 >= fireTargetConstant) ? 0 : null;
+
+      seriesResults[0].push(currentNominal);
+
+      for (let year = 1; year <= years; year++) {
+        for (let month = 1; month <= 12; month++) {
+          inflFactor *= monthlyInfl;
+          const u1 = Math.max(1e-12, Math.random());
+          const u2 = Math.random();
+          const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+          const growth = Math.exp(monthlyDrift + monthlyVol * z);
+
+          const currentReal = currentNominal / inflFactor;
+          if (!fireReached && currentReal >= fireTargetConstant) {
+            fireReached = true;
+            fireYear = year;
+          }
+
+          if (fireReached) {
+            currentNominal = Math.max(0, currentNominal * growth - Number(fireDepense) * inflFactor);
+          } else {
+            currentNominal = currentNominal * growth + Number(fireEpargne) * inflFactor;
+          }
+        }
+
+        const realEndOfYear = currentNominal / inflFactor;
+        if (!fireReached && realEndOfYear >= fireTargetConstant) {
+          fireReached = true;
+          fireYear = year;
+        }
+        if (coastYear === null) {
+          const remainingCoastYears = Math.max(0, 30 - year);
+          const coastProjected = realEndOfYear * Math.pow(Math.max(0.01, 1 + realReturnAnnual), remainingCoastYears);
+          if (coastProjected >= fireTargetConstant) {
+            coastYear = year;
+          }
+        }
+
+        seriesResults[year].push(fireRealTerms ? realEndOfYear : currentNominal);
+      }
+
+      if (currentNominal > 0) survivedCount++;
+      fireReachedYears.push(fireYear !== null ? fireYear : 999);
+      coastFireYears.push(coastYear !== null ? coastYear : 999);
+    }
+
+    const percentiles = seriesResults.map((sims, year) => {
       sims.sort((a, b) => a - b);
-      const p10 = sims[Math.floor(sims.length * 0.10)];
-      const p50 = sims[Math.floor(sims.length * 0.50)];
-      const p90 = sims[Math.floor(sims.length * 0.90)];
-      return { year, p10, p50, p90 };
+      return {
+        year,
+        p10: sims[Math.floor(sims.length * 0.10)],
+        p50: sims[Math.floor(sims.length * 0.50)],
+        p90: sims[Math.floor(sims.length * 0.90)]
+      };
     });
-  }, [totalNet, fireEpargne, fireRendement]);
+
+    const targetLine = percentiles.map(d =>
+      fireRealTerms ? fireTargetConstant : fireTargetConstant * Math.pow(1 + infl, d.year)
+    );
+
+    fireReachedYears.sort((a, b) => a - b);
+    coastFireYears.sort((a, b) => a - b);
+    const medianFireYear = fireReachedYears[Math.floor(simulations * 0.50)];
+    const medianCoastYear = coastFireYears[Math.floor(simulations * 0.50)];
+
+    return {
+      percentiles,
+      targetLine,
+      fireTargetConstant,
+      medianFireYear: medianFireYear <= years ? medianFireYear : null,
+      medianCoastYear: medianCoastYear <= years ? medianCoastYear : null,
+      survivalRate: (survivedCount / simulations) * 100
+    };
+  }, [totalNet, fireEpargne, fireRendement, fireVolatilite, fireInflation, fireDepense, fireSwr, fireRealTerms]);
 
   const filteredHistory = useMemo(() => {
     if (!historyData || !historyData.length) return [];
@@ -1297,19 +1479,6 @@ function App() {
     const pct = first !== 0 ? (diff / first) * 100 : 0;
     return { diff, pct };
   }, [filteredHistory]);
-
-  const sortedChartData = useMemo(() => {
-    const chartData = {};
-    filteredPositions.forEach(p => {
-      let cat = p.category;
-      if (cat === 'Immobilier Brut') cat = 'Immobilier';
-      if (cat === 'Dette Immobilière') return;
-      if (p.value_eur > 0 || cat === 'Immobilier') { chartData[cat] = (chartData[cat] || 0) + p.value_eur; }
-    });
-    const debtImmo = filteredPositions.filter(p => p.category === 'Dette Immobilière').reduce((sum, p) => sum + p.value_eur, 0);
-    if (chartData['Immobilier']) chartData['Immobilier'] += debtImmo;
-    return Object.entries(chartData).sort((a, b) => b[1] - a[1]);
-  }, [filteredPositions]);
 
   const exposureMatrix = useMemo(() => {
     const matrix = {};
@@ -1421,6 +1590,8 @@ function App() {
     p.account_name.toLowerCase().includes('pologne')
   ).reduce((sum, p) => sum + p.value_eur, 0);
   const currencyExposurePct = totalNet > 0 ? (currencyExposure / totalNet) * 100 : 0;
+
+  const currentYear = new Date().getFullYear();
 
   if (isLocked) {
     return (
@@ -1763,27 +1934,127 @@ function App() {
         {view === 'projection' && (
           <div className="animate-in">
             <div className="card">
-              <div className="ap-label" style={{marginBottom: '20px'}}>Simulateur FIRE (Monte-Carlo)</div>
-              <div className="slider-container">
-                <div className="slider-header"><span className="slider-label">Épargne mensuelle</span><span className="slider-value">{hideBalances ? '••••' : Number(fireEpargne).toLocaleString('fr-FR') + ' €'}</span></div>
-                <input type="range" min="0" max="20000" step="100" value={fireEpargne} onChange={e => updateFireSettings(Number(e.target.value), fireRendement)} disabled={hideBalances} />
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px'}}>
+                <div className="ap-label">Simulateur FIRE (Monte-Carlo)</div>
+                <div style={{fontSize: '0.75rem', color: 'var(--gold)', fontWeight: '600'}}>Périmètre : {ownerFilter}{showPro ? ' + Pro' : ''}</div>
               </div>
+
+              <div className="fire-alloc-banner">
+                <div>
+                  <div style={{fontSize: '0.72rem', color: 'var(--text-light)'}}>Profil de votre allocation actuelle</div>
+                  <div style={{fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-white)', marginTop: '2px'}}>
+                    Rendement : {portfolioAssumptions.expectedReturn} % • Volatilité : {portfolioAssumptions.volatility} %
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-apply-alloc"
+                  onClick={() => updateFireSettings({
+                    rendement: portfolioAssumptions.expectedReturn,
+                    volatilite: portfolioAssumptions.volatility
+                  })}
+                >
+                  Appliquer
+                </button>
+              </div>
+
+              <div className="segmented-toggle">
+                <button
+                  type="button"
+                  className={'segmented-btn ' + (fireRealTerms ? 'active' : '')}
+                  onClick={() => updateFireSettings({ realTerms: true })}
+                >
+                  Euros constants (pouvoir d'achat)
+                </button>
+                <button
+                  type="button"
+                  className={'segmented-btn ' + (!fireRealTerms ? 'active' : '')}
+                  onClick={() => updateFireSettings({ realTerms: false })}
+                >
+                  Euros courants (nominaux)
+                </button>
+              </div>
+
               <div className="slider-container">
-                <div className="slider-header"><span className="slider-label">Rendement moyen estimé</span><span className="slider-value">{fireRendement} %</span></div>
-                <input type="range" min="1" max="15" step="0.5" value={fireRendement} onChange={e => updateFireSettings(fireEpargne, Number(e.target.value))} disabled={hideBalances} />
+                <div className="slider-header"><span className="slider-label">Épargne mensuelle (avant FIRE)</span><span className="slider-value">{hideBalances ? '••••' : Number(fireEpargne).toLocaleString('fr-FR') + ' €'}</span></div>
+                <input type="range" min="0" max="20000" step="100" value={fireEpargne} onChange={e => updateFireSettings({ epargne: Number(e.target.value) })} disabled={hideBalances} />
+              </div>
+
+              <div className="slider-container">
+                <div className="slider-header"><span className="slider-label">Dépense mensuelle cible (rente)</span><span className="slider-value">{hideBalances ? '••••' : Number(fireDepense).toLocaleString('fr-FR') + ' €'}</span></div>
+                <input type="range" min="1000" max="15000" step="100" value={fireDepense} onChange={e => updateFireSettings({ depense: Number(e.target.value) })} disabled={hideBalances} />
+              </div>
+
+              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px'}}>
+                <div className="slider-container">
+                  <div className="slider-header"><span className="slider-label">Rendement</span><span className="slider-value">{fireRendement} %</span></div>
+                  <input type="range" min="1" max="15" step="0.1" value={fireRendement} onChange={e => updateFireSettings({ rendement: Number(e.target.value) })} disabled={hideBalances} />
+                </div>
+                <div className="slider-container">
+                  <div className="slider-header"><span className="slider-label">Volatilité</span><span className="slider-value">{fireVolatilite} %</span></div>
+                  <input type="range" min="1" max="25" step="0.5" value={fireVolatilite} onChange={e => updateFireSettings({ volatilite: Number(e.target.value) })} disabled={hideBalances} />
+                </div>
+              </div>
+
+              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px'}}>
+                <div className="slider-container">
+                  <div className="slider-header"><span className="slider-label">Inflation</span><span className="slider-value">{fireInflation} %</span></div>
+                  <input type="range" min="0" max="6" step="0.2" value={fireInflation} onChange={e => updateFireSettings({ inflation: Number(e.target.value) })} disabled={hideBalances} />
+                </div>
+                <div className="slider-container">
+                  <div className="slider-header"><span className="slider-label">Taux retrait (SWR)</span><span className="slider-value">{fireSwr} %</span></div>
+                  <input type="range" min="2.5" max="5.0" step="0.1" value={fireSwr} onChange={e => updateFireSettings({ swr: Number(e.target.value) })} disabled={hideBalances} />
+                </div>
+              </div>
+
+              <div className="fire-result" style={{marginTop: '4px', marginBottom: '16px'}}>
+                <div className="fire-box">
+                  <div className="fire-box-label">Capital cible FIRE (aujourd'hui)</div>
+                  <div className="fire-box-value">{formatMoney(fireSimulation.fireTargetConstant)}</div>
+                  <div className="fire-box-sub">Rente de {formatMoney(fireDepense)} / mois à {fireSwr}%</div>
+                </div>
+                <div className="fire-box">
+                  <div className="fire-box-label">Atteinte FIRE (Médiane P50)</div>
+                  <div className="fire-box-value" style={{color: fireSimulation.medianFireYear !== null ? 'var(--green)' : 'var(--gold)'}}>
+                    {fireSimulation.medianFireYear === 0
+                      ? 'Déjà atteint'
+                      : fireSimulation.medianFireYear !== null
+                        ? `${currentYear + fireSimulation.medianFireYear} (+${fireSimulation.medianFireYear} ans)`
+                        : '> 40 ans'}
+                  </div>
+                  <div className="fire-box-sub">Arrêt épargne & début rente</div>
+                </div>
+                <div className="fire-box">
+                  <div className="fire-box-label">Coast FIRE (horizon 30 ans)</div>
+                  <div className="fire-box-value">
+                    {fireSimulation.medianCoastYear === 0
+                      ? 'Déjà atteint'
+                      : fireSimulation.medianCoastYear !== null
+                        ? `${currentYear + fireSimulation.medianCoastYear} (+${fireSimulation.medianCoastYear} ans)`
+                        : '> 40 ans'}
+                  </div>
+                  <div className="fire-box-sub">Capital autonome sans ajout</div>
+                </div>
+                <div className="fire-box">
+                  <div className="fire-box-label">Survie du capital à 40 ans</div>
+                  <div className="fire-box-value" style={{color: fireSimulation.survivalRate >= 85 ? 'var(--green)' : fireSimulation.survivalRate >= 70 ? 'var(--gold)' : 'var(--red)'}}>
+                    {fireSimulation.survivalRate.toFixed(1)} %
+                  </div>
+                  <div className="fire-box-sub">Sur 500 scénarios avec rente</div>
+                </div>
               </div>
               
-              <FireMonteCarloChart mcData={fireMonteCarloData} color={currentThemeColor} hideBalances={hideBalances} />
+              <FireMonteCarloChart mcData={fireSimulation.percentiles} fireTargetLine={fireSimulation.targetLine} color={currentThemeColor} hideBalances={hideBalances} />
 
-              <div style={{fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '10px', textAlign: 'center'}}>
-                * Simulation basée sur 500 scénarios avec une volatilité de marché de 15%.
+              <div style={{fontSize: '0.72rem', color: 'var(--text-light)', marginTop: '10px', textAlign: 'center'}}>
+                * 500 trajectoires log-normales ({fireRealTerms ? 'euros constants' : 'euros courants'}). L'épargne bascule automatiquement en rente dès l'atteinte du seuil FIRE.
               </div>
 
-              <div className="fire-result" style={{marginTop: '20px'}}>
-                <div className="fire-box"><div className="fire-box-label">Dans 10 ans (Médian)</div><div className="fire-box-value">{formatMoney(fireMonteCarloData[10]?.p50 || 0)}</div></div>
-                <div className="fire-box"><div className="fire-box-label">Dans 20 ans (Médian)</div><div className="fire-box-value">{formatMoney(fireMonteCarloData[20]?.p50 || 0)}</div></div>
-                <div className="fire-box"><div className="fire-box-label">Pire scénario à 20 ans</div><div className="fire-box-value" style={{color: 'var(--red)'}}>{formatMoney(fireMonteCarloData[20]?.p10 || 0)}</div></div>
-                <div className="fire-box"><div className="fire-box-label">Bon scénario à 20 ans</div><div className="fire-box-value" style={{color: 'var(--green)'}}>{formatMoney(fireMonteCarloData[20]?.p90 || 0)}</div></div>
+              <div className="fire-result" style={{marginTop: '16px'}}>
+                <div className="fire-box"><div className="fire-box-label">Dans 10 ans (Médian)</div><div className="fire-box-value">{formatMoney(fireSimulation.percentiles[10]?.p50 || 0)}</div></div>
+                <div className="fire-box"><div className="fire-box-label">Dans 20 ans (Médian)</div><div className="fire-box-value">{formatMoney(fireSimulation.percentiles[20]?.p50 || 0)}</div></div>
+                <div className="fire-box"><div className="fire-box-label">Pire scénario à 20 ans</div><div className="fire-box-value" style={{color: 'var(--red)'}}>{formatMoney(fireSimulation.percentiles[20]?.p10 || 0)}</div></div>
+                <div className="fire-box"><div className="fire-box-label">Favorable à 20 ans</div><div className="fire-box-value" style={{color: 'var(--green)'}}>{formatMoney(fireSimulation.percentiles[20]?.p90 || 0)}</div></div>
               </div>
             </div>
           </div>
