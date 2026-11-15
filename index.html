@@ -95,6 +95,10 @@ if (window.location.search.includes('debug=1')) {
   .legend-color { width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
   .legend-name { color: var(--text-light); display: flex; align-items: center; flex: 1; }
   .legend-percent { color: var(--text-white); font-weight: 600; }
+
+  .fx-bar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; margin: 12px 0; background: var(--border-color); }
+  .fx-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+  .fx-chip { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; }
   
   .matrix-card { padding: 15px 10px !important; }
   .matrix-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 0.65rem; table-layout: auto; }
@@ -113,22 +117,23 @@ if (window.location.search.includes('debug=1')) {
   
   .update-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
   .update-table th { text-align: left; font-size: 0.65rem; color: var(--text-light); text-transform: uppercase; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); }
-  .update-table td { padding: 10px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-white);}
+  .update-table td { padding: 10px 0; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-white); vertical-align: top; }
   .update-table td:last-child { border-bottom: none; }
-  .input-wrapper { display: flex; justify-content: flex-end; align-items: center; gap: 5px; }
-  .table-input { width: 70px; padding: 6px; border-radius: 6px; border: 1px solid var(--gold); text-align: right; font-weight: 600; color: var(--text-white); background: var(--input-bg); outline: none; font-size: 0.85rem; transition: var(--transition-theme); }
+  .input-wrapper { display: flex; justify-content: flex-end; align-items: center; gap: 4px; }
+  .table-input { width: 72px; padding: 6px; border-radius: 6px; border: 1px solid var(--gold); text-align: right; font-weight: 600; color: var(--text-white); background: var(--input-bg); outline: none; font-size: 0.85rem; transition: var(--transition-theme); }
   .table-input.dirty { border-color: var(--green); box-shadow: 0 0 8px rgba(16, 185, 129, 0.35); }
-  .small-input { width: 55px; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center; font-size: 0.75rem; background: var(--input-bg); color: var(--text-light); outline: none; }
+  .ccy-select { padding: 6px 3px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--gold); font-size: 0.72rem; font-weight: 700; outline: none; cursor: pointer; }
+  .small-input { width: 52px; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); text-align: center; font-size: 0.75rem; background: var(--input-bg); color: var(--text-light); outline: none; }
   .small-input:focus { border-color: var(--gold); }
-  .etf-row { display: flex; gap: 5px; margin-top: 5px; justify-content: flex-end; align-items: center; }
+  .etf-row { display: flex; gap: 4px; margin-top: 2px; justify-content: flex-end; align-items: center; }
   .btn-sync-single { background: var(--gold-trans); border: 1px solid var(--gold); color: var(--gold); width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
   .btn-sync-single:active { background: var(--gold); color: #fff; }
   
-  .quick-btn { width: 28px; height: 28px; border-radius: 6px; background: var(--gold-trans); border: 1px solid var(--border-color); color: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 1rem; cursor: pointer; }
+  .quick-btn { width: 26px; height: 26px; border-radius: 6px; background: var(--gold-trans); border: 1px solid var(--border-color); color: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 0.95rem; cursor: pointer; }
   .quick-btn:active { background: var(--gold); color: #fff; }
-  .btn-delete { background: transparent; border: none; color: var(--red); font-size: 1.1rem; cursor: pointer; padding: 5px; margin-left: 5px; }
-  .btn-sync { background: var(--gold-trans); border: 1px solid var(--gold); color: var(--gold); padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; }
-  .btn-export { background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-light); padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 20px; font-size: 0.9rem; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; }
+  .btn-delete { background: transparent; border: none; color: var(--red); font-size: 1.1rem; cursor: pointer; padding: 4px; margin-left: 2px; }
+  .btn-sync { background: var(--gold-trans); border: 1px solid var(--gold); color: var(--gold); padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; }
+  .btn-export { background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-light); padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; }
   .draft-banner { background: rgba(16, 185, 129, 0.12); border: 1px solid var(--green); border-radius: 12px; padding: 12px 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-white); gap: 10px; }
   .btn-discard-draft { background: transparent; border: 1px solid var(--red); color: var(--red); padding: 5px 10px; border-radius: 8px; font-size: 0.75rem; cursor: pointer; white-space: nowrap; }
   .add-form { background: var(--gold-trans); border: 1px dashed var(--gold); border-radius: 12px; padding: 20px; margin-bottom: 20px; display: none; }
@@ -151,9 +156,19 @@ if (window.location.search.includes('debug=1')) {
   .fire-alloc-banner { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   .btn-apply-alloc { background: var(--gold-trans); border: 1px solid var(--gold); color: var(--gold); padding: 7px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
   .btn-apply-alloc:active { background: var(--gold); color: #fff; }
-  .segmented-toggle { display: flex; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 3px; margin-bottom: 18px; }
+  .segmented-toggle { display: flex; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 3px; margin-bottom: 16px; }
   .segmented-btn { flex: 1; background: transparent; border: none; color: var(--text-light); padding: 7px 8px; border-radius: 8px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
   .segmented-btn.active { background: var(--gold); color: #fff; }
+
+  .lt-ticker-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-color); gap: 8px; }
+  .lt-ticker-row:last-child { border-bottom: none; }
+  .lt-editor { background: var(--input-bg); border: 1px solid var(--gold); border-radius: 12px; padding: 14px; margin-top: 12px; }
+  .lt-kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .lt-kv-item { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 0.78rem; }
+  .lt-pct-input { width: 58px; padding: 5px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-card-dark); color: var(--text-white); text-align: right; font-size: 0.78rem; }
+  .preset-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .preset-pill { background: var(--gold-trans); border: 1px solid var(--border-color); color: var(--gold); padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; cursor: pointer; }
+
   .target-bar-container { margin-bottom: 15px; }
   .target-bar-label { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 5px; }
   .target-bar-bg { height: 12px; background: var(--border-color); border-radius: 6px; overflow: hidden; position: relative; }
@@ -273,6 +288,41 @@ class ErrorBoundary extends React.Component {
 const ENVELOPPES_LIST = [ 'Compte Courant / Livret', 'Compte Bancaire', 'PEA', 'PEA-PME', 'Assurance-Vie', 'CTO', 'Entreprise', 'Crédit', 'Immobilier', 'PER', 'PEE', 'Autre' ];
 const CATEGORIES_LIST = [ 'Actions', 'Fonds euros', 'Livrets', 'SCPI', 'Private equity', 'Fonds diversifiés', 'Obligataire', 'Immobilier Brut', 'Dette Immobilière', 'Dettes Conso', 'Autre' ];
 const TARGET_CATEGORIES = ['Actions', 'Fonds euros', 'Livrets', 'SCPI', 'Private equity', 'Fonds diversifiés', 'Obligataire', 'Immobilier'];
+const SUPPORTED_CURRENCIES = ['EUR', 'PLN', 'USD'];
+const LT_CURRENCIES = ['EUR', 'USD', 'PLN', 'JPY', 'GBP', 'CHF', 'Autres'];
+
+const FX_COLORS = {
+  'EUR': '#2A9D8F',
+  'USD': '#E9C46A',
+  'PLN': '#E76F51',
+  'JPY': '#8AB17D',
+  'GBP': '#457B9D',
+  'CHF': '#B5838D',
+  'Autres': '#64748B'
+};
+
+const LT_PRESETS = [
+  {
+    name: 'MSCI World (100% Act.)',
+    asset: { Actions: 100 },
+    ccy: { USD: 70, EUR: 12, JPY: 6, GBP: 4, Autres: 8 }
+  },
+  {
+    name: 'S&P 500 (100% USD)',
+    asset: { Actions: 100 },
+    ccy: { USD: 100 }
+  },
+  {
+    name: 'NTSG 90/60 (Levier 1.5x)',
+    asset: { Actions: 90, Obligataire: 60 },
+    ccy: { USD: 65, EUR: 15, JPY: 6, Autres: 14 }
+  },
+  {
+    name: 'Émergents (100% Act.)',
+    asset: { Actions: 100 },
+    ccy: { USD: 20, Autres: 80 }
+  }
+];
 
 const CATEGORY_ASSUMPTIONS = {
   'Actions': { ret: 0.080, vol: 0.160 },
@@ -450,6 +500,7 @@ function App() {
   const [view, setView] = useState('dashboard');
   const [ownerFilter, setOwnerFilter] = useState('Tous');
   const [showPro, setShowPro] = useState(false);
+  const [viewMode, setViewMode] = useState('nominal'); // 'nominal' | 'economic'
   const [isDarkMode, setIsDarkMode] = useState(true);
   
   const [bioEnabled, setBioEnabled] = useState(() => localStorage.getItem('bioEnabled') === 'true');
@@ -461,7 +512,7 @@ function App() {
     try { return JSON.parse(localStorage.getItem('customChartColors')) || {}; } catch(e) { return {}; }
   });
 
-  // Paramètres simulateur FIRE (sauvegardés dans fire_params JSONB)
+  // Paramètres simulateur FIRE
   const [fireEpargne, setFireEpargne] = useState(1500);
   const [fireRendement, setFireRendement] = useState(7);
   const [fireVolatilite, setFireVolatilite] = useState(15);
@@ -471,7 +522,11 @@ function App() {
   const [fireRealTerms, setFireRealTerms] = useState(true);
 
   const [saveTimeout, setSaveTimeout] = useState(null);
-  const [plnRate, setPlnRate] = useState(null);
+  const [fxRates, setFxRates] = useState({ EUR: 1, PLN: null, USD: null });
+  const [lookthroughMap, setLookthroughMap] = useState({});
+  const [editingLtTicker, setEditingLtTicker] = useState(null);
+  const [ltDraft, setLtDraft] = useState({ ticker: '', label: '', asset: {}, ccy: {} });
+  const [newLtTickerInput, setNewLtTickerInput] = useState('');
 
   const [dirtyValues, setDirtyValues] = useState(() => {
     try {
@@ -480,28 +535,45 @@ function App() {
       return saved ? JSON.parse(saved) : {};
     } catch(e) { return {}; }
   });
+  const [dirtyCurrency, setDirtyCurrency] = useState({});
   const [dirtyMeta, setDirtyMeta] = useState({});
 
   const [expandedSaisieEnv, setExpandedSaisieEnv] = useState(null);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [fxSyncLoading, setFxSyncLoading] = useState(false);
   const [syncingId, setSyncingId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newAccount, setNewAccount] = useState({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', value_eur: '', is_liability: false, is_professional: false });
+  const [newAccount, setNewAccount] = useState({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', currency: 'EUR', value_eur: '', is_liability: false, is_professional: false });
   const [targets, setTargets] = useState({});
   const [editTargetsMode, setEditTargetsMode] = useState(false);
   const [tempTargets, setTempTargets] = useState({});
   const [showRebalance, setShowRebalance] = useState(false);
   const [rebalanceAmount, setRebalanceAmount] = useState(1000);
 
-  const getRawVal = (p) => (dirtyValues[p.id] !== undefined ? dirtyValues[p.id] : p.value_eur);
-  const getNumVal = (p) => {
-    const n = Number(getRawVal(p));
-    return isNaN(n) ? 0 : n;
+  const toEur = (nativeAmt, currency, rates = fxRates) => {
+    const num = Number(nativeAmt);
+    if (isNaN(num)) return 0;
+    if (!currency || currency === 'EUR') return Math.round(num * 100) / 100;
+    const rate = rates[currency];
+    if (!rate || rate <= 0) return Math.round(num * 100) / 100;
+    return Math.round((num / rate) * 100) / 100;
   };
 
-  const formatMoney = (value, decimals = 0) => {
+  const getEffectiveCurrency = (p) => (dirtyCurrency[p.id] !== undefined ? dirtyCurrency[p.id] : (p.currency || 'EUR'));
+  const getRawNativeVal = (p) => {
+    if (dirtyValues[p.id] !== undefined) return dirtyValues[p.id];
+    if (p.native_amount !== null && p.native_amount !== undefined) return p.native_amount;
+    return p.value_eur;
+  };
+  const getNumNativeVal = (p) => {
+    const n = Number(getRawNativeVal(p));
+    return isNaN(n) ? 0 : n;
+  };
+  const getNumEurVal = (p) => toEur(getNumNativeVal(p), getEffectiveCurrency(p), fxRates);
+
+  const formatMoney = (value, decimals = 0, currency = 'EUR') => {
     if (hideBalances) return '••••••';
-    return Number(value).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: decimals });
+    return Number(value).toLocaleString('fr-FR', { style: 'currency', currency, maximumFractionDigits: decimals });
   };
 
   const formatCompactMoney = (value) => {
@@ -665,7 +737,8 @@ function App() {
       fetchPositions(); 
       fetchTargets(); 
       fetchLogs(); 
-      fetchPlnRate(); 
+      fetchFxRates();
+      fetchLookthrough();
     } 
   }, [session, isLocked]);
 
@@ -754,17 +827,155 @@ function App() {
     setSaveTimeout(timeout);
   };
 
-  async function fetchPlnRate() {
-    try { 
-      const { data, error } = await supabase.from('forex_rates').select('eur_pln').order('date', { ascending: false }).limit(1).single();
+  async function fetchFxRates() {
+    const nextRates = { EUR: 1, PLN: null, USD: null };
+    try {
+      const { data, error } = await supabase.from('forex_rates').select('*').order('date', { ascending: false }).limit(1).single();
       if (!error && data) {
-        setPlnRate(data.eur_pln);
-      } else {
-        const res = await fetch('https://api.frankfurter.app/latest?from=EUR&to=PLN'); 
-        const json = await res.json(); 
-        if (json && json.rates && json.rates.PLN) setPlnRate(json.rates.PLN);
+        if (data.eur_pln) nextRates.PLN = Number(data.eur_pln);
+        if (data.eur_usd) nextRates.USD = Number(data.eur_usd);
       }
-    } catch (err) {}
+    } catch (_) {}
+
+    if (!nextRates.PLN || !nextRates.USD) {
+      try {
+        const res = await fetch('https://api.frankfurter.app/latest?from=EUR&to=PLN,USD');
+        const json = await res.json();
+        if (json && json.rates) {
+          if (!nextRates.PLN && json.rates.PLN) nextRates.PLN = Number(json.rates.PLN);
+          if (!nextRates.USD && json.rates.USD) nextRates.USD = Number(json.rates.USD);
+        }
+      } catch (_) {}
+    }
+    setFxRates(nextRates);
+    return nextRates;
+  }
+
+  async function fetchLookthrough() {
+    try {
+      const { data, error } = await supabase.from('asset_lookthrough').select('*');
+      if (!error && data) {
+        const map = {};
+        data.forEach(row => {
+          map[row.ticker.toUpperCase()] = {
+            ticker: row.ticker.toUpperCase(),
+            label: row.label || '',
+            asset_allocation: row.asset_allocation || {},
+            currency_exposure: row.currency_exposure || {}
+          };
+        });
+        setLookthroughMap(map);
+      }
+    } catch (e) {}
+  }
+
+  function openLookthroughEditor(ticker, defaultLabel = '') {
+    const cleanTicker = ticker.trim().toUpperCase();
+    if (!cleanTicker) return;
+    const existing = lookthroughMap[cleanTicker];
+    setEditingLtTicker(cleanTicker);
+    setLtDraft({
+      ticker: cleanTicker,
+      label: existing ? existing.label : defaultLabel,
+      asset: existing && existing.asset_allocation ? { ...existing.asset_allocation } : {},
+      ccy: existing && existing.currency_exposure ? { ...existing.currency_exposure } : {}
+    });
+  }
+
+  function applyLtPreset(preset) {
+    setLtDraft(prev => ({
+      ...prev,
+      asset: { ...preset.asset },
+      ccy: { ...preset.ccy }
+    }));
+  }
+
+  async function saveLookthrough() {
+    if (!ltDraft.ticker) return;
+    const cleanAsset = {};
+    Object.entries(ltDraft.asset).forEach(([k, v]) => {
+      const num = Number(v);
+      if (!isNaN(num) && num > 0) cleanAsset[k] = num;
+    });
+    const cleanCcy = {};
+    Object.entries(ltDraft.ccy).forEach(([k, v]) => {
+      const num = Number(v);
+      if (!isNaN(num) && num > 0) cleanCcy[k] = num;
+    });
+
+    setLoading(true);
+    const payload = {
+      ticker: ltDraft.ticker.toUpperCase(),
+      label: ltDraft.label || null,
+      asset_allocation: cleanAsset,
+      currency_exposure: cleanCcy,
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await supabase.from('asset_lookthrough').upsert([payload], { onConflict: 'ticker' });
+    if (error) alert('Erreur Look-Through : ' + error.message);
+    else {
+      await fetchLookthrough();
+      setEditingLtTicker(null);
+    }
+    setLoading(false);
+  }
+
+  async function deleteLookthrough(ticker) {
+    if (!window.confirm(`Supprimer la configuration de transparence pour ${ticker} ?`)) return;
+    setLoading(true);
+    const { error } = await supabase.from('asset_lookthrough').delete().eq('ticker', ticker);
+    if (error) alert('Erreur : ' + error.message);
+    else {
+      await fetchLookthrough();
+      if (editingLtTicker === ticker) setEditingLtTicker(null);
+    }
+    setLoading(false);
+  }
+
+  async function syncFxValues() {
+    setFxSyncLoading(true);
+    const latestRates = await fetchFxRates();
+    const fxPositions = positions.filter(p => p.currency && p.currency !== 'EUR' && p.native_amount !== null && p.native_amount !== undefined);
+    if (fxPositions.length === 0) {
+      setFxSyncLoading(false);
+      return alert("Aucun compte en devise étrangère (PLN / USD) n'est configuré.");
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const updates = [];
+    const updatedIds = [];
+
+    fxPositions.forEach(p => {
+      const newEur = toEur(Number(p.native_amount), p.currency, latestRates);
+      updatedIds.push(p.id);
+      updates.push({
+        date: today,
+        owner: p.owner,
+        envelope: p.envelope,
+        account_name: p.account_name,
+        category: p.category || '',
+        currency: p.currency,
+        native_amount: Number(p.native_amount),
+        value_eur: newEur,
+        is_liability: p.is_liability,
+        is_professional: p.is_professional || false,
+        ticker: p.ticker || null,
+        quantity: p.quantity ? Number(p.quantity) : null
+      });
+    });
+
+    const { error } = await supabase.from('positions').upsert(updates, { onConflict: 'date,owner,envelope,account_name,category' });
+    if (error) {
+      alert('Erreur synchronisation FX : ' + error.message);
+    } else {
+      setDirtyValues(prev => { const next = { ...prev }; updatedIds.forEach(id => delete next[id]); return next; });
+      setDirtyCurrency(prev => { const next = { ...prev }; updatedIds.forEach(id => delete next[id]); return next; });
+      await fetchPositions();
+      await fetchHistory();
+      await fetchLogs();
+      alert(`✅ ${updates.length} ligne(s) en devise recalculée(s) aux derniers taux (EUR/PLN: ${latestRates.PLN || 'N/A'}, EUR/USD: ${latestRates.USD || 'N/A'}).`);
+    }
+    setFxSyncLoading(false);
   }
 
   async function fetchPositions() {
@@ -778,7 +989,8 @@ function App() {
         let changed = false;
         Object.keys(next).forEach(id => {
           const pos = data.find(p => p.id === id);
-          if (!pos || Number(next[id]) === Number(pos.value_eur)) {
+          const baseNative = pos ? (pos.native_amount ?? pos.value_eur) : null;
+          if (!pos || Number(next[id]) === Number(baseNative)) {
             delete next[id];
             changed = true;
           }
@@ -805,7 +1017,7 @@ function App() {
   async function fetchLogs() {
     const { data, error } = await supabase
       .from('positions')
-      .select('created_at, date, owner, envelope, account_name, category, value_eur')
+      .select('created_at, date, owner, envelope, account_name, category, currency, native_amount, value_eur')
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(300);
@@ -873,18 +1085,22 @@ function App() {
                 const envelope = cols[1];
                 const account_name = cols[2];
                 const category = cols[3];
-                const value_eur = parseFloat(cols[4].replace(',', '.'));
+                const rawAmount = parseFloat(cols[4].replace(',', '.'));
+                const ccy = cols[5] && SUPPORTED_CURRENCIES.includes(cols[5].toUpperCase()) ? cols[5].toUpperCase() : 'EUR';
                 
-                if ((owner === 'Aubin' || owner === 'Oliwia') && !isNaN(value_eur)) {
+                if ((owner === 'Aubin' || owner === 'Oliwia') && !isNaN(rawAmount)) {
                     updates.push({
-                        date: today, owner, envelope, account_name, category, 
-                        value_eur, is_liability: false, is_professional: false
+                        date: today, owner, envelope, account_name, category,
+                        currency: ccy,
+                        native_amount: rawAmount,
+                        value_eur: toEur(rawAmount, ccy, fxRates),
+                        is_liability: false, is_professional: false
                     });
                 }
             }
         }
         
-        if (updates.length === 0) throw new Error("Aucune ligne valide trouvée. Format attendu : Propriétaire,Enveloppe,Nom du compte,Catégorie,Montant");
+        if (updates.length === 0) throw new Error("Aucune ligne valide trouvée. Format attendu : Propriétaire,Enveloppe,Nom du compte,Catégorie,Montant[,Devise]");
         
         if (!window.confirm(`Importer ${updates.length} lignes depuis le CSV ?`)) return;
         
@@ -978,33 +1194,33 @@ function App() {
     etfPositions.forEach(p => {
       const price = prices[p.ticker.trim()];
       if (price && p.quantity) {
-        const newVal = Math.round(p.quantity * price);
+        const ccy = getEffectiveCurrency(p);
+        const newNative = Math.round(p.quantity * price * 100) / 100;
+        const newEur = toEur(newNative, ccy, fxRates);
         updatedCount++;
         syncedIds.push(p.id);
-        details += `- ${p.account_name} (${p.ticker}): ${price.toFixed(2)} €\n`;
+        details += `- ${p.account_name} (${p.ticker}): ${price.toFixed(2)} ${ccy}\n`;
         
         const posIndex = newPositions.findIndex(np => np.id === p.id);
-        if (posIndex > -1) newPositions[posIndex].value_eur = newVal;
+        if (posIndex > -1) {
+          newPositions[posIndex].native_amount = newNative;
+          newPositions[posIndex].value_eur = newEur;
+          newPositions[posIndex].currency = ccy;
+        }
 
         updates.push({ 
           date: today, owner: p.owner, envelope: p.envelope, account_name: p.account_name, 
-          category: p.category, value_eur: newVal, is_liability: p.is_liability, 
-          is_professional: p.is_professional, ticker: p.ticker.trim(), quantity: Number(p.quantity) 
+          category: p.category, currency: ccy, native_amount: newNative, value_eur: newEur,
+          is_liability: p.is_liability, is_professional: p.is_professional,
+          ticker: p.ticker.trim(), quantity: Number(p.quantity) 
         });
       }
     });
 
     setPositions(newPositions);
-    setDirtyValues(prev => {
-      const next = { ...prev };
-      syncedIds.forEach(id => delete next[id]);
-      return next;
-    });
-    setDirtyMeta(prev => {
-      const next = { ...prev };
-      syncedIds.forEach(id => delete next[id]);
-      return next;
-    });
+    setDirtyValues(prev => { const next = { ...prev }; syncedIds.forEach(id => delete next[id]); return next; });
+    setDirtyCurrency(prev => { const next = { ...prev }; syncedIds.forEach(id => delete next[id]); return next; });
+    setDirtyMeta(prev => { const next = { ...prev }; syncedIds.forEach(id => delete next[id]); return next; });
 
     if (updates.length > 0) {
       await supabase.from('positions').upsert(updates, { onConflict: 'date,owner,envelope,account_name,category' });
@@ -1034,21 +1250,25 @@ function App() {
     const price = prices[p.ticker.trim()];
     
     if (price) {
-      const newVal = Math.round(p.quantity * price);
-      setPositions(prev => prev.map(item => item.id === p.id ? { ...item, value_eur: newVal } : item));
+      const ccy = getEffectiveCurrency(p);
+      const newNative = Math.round(p.quantity * price * 100) / 100;
+      const newEur = toEur(newNative, ccy, fxRates);
+      setPositions(prev => prev.map(item => item.id === p.id ? { ...item, currency: ccy, native_amount: newNative, value_eur: newEur } : item));
       setDirtyValues(prev => { const next = { ...prev }; delete next[p.id]; return next; });
+      setDirtyCurrency(prev => { const next = { ...prev }; delete next[p.id]; return next; });
       setDirtyMeta(prev => { const next = { ...prev }; delete next[p.id]; return next; });
 
       const today = new Date().toISOString().split('T')[0];
       await supabase.from('positions').upsert([{ 
         date: today, owner: p.owner, envelope: p.envelope, account_name: p.account_name, 
-        category: p.category, value_eur: newVal, is_liability: p.is_liability, 
-        is_professional: p.is_professional, ticker: p.ticker.trim(), quantity: Number(p.quantity) 
+        category: p.category, currency: ccy, native_amount: newNative, value_eur: newEur,
+        is_liability: p.is_liability, is_professional: p.is_professional,
+        ticker: p.ticker.trim(), quantity: Number(p.quantity) 
       }], { onConflict: 'date,owner,envelope,account_name,category' });
 
       fetchHistory();
       fetchLogs();
-      alert(`✅ ${p.account_name} mis à jour et sauvegardé (${mode}) !\n\nPrix : ${price.toFixed(2)} €\nNouveau total : ${formatMoney(newVal)}`);
+      alert(`✅ ${p.account_name} mis à jour et sauvegardé (${mode}) !\n\nPrix : ${price.toFixed(2)} ${ccy}\nNouveau total : ${formatMoney(newEur)}`);
     } else {
       alert(`Erreur : Impossible de récupérer le cours pour ${p.ticker}`);
     }
@@ -1091,7 +1311,9 @@ function App() {
       owner: ownerName, 
       envelope: envName, 
       account_name: baseName + ' - ' + cleanName, 
-      category: newCategory, 
+      category: newCategory,
+      currency: 'EUR',
+      native_amount: 0,
       value_eur: 0, 
       is_liability: false, 
       is_professional: false,
@@ -1105,7 +1327,7 @@ function App() {
   }
 
   function exportToJSON() {
-    const exportData = { positions, targets, date_export: new Date().toISOString() };
+    const exportData = { positions, targets, asset_lookthrough: Object.values(lookthroughMap), date_export: new Date().toISOString() };
     const jsonString = JSON.stringify(exportData, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
     const link = document.createElement('a');
@@ -1132,10 +1354,14 @@ function App() {
           const updates = TARGET_CATEGORIES.map(cat => ({ category: cat, target_percentage: Number(data.targets[cat] || 0) }));
           await supabase.from('target_allocations').upsert(updates, { onConflict: 'category' });
         }
+        if (data.asset_lookthrough && Array.isArray(data.asset_lookthrough) && data.asset_lookthrough.length > 0) {
+          await supabase.from('asset_lookthrough').upsert(data.asset_lookthrough, { onConflict: 'ticker' });
+        }
         setDirtyValues({});
+        setDirtyCurrency({});
         setDirtyMeta({});
         alert('Restauration terminée !');
-        fetchPositions(); fetchHistory(); fetchTargets(); fetchLogs();
+        fetchPositions(); fetchHistory(); fetchTargets(); fetchLogs(); fetchLookthrough();
       } catch (err) { alert('Erreur de lecture du fichier : ' + err.message); }
       setLoading(false);
     };
@@ -1146,25 +1372,39 @@ function App() {
     setDirtyValues(prev => ({ ...prev, [id]: rawValue }));
   }
 
+  function handleCurrencyChange(p, newCcy) {
+    const oldCcy = getEffectiveCurrency(p);
+    if (oldCcy === newCcy) return;
+    const currentEur = getNumEurVal(p);
+    let convertedNative = currentEur;
+    if (newCcy !== 'EUR' && fxRates[newCcy]) {
+      convertedNative = Math.round(currentEur * fxRates[newCcy] * 100) / 100;
+    } else if (newCcy === 'EUR') {
+      convertedNative = Math.round(currentEur * 100) / 100;
+    }
+    setDirtyCurrency(prev => ({ ...prev, [p.id]: newCcy }));
+    setDirtyValues(prev => ({ ...prev, [p.id]: convertedNative }));
+  }
+
   function quickAdd(id, amount) {
     const p = positions.find(item => item.id === id);
     if (!p) return;
-    const current = getNumVal(p);
+    const current = getNumNativeVal(p);
     setDirtyValues(prev => ({ ...prev, [id]: current + amount }));
   }
 
-  function handleContractTotalChange(accountName, categories, newTotal) {
-    const oldTotal = categories.reduce((sum, acc) => sum + getNumVal(acc), 0);
-    const newTotalNum = Number(newTotal);
-    if (oldTotal === 0) {
+  function handleContractTotalChange(accountName, categories, newTotalNative) {
+    const oldTotalNative = categories.reduce((sum, acc) => sum + getNumNativeVal(acc), 0);
+    const newTotalNum = Number(newTotalNative);
+    if (oldTotalNative === 0) {
       setDirtyValues(prev => ({ ...prev, [categories[0].id]: newTotalNum }));
       return;
     }
-    const ratio = newTotalNum / oldTotal;
+    const ratio = newTotalNum / oldTotalNative;
     setDirtyValues(prev => {
       const updated = { ...prev };
       categories.forEach(acc => {
-        updated[acc.id] = Math.round(getNumVal(acc) * ratio);
+        updated[acc.id] = Math.round(getNumNativeVal(acc) * ratio);
       });
       return updated;
     });
@@ -1173,6 +1413,7 @@ function App() {
   function discardDraft() {
     if (!window.confirm("Annuler toutes les modifications locales non enregistrées ?")) return;
     setDirtyValues({});
+    setDirtyCurrency({});
     setDirtyMeta({});
     try { localStorage.removeItem('patrimoine_dirty_draft'); } catch(e) {}
     fetchPositions();
@@ -1191,7 +1432,7 @@ function App() {
   async function handleSave(e) {
     e.preventDefault();
     
-    const modifiedIds = Array.from(new Set([...Object.keys(dirtyValues), ...Object.keys(dirtyMeta)]));
+    const modifiedIds = Array.from(new Set([...Object.keys(dirtyValues), ...Object.keys(dirtyCurrency), ...Object.keys(dirtyMeta)]));
     if (modifiedIds.length === 0) {
       alert('Aucune modification locale à enregistrer.');
       return;
@@ -1200,12 +1441,14 @@ function App() {
     const anomalies = [];
     modifiedIds.forEach(id => {
       const original = positions.find(p => p.id === id);
-      if (original && original.value_eur !== 0 && dirtyValues[id] !== undefined) {
-        const newVal = Number(dirtyValues[id] || 0);
-        const diff = Math.abs(newVal - original.value_eur);
+      if (original && original.value_eur !== 0 && (dirtyValues[id] !== undefined || dirtyCurrency[id] !== undefined)) {
+        const finalCcy = dirtyCurrency[id] !== undefined ? dirtyCurrency[id] : (original.currency || 'EUR');
+        const finalNative = dirtyValues[id] !== undefined ? Number(dirtyValues[id] || 0) : Number(original.native_amount ?? original.value_eur ?? 0);
+        const newEur = toEur(finalNative, finalCcy, fxRates);
+        const diff = Math.abs(newEur - original.value_eur);
         const pct = diff / Math.abs(original.value_eur);
         if (pct > 0.3 && diff > 500) {
-          anomalies.push(`- ${original.account_name} : ${formatMoney(original.value_eur)} ➔ ${formatMoney(newVal)}`);
+          anomalies.push(`- ${original.account_name} : ${formatMoney(original.value_eur)} ➔ ${formatMoney(newEur)}`);
         }
       }
     });
@@ -1219,14 +1462,18 @@ function App() {
     const newPositions = modifiedIds.map(id => {
       const original = positions.find(p => p.id === id);
       if (!original) return null;
-      const finalVal = dirtyValues[id] !== undefined ? Number(dirtyValues[id] || 0) : Number(original.value_eur || 0);
+      const finalCcy = dirtyCurrency[id] !== undefined ? dirtyCurrency[id] : (original.currency || 'EUR');
+      const finalNative = dirtyValues[id] !== undefined ? Number(dirtyValues[id] || 0) : Number(original.native_amount ?? original.value_eur ?? 0);
+      const finalEur = toEur(finalNative, finalCcy, fxRates);
       return { 
         date: today, 
         owner: original.owner, 
         envelope: original.envelope, 
         account_name: original.account_name, 
         category: original.category || '', 
-        value_eur: finalVal, 
+        currency: finalCcy,
+        native_amount: finalNative,
+        value_eur: finalEur, 
         is_liability: original.is_liability, 
         is_professional: original.is_professional || false,
         ticker: original.ticker || null,
@@ -1238,6 +1485,7 @@ function App() {
     if (error) alert('Erreur : ' + error.message);
     else {
       setDirtyValues({});
+      setDirtyCurrency({});
       setDirtyMeta({});
       try { localStorage.removeItem('patrimoine_dirty_draft'); } catch(e) {}
       alert(`${newPositions.length} modification(s) enregistrée(s) !`);
@@ -1256,12 +1504,26 @@ function App() {
     e.preventDefault();
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
-    const payload = { date: today, owner: newAccount.owner, envelope: newAccount.envelope, account_name: newAccount.account_name, category: newAccount.category, value_eur: Number(newAccount.value_eur), is_liability: newAccount.is_liability, is_professional: newAccount.is_professional };
+    const rawAmt = Number(newAccount.value_eur);
+    const signedNative = newAccount.is_liability && rawAmt > 0 ? -rawAmt : rawAmt;
+    const ccy = newAccount.currency || 'EUR';
+    const payload = {
+      date: today,
+      owner: newAccount.owner,
+      envelope: newAccount.envelope,
+      account_name: newAccount.account_name,
+      category: newAccount.category,
+      currency: ccy,
+      native_amount: signedNative,
+      value_eur: toEur(signedNative, ccy, fxRates),
+      is_liability: newAccount.is_liability,
+      is_professional: newAccount.is_professional
+    };
     const { error } = await supabase.from('positions').insert([payload]);
     if (error) alert('Erreur : ' + error.message);
     else {
       setShowAddForm(false);
-      setNewAccount({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', value_eur: '', is_liability: false, is_professional: false });
+      setNewAccount({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', currency: 'EUR', value_eur: '', is_liability: false, is_professional: false });
       fetchPositions(); fetchHistory(); fetchLogs();
     }
     setLoading(false);
@@ -1274,6 +1536,7 @@ function App() {
     if (error) alert('Erreur : ' + error.message);
     else {
       setDirtyValues(prev => { const next = { ...prev }; delete next[account.id]; return next; });
+      setDirtyCurrency(prev => { const next = { ...prev }; delete next[account.id]; return next; });
       fetchPositions(); fetchHistory(); fetchLogs();
     }
     setLoading(false);
@@ -1306,20 +1569,94 @@ function App() {
   const totalPassifs = filteredPositions.filter(p => p.value_eur < 0).reduce((sum, p) => sum + p.value_eur, 0);
   const totalNet = totalActifs + totalPassifs;
 
-  const sortedChartData = useMemo(() => {
-    const chartData = {};
-    filteredPositions.forEach(p => {
-      let cat = p.category;
-      if (cat === 'Immobilier Brut') cat = 'Immobilier';
-      if (cat === 'Dette Immobilière') return;
-      if (p.value_eur > 0 || cat === 'Immobilier') { chartData[cat] = (chartData[cat] || 0) + p.value_eur; }
-    });
-    const debtImmo = filteredPositions.filter(p => p.category === 'Dette Immobilière').reduce((sum, p) => sum + p.value_eur, 0);
-    if (chartData['Immobilier']) chartData['Immobilier'] += debtImmo;
-    return Object.entries(chartData).sort((a, b) => b[1] - a[1]);
-  }, [filteredPositions]);
+  // Analyse unifiée Nominale vs Économique (Look-Through)
+  const economicAnalysis = useMemo(() => {
+    const chartMap = {};
+    const ccyMap = {};
+    const matrix = {};
+    const envelopes = new Set();
 
-  // Calcul rendement nominal et volatilité pondérés par l'allocation réelle affichée
+    filteredPositions.forEach(p => {
+      const ticker = (p.ticker || '').trim().toUpperCase();
+      const lt = viewMode === 'economic' && ticker ? lookthroughMap[ticker] : null;
+      const hasAssetLt = lt && lt.asset_allocation && Object.keys(lt.asset_allocation).length > 0;
+      const hasCcyLt = lt && lt.currency_exposure && Object.keys(lt.currency_exposure).length > 0;
+
+      // 1. Ventilation Classes d'Actifs & Matrice d'Exposition
+      if (hasAssetLt && p.value_eur > 0) {
+        envelopes.add(p.envelope);
+        Object.entries(lt.asset_allocation).forEach(([catKey, pctVal]) => {
+          const slice = p.value_eur * (Number(pctVal) / 100);
+          chartMap[catKey] = (chartMap[catKey] || 0) + slice;
+          if (!matrix[catKey]) matrix[catKey] = {};
+          matrix[catKey][p.envelope] = (matrix[catKey][p.envelope] || 0) + slice;
+        });
+      } else {
+        let cat = p.category;
+        if (cat === 'Immobilier Brut') cat = 'Immobilier';
+        if (cat === 'Dette Immobilière') {
+          chartMap['Immobilier'] = (chartMap['Immobilier'] || 0) + p.value_eur;
+        } else if (p.value_eur > 0 || cat === 'Immobilier') {
+          chartMap[cat] = (chartMap[cat] || 0) + p.value_eur;
+        }
+
+        if (cat && cat !== 'Dette Immobilière' && cat !== 'Dettes Conso') {
+          envelopes.add(p.envelope);
+          if (!matrix[cat]) matrix[cat] = {};
+          matrix[cat][p.envelope] = (matrix[cat][p.envelope] || 0) + p.value_eur;
+        }
+      }
+
+      // 2. Ventilation Devises (sur les actifs bruts positifs)
+      if (p.value_eur > 0) {
+        if (hasCcyLt) {
+          Object.entries(lt.currency_exposure).forEach(([ccyKey, pctVal]) => {
+            const slice = p.value_eur * (Number(pctVal) / 100);
+            ccyMap[ccyKey] = (ccyMap[ccyKey] || 0) + slice;
+          });
+        } else {
+          const holdingCcy = p.currency || 'EUR';
+          ccyMap[holdingCcy] = (ccyMap[holdingCcy] || 0) + p.value_eur;
+        }
+      }
+    });
+
+    const sortedCategories = Object.entries(chartMap)
+      .filter(([, v]) => v > 0)
+      .sort((a, b) => b[1] - a[1]);
+
+    const totalEconomicAssets = sortedCategories.reduce((sum, [, v]) => sum + v, 0);
+    const leverageRatio = totalActifs > 0 ? totalEconomicAssets / totalActifs : 1;
+
+    const sortedCurrencies = Object.entries(ccyMap)
+      .filter(([, v]) => v > 0)
+      .sort((a, b) => b[1] - a[1]);
+    const totalCcyExposure = sortedCurrencies.reduce((sum, [, v]) => sum + v, 0);
+
+    const activeEnvelopes = Array.from(envelopes).sort();
+    const activeCategories = TARGET_CATEGORIES.filter(cat => matrix[cat] && Object.values(matrix[cat]).some(v => v > 0));
+    const rowTotals = {};
+    activeCategories.forEach(cat => {
+      rowTotals[cat] = Object.values(matrix[cat]).reduce((sum, v) => sum + v, 0);
+    });
+
+    return {
+      sortedCategories,
+      totalEconomicAssets,
+      leverageRatio,
+      sortedCurrencies,
+      totalCcyExposure,
+      matrix,
+      activeEnvelopes,
+      activeCategories,
+      rowTotals
+    };
+  }, [filteredPositions, viewMode, lookthroughMap, totalActifs]);
+
+  const sortedChartData = economicAnalysis.sortedCategories;
+  const exposureMatrix = economicAnalysis;
+
+  // Calcul rendement nominal et volatilité pondérés par l'allocation affichée
   const portfolioAssumptions = useMemo(() => {
     const positiveEntries = sortedChartData.filter(([, val]) => val > 0);
     const totalPos = positiveEntries.reduce((sum, [, val]) => sum + val, 0);
@@ -1350,7 +1687,7 @@ function App() {
     };
   }, [sortedChartData]);
 
-  // Simulation Monte-Carlo avancée (40 ans, log-normale, inflation, bascule en rente)
+  // Simulation Monte-Carlo avancée (40 ans)
   const fireSimulation = useMemo(() => {
     const years = 40;
     const simulations = 500;
@@ -1480,30 +1817,6 @@ function App() {
     return { diff, pct };
   }, [filteredHistory]);
 
-  const exposureMatrix = useMemo(() => {
-    const matrix = {};
-    const envelopes = new Set();
-    filteredPositions.forEach(p => {
-      let cat = p.category;
-      if (cat === 'Immobilier Brut') cat = 'Immobilier';
-      if (cat === 'Dette Immobilière') return;
-      if (!cat || cat === 'Dettes Conso') return;
-      envelopes.add(p.envelope);
-      if (!matrix[cat]) matrix[cat] = {};
-      if (!matrix[cat][p.envelope]) matrix[cat][p.envelope] = 0;
-      matrix[cat][p.envelope] += p.value_eur;
-    });
-    const activeEnvelopes = Array.from(envelopes).sort();
-    const activeCategories = TARGET_CATEGORIES.filter(cat => matrix[cat] && Object.values(matrix[cat]).some(v => v > 0));
-    
-    const rowTotals = {};
-    activeCategories.forEach(cat => {
-      rowTotals[cat] = Object.values(matrix[cat]).reduce((sum, v) => sum + v, 0);
-    });
-
-    return { matrix, activeEnvelopes, activeCategories, rowTotals };
-  }, [filteredPositions]);
-
   const topHoldings = useMemo(() => {
     return [...filteredPositions].sort((a,b) => b.value_eur - a.value_eur).slice(0, 5);
   }, [filteredPositions]);
@@ -1576,21 +1889,27 @@ function App() {
   });
   
   const sortedSaisieEnvelopes = Object.entries(groupedForSaisie).sort((a, b) => {
-    const totalA = Object.values(a[1]).flat().reduce((sum, p) => sum + getNumVal(p), 0);
-    const totalB = Object.values(b[1]).flat().reduce((sum, p) => sum + getNumVal(p), 0);
+    const totalA = Object.values(a[1]).flat().reduce((sum, p) => sum + getNumEurVal(p), 0);
+    const totalB = Object.values(b[1]).flat().reduce((sum, p) => sum + getNumEurVal(p), 0);
     return totalB - totalA;
   });
 
-  const pendingModificationsCount = new Set([...Object.keys(dirtyValues), ...Object.keys(dirtyMeta)]).size;
+  // Liste unifiée des tickers du portefeuille + ceux déjà configurés en Look-Through
+  const allKnownTickers = useMemo(() => {
+    const map = new Map();
+    positions.forEach(p => {
+      if (p.ticker && p.ticker.trim() !== '') {
+        const t = p.ticker.trim().toUpperCase();
+        if (!map.has(t)) map.set(t, p.account_name);
+      }
+    });
+    Object.values(lookthroughMap).forEach(lt => {
+      if (!map.has(lt.ticker)) map.set(lt.ticker, lt.label || lt.ticker);
+    });
+    return Array.from(map.entries()).map(([ticker, label]) => ({ ticker, label }));
+  }, [positions, lookthroughMap]);
 
-  const currencyExposure = filteredPositions.filter(p => 
-    p.account_name.toLowerCase().includes('pk') || 
-    p.account_name.toLowerCase().includes('mbank') || 
-    p.account_name.toLowerCase().includes('pln') || 
-    p.account_name.toLowerCase().includes('pologne')
-  ).reduce((sum, p) => sum + p.value_eur, 0);
-  const currencyExposurePct = totalNet > 0 ? (currencyExposure / totalNet) * 100 : 0;
-
+  const pendingModificationsCount = new Set([...Object.keys(dirtyValues), ...Object.keys(dirtyCurrency), ...Object.keys(dirtyMeta)]).size;
   const currentYear = new Date().getFullYear();
 
   if (isLocked) {
@@ -1640,7 +1959,13 @@ function App() {
             <div>
               <div className="filters-container animate-in delay-1">
                 <div className="owner-filter">{['Tous', 'Aubin', 'Oliwia'].map(owner => (<button key={owner} className={'owner-btn ' + (ownerFilter === owner ? 'active' : '')} onClick={() => setOwnerFilter(owner)}>{owner}</button>))}</div>
-                <label className="pro-toggle"><input type="checkbox" checked={showPro} onChange={(e) => setShowPro(e.target.checked)} />Inclure le Pro</label>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', gap: '8px'}}>
+                  <label className="pro-toggle"><input type="checkbox" checked={showPro} onChange={(e) => setShowPro(e.target.checked)} />Inclure le Pro</label>
+                  <div className="segmented-toggle" style={{marginBottom: 0, flex: 1, maxWidth: '250px'}}>
+                    <button type="button" className={'segmented-btn ' + (viewMode === 'nominal' ? 'active' : '')} onClick={() => setViewMode('nominal')}>Vue Nominale</button>
+                    <button type="button" className={'segmented-btn ' + (viewMode === 'economic' ? 'active' : '')} onClick={() => setViewMode('economic')}>Vue Économique</button>
+                  </div>
+                </div>
               </div>
               
               <div className="card animate-in delay-2">
@@ -1661,21 +1986,44 @@ function App() {
                 </div>
               </div>
 
-              {plnRate && (
-                <div className="card animate-in delay-2">
-                  <div className="ap-label" style={{marginBottom: '5px'}}>Exposition Devise (PLN)</div>
-                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px'}}>
-                    <div>
-                      <div style={{fontWeight: 'bold', fontSize: '1.2rem'}}>{formatMoney(currencyExposure)}</div>
-                      <div style={{fontSize: '0.8rem', color: 'var(--text-light)'}}>{currencyExposurePct.toFixed(1)}% du patrimoine affiché</div>
-                    </div>
-                    <div style={{textAlign: 'right'}}>
-                      <div style={{fontSize: '0.85rem', color: 'var(--text-light)'}}>Taux EUR/PLN</div>
-                      <div style={{fontWeight: 'bold', color: 'var(--gold)'}}>{plnRate.toFixed(4)}</div>
-                    </div>
+              <div className="card animate-in delay-2">
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                  <div className="ap-label">Exposition Devises ({viewMode === 'economic' ? 'Sous-jacents' : 'Détention'})</div>
+                  <div style={{fontSize: '0.72rem', color: 'var(--text-light)'}}>
+                    {fxRates.PLN ? `PLN ${fxRates.PLN.toFixed(2)}` : ''}{fxRates.PLN && fxRates.USD ? ' • ' : ''}{fxRates.USD ? `USD ${fxRates.USD.toFixed(2)}` : ''}
                   </div>
                 </div>
-              )}
+                {economicAnalysis.sortedCurrencies.length > 0 && (
+                  <>
+                    <div className="fx-bar">
+                      {economicAnalysis.sortedCurrencies.map(([ccy, val]) => {
+                        const pct = economicAnalysis.totalCcyExposure > 0 ? (val / economicAnalysis.totalCcyExposure) * 100 : 0;
+                        return (
+                          <div
+                            key={ccy}
+                            style={{ width: pct + '%', backgroundColor: FX_COLORS[ccy] || '#94A3B8' }}
+                            title={`${ccy}: ${pct.toFixed(1)}%`}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div className="fx-grid">
+                      {economicAnalysis.sortedCurrencies.map(([ccy, val]) => {
+                        const pct = economicAnalysis.totalCcyExposure > 0 ? (val / economicAnalysis.totalCcyExposure) * 100 : 0;
+                        return (
+                          <div key={ccy} className="fx-chip">
+                            <span style={{display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600'}}>
+                              <span style={{width: '8px', height: '8px', borderRadius: '50%', backgroundColor: FX_COLORS[ccy] || '#94A3B8'}}></span>
+                              {ccy}
+                            </span>
+                            <span style={{color: 'var(--text-light)'}}>{formatCompactMoney(val)} ({pct.toFixed(1)}%)</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
 
               <div className="card animate-in delay-2">
                 <div className="ap-label" style={{marginBottom: '10px'}}>Top 5 des positions</div>
@@ -1686,7 +2034,9 @@ function App() {
                         <div className="top-rank">{index + 1}</div>
                         <div>
                           <div style={{fontWeight: '500'}}>{p.account_name}</div>
-                          <div style={{fontSize: '0.7rem', color: 'var(--text-light)'}}>{p.envelope}</div>
+                          <div style={{fontSize: '0.7rem', color: 'var(--text-light)'}}>
+                            {p.envelope}{p.currency && p.currency !== 'EUR' ? ` • ${Number(p.native_amount).toLocaleString('fr-FR')} ${p.currency}` : ''}
+                          </div>
                         </div>
                       </div>
                       <div style={{fontWeight: 'bold', color: 'var(--gold)'}}>
@@ -1698,7 +2048,14 @@ function App() {
               </div>
 
               <div className="card animate-in delay-2">
-                <div className="ap-label" style={{marginBottom: '15px'}}>Allocation par Catégorie</div>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px'}}>
+                  <div className="ap-label">Allocation par Catégorie ({viewMode === 'economic' ? 'Économique' : 'Nominale'})</div>
+                  {viewMode === 'economic' && economicAnalysis.leverageRatio > 1.01 && (
+                    <span style={{fontSize: '0.7rem', color: 'var(--gold)', background: 'var(--gold-trans)', padding: '3px 8px', borderRadius: '8px', fontWeight: '600'}}>
+                      Exposition {(economicAnalysis.leverageRatio * 100).toFixed(0)}%
+                    </span>
+                  )}
+                </div>
                 <div className="allocation-container">
                   <DonutChart sortedData={sortedChartData} customColors={customColors} isOliwia={isOliwia} isAubin={isAubin} />
                   <div className="legend-custom">
@@ -1719,7 +2076,7 @@ function App() {
               </div>
 
               <div className="card animate-in delay-3 matrix-card">
-                <div className="ap-label" style={{marginBottom: '10px'}}>Matrice d'Exposition</div>
+                <div className="ap-label" style={{marginBottom: '10px'}}>Matrice d'Exposition ({viewMode === 'economic' ? 'Économique' : 'Nominale'})</div>
                 <div style={{overflowX: 'auto'}}>
                   <table className="matrix-table">
                     <thead>
@@ -1775,20 +2132,22 @@ function App() {
               </div>
             )}
 
-            <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
-              <button type="button" onClick={syncYahooAll} disabled={syncLoading} className="btn-sync" style={{flex:1, marginBottom:0}}><Icon name="refresh" size={16} /> {syncLoading ? 'Sync...' : 'Sync Tout'}</button>
-              <button type="button" onClick={exportToJSON} className="btn-export" style={{flex:1, marginBottom:0}}><Icon name="download" size={16} /> Sauvegarde</button>
-              <label className="btn-export" style={{flex:1, marginBottom:0, cursor: 'pointer'}}><Icon name="upload" size={16} /> Restaurer<input type="file" accept=".json" onChange={importFromJSON} style={{display: 'none'}} /></label>
+            <div style={{display: 'flex', gap: '8px', marginBottom: '10px'}}>
+              <button type="button" onClick={syncYahooAll} disabled={syncLoading} className="btn-sync" style={{flex:1, marginBottom:0}}><Icon name="refresh" size={15} /> {syncLoading ? 'Sync...' : 'Sync Cours'}</button>
+              <button type="button" onClick={syncFxValues} disabled={fxSyncLoading} className="btn-sync" style={{flex:1, marginBottom:0}}><Icon name="refresh" size={15} /> {fxSyncLoading ? 'FX...' : 'Actualiser FX'}</button>
             </div>
 
-            <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
-              <label className="btn-sync" style={{flex:1, cursor: 'pointer', borderColor: 'var(--green)', color: 'var(--green)', marginBottom:0}}>
-                <Icon name="upload" size={16} /> Import CSV
-                <input type="file" accept=".csv" onChange={handleImportCSV} style={{display: 'none'}} />
-              </label>
+            <div style={{display: 'flex', gap: '8px', marginBottom: '15px'}}>
+              <button type="button" onClick={exportToJSON} className="btn-export" style={{flex:1, marginBottom:0}}><Icon name="download" size={15} /> Sauvegarde</button>
+              <label className="btn-export" style={{flex:1, marginBottom:0, cursor: 'pointer'}}><Icon name="upload" size={15} /> Restaurer<input type="file" accept=".json" onChange={importFromJSON} style={{display: 'none'}} /></label>
+              <label className="btn-export" style={{flex:1, marginBottom:0, cursor: 'pointer', borderColor: 'var(--green)', color: 'var(--green)'}}><Icon name="upload" size={15} /> CSV<input type="file" accept=".csv" onChange={handleImportCSV} style={{display: 'none'}} /></label>
             </div>
 
-            {plnRate && (<p style={{fontSize: '0.8rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '15px'}}>Taux de change actuel : 1 EUR = {plnRate} PLN</p>)}
+            {(fxRates.PLN || fxRates.USD) && (
+              <p style={{fontSize: '0.78rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '15px'}}>
+                Taux actifs : {fxRates.PLN ? `1 EUR = ${fxRates.PLN.toFixed(4)} PLN` : ''}{fxRates.PLN && fxRates.USD ? ' • ' : ''}{fxRates.USD ? `1 EUR = ${fxRates.USD.toFixed(4)} USD` : ''}
+              </p>
+            )}
             
             <button onClick={() => setShowAddForm(!showAddForm)} className="btn-sync" style={{borderColor: 'var(--text-light)', color: 'var(--text-light)', marginBottom: '15px'}}>{showAddForm ? 'Fermer le formulaire' : '+ Ajouter un nouveau compte pour ' + saisieOwner}</button>
             {showAddForm && (
@@ -1802,7 +2161,12 @@ function App() {
                   <select className="add-input" required value={newAccount.category} onChange={e => setNewAccount({...newAccount, category: e.target.value})}>{CATEGORIES_LIST.map(cat => <option key={cat} value={cat}>{cat}</option>)}</select>
                 </div>
                 <div className="add-form-grid">
-                  <input className="add-input" type="number" step="any" placeholder="Valeur (€)" required value={newAccount.value_eur} onChange={e => setNewAccount({...newAccount, value_eur: e.target.value})} />
+                  <div style={{display: 'flex', gap: '6px'}}>
+                    <input className="add-input" type="number" step="any" placeholder="Montant" required value={newAccount.value_eur} onChange={e => setNewAccount({...newAccount, value_eur: e.target.value})} />
+                    <select className="add-input" style={{width: '80px', padding: '8px'}} value={newAccount.currency} onChange={e => setNewAccount({...newAccount, currency: e.target.value})}>
+                      {SUPPORTED_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
                   <div style={{display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem'}}>
                     <label><input type="checkbox" checked={newAccount.is_liability} onChange={e => setNewAccount({...newAccount, is_liability: e.target.checked})}/> Dette</label>
                     <label><input type="checkbox" checked={newAccount.is_professional} onChange={e => setNewAccount({...newAccount, is_professional: e.target.checked})}/> Pro</label>
@@ -1813,7 +2177,7 @@ function App() {
             )}
 
             <form onSubmit={handleSave}>
-              <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px'}}>Sélectionnez une enveloppe pour la déplier et modifier vos valeurs.</p>
+              <p style={{fontSize: '0.85rem', color: 'var(--text-light)', marginBottom: '20px'}}>Sélectionnez une enveloppe pour modifier vos soldes en devise d'origine.</p>
               
               {sortedSaisieEnvelopes.length === 0 && (
                 <p style={{color: 'var(--text-light)', textAlign: 'center', padding: '20px'}}>Aucun compte enregistré pour {saisieOwner}.</p>
@@ -1822,7 +2186,7 @@ function App() {
               {sortedSaisieEnvelopes.map(pair => {
                 const envName = pair[0]; 
                 const contractsObj = pair[1];
-                const envTotal = Object.values(contractsObj).flat().reduce((sum, p) => sum + getNumVal(p), 0);
+                const envTotalEur = Object.values(contractsObj).flat().reduce((sum, p) => sum + getNumEurVal(p), 0);
                 const isExpanded = expandedSaisieEnv === envName;
 
                 return (
@@ -1836,7 +2200,7 @@ function App() {
                         <span style={{fontSize: '0.8rem', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: 'var(--gold)'}}>▶</span> 
                         {envName}
                       </h3>
-                      <div style={{fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--gold)'}}>{formatMoney(envTotal)}</div>
+                      <div style={{fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--gold)'}}>{formatMoney(envTotalEur)}</div>
                     </div>
                     
                     {isExpanded && (
@@ -1844,32 +2208,48 @@ function App() {
                         {Object.entries(contractsObj).map(contractPair => {
                           const baseContractName = contractPair[0];
                           const positionsList = contractPair[1];
-                          const contractTotal = positionsList.reduce((sum, p) => sum + getNumVal(p), 0);
-                          const isPolishAccount = baseContractName.includes('PKO') || baseContractName.includes('mBank');
-                          const displayValue = isPolishAccount && plnRate ? Math.round(contractTotal * plnRate) : Math.round(contractTotal);
+                          const contractCurrencies = Array.from(new Set(positionsList.map(p => getEffectiveCurrency(p))));
+                          const singleCcy = contractCurrencies.length === 1 ? contractCurrencies[0] : 'EUR';
+                          const contractTotalDisplay = singleCcy === 'EUR'
+                            ? Math.round(positionsList.reduce((sum, p) => sum + getNumEurVal(p), 0))
+                            : Math.round(positionsList.reduce((sum, p) => sum + getNumNativeVal(p), 0));
+
                           return (
                             <div key={baseContractName} style={{marginTop: '10px'}}>
                               <div className="contract-header">
-                                <span className="contract-title">{baseContractName} {isPolishAccount && <span style={{fontSize:'0.7rem', color:'var(--text-light)'}}>(en PLN)</span>}</span>
-                                {positionsList.length > 1 && (<div className="total-input-container"><span>Total :</span><input type="number" className="total-input" value={hideBalances ? '••••' : displayValue} onChange={(e) => { const newVal = Number(e.target.value); const valInEuro = isPolishAccount && plnRate ? newVal / plnRate : newVal; handleContractTotalChange(baseContractName, positionsList, valInEuro); }} readOnly={hideBalances} /></div>)}
+                                <span className="contract-title">{baseContractName}</span>
+                                {positionsList.length > 1 && (
+                                  <div className="total-input-container">
+                                    <span>Total ({singleCcy}) :</span>
+                                    <input
+                                      type="number"
+                                      className="total-input"
+                                      value={hideBalances ? '••••' : contractTotalDisplay}
+                                      onChange={(e) => handleContractTotalChange(baseContractName, positionsList, e.target.value)}
+                                      readOnly={hideBalances}
+                                    />
+                                  </div>
+                                )}
                               </div>
                               <table className="update-table">
-                                <thead><tr><th>Support</th><th>ETF / Ticker</th><th style={{textAlign: 'right'}}>Valeur (€)</th></tr></thead>
+                                <thead><tr><th>Support</th><th>Ticker</th><th style={{textAlign: 'right'}}>Solde natif</th></tr></thead>
                                 <tbody>
                                   {positionsList.map(p => {
                                     const rowName = p.account_name.includes(' - ')
                                       ? p.account_name.split(' - ')[1]
                                       : (p.category || 'Général');
-                                    const isDirty = dirtyValues[p.id] !== undefined;
+                                    const isDirty = dirtyValues[p.id] !== undefined || dirtyCurrency[p.id] !== undefined;
+                                    const effCcy = getEffectiveCurrency(p);
+                                    const effEur = getNumEurVal(p);
 
                                     return (
                                       <tr key={p.id}>
                                         <td style={{color: 'var(--gold)'}}>
-                                          <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
+                                          <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                                             {rowName}
                                             <button type="button" className="btn-edit-name" onClick={() => handleRenamePosition(p)} title="Renommer ce support">✏️</button>
                                           </div>
-                                          <div style={{fontSize: '0.65rem', color: 'var(--text-light)'}}>{p.owner} • {p.category}</div>
+                                          <div style={{fontSize: '0.65rem', color: 'var(--text-light)'}}>{p.category}</div>
                                         </td>
                                         <td style={{textAlign: 'right'}}>
                                           <div className="etf-row">
@@ -1883,10 +2263,18 @@ function App() {
                                         <td style={{textAlign: 'right'}}>
                                           <div className="input-wrapper">
                                             <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)} disabled={hideBalances}>-</button>
-                                            <input type="number" step="any" value={hideBalances ? '••••' : getRawVal(p)} onChange={e => handleInputChange(p.id, e.target.value)} className={'table-input ' + (isDirty ? 'dirty' : '')} readOnly={hideBalances} />
+                                            <input type="number" step="any" value={hideBalances ? '••••' : getRawNativeVal(p)} onChange={e => handleInputChange(p.id, e.target.value)} className={'table-input ' + (isDirty ? 'dirty' : '')} readOnly={hideBalances} />
+                                            <select className="ccy-select" value={effCcy} onChange={e => handleCurrencyChange(p, e.target.value)} disabled={hideBalances}>
+                                              {SUPPORTED_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
                                             <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, 1000)} disabled={hideBalances}>+</button>
-                                            <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer" disabled={hideBalances}><Icon name="trash" size={16} /></button>
+                                            <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer" disabled={hideBalances}><Icon name="trash" size={15} /></button>
                                           </div>
+                                          {effCcy !== 'EUR' && (
+                                            <div style={{fontSize: '0.68rem', color: 'var(--text-light)', marginTop: '3px', paddingRight: '26px'}}>
+                                              ≈ {formatMoney(effEur)}
+                                            </div>
+                                          )}
                                         </td>
                                       </tr>
                                     );
@@ -1902,11 +2290,117 @@ function App() {
                   </div>
                 );
               })}
-              {positions.length > 0 && (<button type="submit" disabled={loading || hideBalances} className="btn-gold" style={{marginTop: '10px', marginBottom: '30px'}}>{loading ? 'Enregistrement...' : `Enregistrer les modifications${pendingModificationsCount > 0 ? ` (${pendingModificationsCount})` : ''}`}</button>)}
+              {positions.length > 0 && (<button type="submit" disabled={loading || hideBalances} className="btn-gold" style={{marginTop: '10px', marginBottom: '25px'}}>{loading ? 'Enregistrement...' : `Enregistrer les modifications${pendingModificationsCount > 0 ? ` (${pendingModificationsCount})` : ''}`}</button>)}
             </form>
 
+            {/* Gestionnaire Look-Through (Transparence ETF / Fonds) */}
+            <div className="card animate-in delay-2" style={{marginBottom: '20px'}}>
+              <div className="ap-label" style={{marginBottom: '8px'}}>Transparence des actifs (Look-Through)</div>
+              <p style={{fontSize: '0.78rem', color: 'var(--text-light)', marginBottom: '14px'}}>
+                Définissez la répartition économique réelle (classes d'actifs et devises sous-jacentes) de vos tickers pour activer la <strong>Vue Économique</strong> sur le Dashboard.
+              </p>
+
+              {allKnownTickers.map(item => {
+                const lt = lookthroughMap[item.ticker];
+                const isConfigured = lt && (Object.keys(lt.asset_allocation || {}).length > 0 || Object.keys(lt.currency_exposure || {}).length > 0);
+                return (
+                  <div key={item.ticker} className="lt-ticker-row">
+                    <div>
+                      <div style={{fontWeight: '700', color: 'var(--gold)', fontSize: '0.85rem'}}>{item.ticker}</div>
+                      <div style={{fontSize: '0.7rem', color: 'var(--text-light)'}}>
+                        {isConfigured
+                          ? Object.entries(lt.asset_allocation).map(([k, v]) => `${k} ${v}%`).join(' • ')
+                          : item.label}
+                      </div>
+                    </div>
+                    <div style={{display: 'flex', gap: '6px'}}>
+                      <button type="button" className="btn-apply-alloc" onClick={() => openLookthroughEditor(item.ticker, item.label)}>
+                        {isConfigured ? 'Modifier' : 'Configurer'}
+                      </button>
+                      {isConfigured && (
+                        <button type="button" className="btn-delete" onClick={() => deleteLookthrough(item.ticker)} title="Supprimer">
+                          <Icon name="trash" size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              <div style={{display: 'flex', gap: '8px', marginTop: '12px'}}>
+                <input
+                  className="add-input"
+                  style={{padding: '8px 10px', fontSize: '0.8rem'}}
+                  placeholder="Ajouter un ticker (ex: NTSG.DE)"
+                  value={newLtTickerInput}
+                  onChange={e => setNewLtTickerInput(e.target.value.toUpperCase())}
+                />
+                <button
+                  type="button"
+                  className="btn-apply-alloc"
+                  onClick={() => { if (newLtTickerInput.trim()) { openLookthroughEditor(newLtTickerInput.trim()); setNewLtTickerInput(''); } }}
+                >
+                  + Éditer
+                </button>
+              </div>
+
+              {editingLtTicker && (
+                <div className="lt-editor animate-in">
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px'}}>
+                    <strong style={{color: 'var(--gold)', fontSize: '0.9rem'}}>Paramétrage : {editingLtTicker}</strong>
+                    <button type="button" style={{background: 'none', border: 'none', color: 'var(--text-light)', cursor: 'pointer'}} onClick={() => setEditingLtTicker(null)}>✕</button>
+                  </div>
+
+                  <div style={{fontSize: '0.72rem', color: 'var(--text-light)', marginBottom: '4px'}}>Modèles rapides :</div>
+                  <div className="preset-pills">
+                    {LT_PRESETS.map(p => (
+                      <button key={p.name} type="button" className="preset-pill" onClick={() => applyLtPreset(p)}>{p.name}</button>
+                    ))}
+                  </div>
+
+                  <div style={{fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-white)', marginTop: '12px'}}>1. Allocation par classe d'actifs (%)</div>
+                  <div className="lt-kv-grid">
+                    {TARGET_CATEGORIES.map(cat => (
+                      <div key={cat} className="lt-kv-item">
+                        <span style={{color: 'var(--text-light)'}}>{cat}</span>
+                        <input
+                          type="number"
+                          step="any"
+                          className="lt-pct-input"
+                          placeholder="0"
+                          value={ltDraft.asset[cat] !== undefined ? ltDraft.asset[cat] : ''}
+                          onChange={e => setLtDraft(prev => ({ ...prev, asset: { ...prev.asset, [cat]: e.target.value } }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-white)', marginTop: '12px'}}>2. Exposition aux devises sous-jacentes (%)</div>
+                  <div className="lt-kv-grid">
+                    {LT_CURRENCIES.map(ccy => (
+                      <div key={ccy} className="lt-kv-item">
+                        <span style={{color: 'var(--text-light)'}}>{ccy}</span>
+                        <input
+                          type="number"
+                          step="any"
+                          className="lt-pct-input"
+                          placeholder="0"
+                          value={ltDraft.ccy[ccy] !== undefined ? ltDraft.ccy[ccy] : ''}
+                          onChange={e => setLtDraft(prev => ({ ...prev, ccy: { ...prev.ccy, [ccy]: e.target.value } }))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  <button type="button" onClick={saveLookthrough} className="btn-gold" style={{marginTop: '14px', padding: '12px', fontSize: '0.88rem'}}>
+                    Enregistrer la transparence ({editingLtTicker})
+                  </button>
+                </div>
+              )}
+            </div>
+
             {sortedChartData.length > 0 && (
-              <div className="card animate-in delay-3" style={{marginTop: '20px'}}>
+              <div className="card animate-in delay-3">
                 <div className="ap-label" style={{marginBottom: '15px'}}>Apparence des graphiques</div>
                 <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '15px'}}>
                   Personnalisation des couleurs des catégories pour le graphique en anneau (sauvegardée sur le compte).
@@ -1941,7 +2435,7 @@ function App() {
 
               <div className="fire-alloc-banner">
                 <div>
-                  <div style={{fontSize: '0.72rem', color: 'var(--text-light)'}}>Profil de votre allocation actuelle</div>
+                  <div style={{fontSize: '0.72rem', color: 'var(--text-light)'}}>Profil de votre allocation ({viewMode === 'economic' ? 'Économique' : 'Nominale'})</div>
                   <div style={{fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-white)', marginTop: '2px'}}>
                     Rendement : {portfolioAssumptions.expectedReturn} % • Volatilité : {portfolioAssumptions.volatility} %
                   </div>
@@ -2149,7 +2643,9 @@ function App() {
                         <div key={idx} className="log-row">
                           <div style={{flex: 1}}>
                             <div style={{color: 'var(--text-white)', fontWeight: '500'}}>{item.account_name}</div>
-                            <div style={{fontSize: '0.7rem', color: 'var(--text-light)'}}>{item.owner} • {item.envelope}</div>
+                            <div style={{fontSize: '0.7rem', color: 'var(--text-light)'}}>
+                              {item.owner} • {item.envelope}{item.currency && item.currency !== 'EUR' ? ` (${Number(item.native_amount).toLocaleString('fr-FR')} ${item.currency})` : ''}
+                            </div>
                           </div>
                           <div style={{textAlign: 'right'}}>
                             <div style={{fontWeight: '600', color: 'var(--text-white)'}}>{formatMoney(item.value_eur)}</div>
