@@ -290,6 +290,7 @@ const CATEGORIES_LIST = [ 'Actions', 'Fonds euros', 'Livrets', 'SCPI', 'Private 
 const TARGET_CATEGORIES = ['Actions', 'Fonds euros', 'Livrets', 'SCPI', 'Private equity', 'Fonds diversifiés', 'Obligataire', 'Immobilier'];
 const SUPPORTED_CURRENCIES = ['EUR', 'PLN', 'USD'];
 const LT_CURRENCIES = ['EUR', 'USD', 'PLN', 'JPY', 'GBP', 'CHF', 'Autres'];
+const DEFAULT_FX_RATES = { EUR: 1, PLN: 4.30, USD: 1.08 };
 
 const FX_COLORS = {
   'EUR': '#2A9D8F',
@@ -522,8 +523,22 @@ function App() {
   const [fireRealTerms, setFireRealTerms] = useState(true);
 
   const [saveTimeout, setSaveTimeout] = useState(null);
-  const [fxRates, setFxRates] = useState({ EUR: 1, PLN: null, USD: null });
+  const [fxRates, setFxRates] = useState(() => {
+    try {
+      const cached = JSON.parse(localStorage.getItem('patrimoine_fx_rates') || '{}');
+      return {
+        EUR: 1,
+        PLN: Number(cached.PLN) > 0 ? Number(cached.PLN) : DEFAULT_FX_RATES.PLN,
+        USD: Number(cached.USD) > 0 ? Number(cached.USD) : DEFAULT_FX_RATES.USD
+      };
+    } catch (_) {
+      return { ...DEFAULT_FX_RATES };
+    }
+  });
+  const [fxSourceLabel, setFxSourceLabel] = useState('');
+
   const [lookthroughMap, setLookthroughMap] = useState({});
+  const [isLtExpanded, setIsLtExpanded] = useState(false);
   const [editingLtTicker, setEditingLtTicker] = useState(null);
   const [ltDraft, setLtDraft] = useState({ ticker: '', label: '', asset: {}, ccy: {} });
   const [newLtTickerInput, setNewLtTickerInput] = useState('');
@@ -553,8 +568,9 @@ function App() {
   const toEur = (nativeAmt, currency, rates = fxRates) => {
     const num = Number(nativeAmt);
     if (isNaN(num)) return 0;
-    if (!currency || currency === 'EUR') return Math.round(num * 100) / 100;
-    const rate = rates[currency];
+    const cleanCcy = (currency || 'EUR').toUpperCase();
+    if (cleanCcy === 'EUR') return Math.round(num * 100) / 100;
+    const rate = Number(rates[cleanCcy]) || Number(DEFAULT_FX_RATES[cleanCcy]);
     if (!rate || rate <= 0) return Math.round(num * 100) / 100;
     return Math.round((num / rate) * 100) / 100;
   };
@@ -828,26 +844,66 @@ function App() {
   };
 
   async function fetchFxRates() {
-    const nextRates = { EUR: 1, PLN: null, USD: null };
+    let foundPln = null;
+    let foundUsd = null;
+    let source = '';
+
+    // 1. Tentative via table Supabase forex_rates (tolérance multi-schémas)
     try {
-      const { data, error } = await supabase.from('forex_rates').select('*').order('date', { ascending: false }).limit(1).single();
-      if (!error && data) {
-        if (data.eur_pln) nextRates.PLN = Number(data.eur_pln);
-        if (data.eur_usd) nextRates.USD = Number(data.eur_usd);
+      const { data, error } = await supabase.from('forex_rates').select('*').order('date', { ascending: false }).limit(10);
+      if (!error && Array.isArray(data) && data.length > 0) {
+        for (const row of data) {
+          if (!foundPln && Number(row.eur_pln) > 0) foundPln = Number(row.eur_pln);
+          if (!foundUsd && Number(row.eur_usd) > 0) foundUsd = Number(row.eur_usd);
+          if (!foundPln && Number(row.pln) > 0) foundPln = Number(row.pln);
+          if (!foundUsd && Number(row.usd) > 0) foundUsd = Number(row.usd);
+
+          const code = String(row.currency || row.target_currency || row.pair || row.symbol || '').toUpperCase();
+          const val = Number(row.rate || row.value || row.close);
+          if (val > 0) {
+            if (!foundPln && code.includes('PLN')) foundPln = val;
+            if (!foundUsd && code.includes('USD')) foundUsd = val;
+          }
+        }
+        if (foundPln || foundUsd) source = 'Supabase';
       }
     } catch (_) {}
 
-    if (!nextRates.PLN || !nextRates.USD) {
-      try {
-        const res = await fetch('https://api.frankfurter.app/latest?from=EUR&to=PLN,USD');
-        const json = await res.json();
-        if (json && json.rates) {
-          if (!nextRates.PLN && json.rates.PLN) nextRates.PLN = Number(json.rates.PLN);
-          if (!nextRates.USD && json.rates.USD) nextRates.USD = Number(json.rates.USD);
-        }
-      } catch (_) {}
+    // 2. Fallback APIs publiques CORS si manquant
+    if (!foundPln || !foundUsd) {
+      const endpoints = [
+        'https://api.frankfurter.dev/v1/latest?base=EUR&symbols=PLN,USD',
+        'https://api.frankfurter.app/latest?from=EUR&to=PLN,USD',
+        'https://open.er-api.com/v6/latest/EUR'
+      ];
+      for (const url of endpoints) {
+        if (foundPln && foundUsd) break;
+        try {
+          const ctrl = new AbortController();
+          const tid = setTimeout(() => ctrl.abort(), 5000);
+          const res = await fetch(url, { signal: ctrl.signal });
+          clearTimeout(tid);
+          if (!res.ok) continue;
+          const json = await res.json();
+          const ratesObj = json && json.rates;
+          if (ratesObj) {
+            if (!foundPln && Number(ratesObj.PLN) > 0) foundPln = Number(ratesObj.PLN);
+            if (!foundUsd && Number(ratesObj.USD) > 0) foundUsd = Number(ratesObj.USD);
+            if (foundPln || foundUsd) source = source ? source + ' + API' : 'Live FX';
+          }
+        } catch (_) {}
+      }
     }
+
+    const nextRates = {
+      EUR: 1,
+      PLN: foundPln && foundPln > 0 ? foundPln : (fxRates.PLN || DEFAULT_FX_RATES.PLN),
+      USD: foundUsd && foundUsd > 0 ? foundUsd : (fxRates.USD || DEFAULT_FX_RATES.USD)
+    };
+
     setFxRates(nextRates);
+    setFxSourceLabel(source || 'Défaut');
+    try { localStorage.setItem('patrimoine_fx_rates', JSON.stringify(nextRates)); } catch (_) {}
     return nextRates;
   }
 
@@ -873,6 +929,7 @@ function App() {
     const cleanTicker = ticker.trim().toUpperCase();
     if (!cleanTicker) return;
     const existing = lookthroughMap[cleanTicker];
+    setIsLtExpanded(true);
     setEditingLtTicker(cleanTicker);
     setLtDraft({
       ticker: cleanTicker,
@@ -938,7 +995,7 @@ function App() {
     const fxPositions = positions.filter(p => p.currency && p.currency !== 'EUR' && p.native_amount !== null && p.native_amount !== undefined);
     if (fxPositions.length === 0) {
       setFxSyncLoading(false);
-      return alert("Aucun compte en devise étrangère (PLN / USD) n'est configuré.");
+      return alert(`Taux actualisés (1 EUR = ${latestRates.PLN.toFixed(4)} PLN | ${latestRates.USD.toFixed(4)} USD).\nAucun compte existant n'est encore enregistré en PLN ou USD.`);
     }
 
     const today = new Date().toISOString().split('T')[0];
@@ -973,7 +1030,7 @@ function App() {
       await fetchPositions();
       await fetchHistory();
       await fetchLogs();
-      alert(`✅ ${updates.length} ligne(s) en devise recalculée(s) aux derniers taux (EUR/PLN: ${latestRates.PLN || 'N/A'}, EUR/USD: ${latestRates.USD || 'N/A'}).`);
+      alert(`✅ ${updates.length} ligne(s) en devise recalculée(s) aux derniers taux (EUR/PLN: ${latestRates.PLN.toFixed(4)}, EUR/USD: ${latestRates.USD.toFixed(4)}).`);
     }
     setFxSyncLoading(false);
   }
@@ -1375,15 +1432,19 @@ function App() {
   function handleCurrencyChange(p, newCcy) {
     const oldCcy = getEffectiveCurrency(p);
     if (oldCcy === newCcy) return;
-    const currentEur = getNumEurVal(p);
-    let convertedNative = currentEur;
-    if (newCcy !== 'EUR' && fxRates[newCcy]) {
-      convertedNative = Math.round(currentEur * fxRates[newCcy] * 100) / 100;
-    } else if (newCcy === 'EUR') {
-      convertedNative = Math.round(currentEur * 100) / 100;
-    }
     setDirtyCurrency(prev => ({ ...prev, [p.id]: newCcy }));
-    setDirtyValues(prev => ({ ...prev, [p.id]: convertedNative }));
+
+    // Si l'utilisateur n'a pas encore modifié le montant manuellement, convertit la valeur EUR existante vers la nouvelle devise
+    if (dirtyValues[p.id] === undefined) {
+      const currentEur = getNumEurVal(p);
+      let convertedNative = currentEur;
+      if (newCcy !== 'EUR' && fxRates[newCcy]) {
+        convertedNative = Math.round(currentEur * fxRates[newCcy] * 100) / 100;
+      } else if (newCcy === 'EUR') {
+        convertedNative = Math.round(currentEur * 100) / 100;
+      }
+      setDirtyValues(prev => ({ ...prev, [p.id]: convertedNative }));
+    }
   }
 
   function quickAdd(id, amount) {
@@ -1503,6 +1564,7 @@ function App() {
   async function handleAddAccount(e) {
     e.preventDefault();
     setLoading(true);
+    const latestRates = fxRates.PLN ? fxRates : await fetchFxRates();
     const today = new Date().toISOString().split('T')[0];
     const rawAmt = Number(newAccount.value_eur);
     const signedNative = newAccount.is_liability && rawAmt > 0 ? -rawAmt : rawAmt;
@@ -1515,7 +1577,7 @@ function App() {
       category: newAccount.category,
       currency: ccy,
       native_amount: signedNative,
-      value_eur: toEur(signedNative, ccy, fxRates),
+      value_eur: toEur(signedNative, ccy, latestRates),
       is_liability: newAccount.is_liability,
       is_professional: newAccount.is_professional
     };
@@ -1523,7 +1585,7 @@ function App() {
     if (error) alert('Erreur : ' + error.message);
     else {
       setShowAddForm(false);
-      setNewAccount({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', currency: 'EUR', value_eur: '', is_liability: false, is_professional: false });
+      setNewAccount({ owner: saisieOwner, envelope: 'PEA', account_name: '', category: 'Actions', currency: 'EUR', value_eur: '', is_liability: false, is_professional: false });
       fetchPositions(); fetchHistory(); fetchLogs();
     }
     setLoading(false);
@@ -1655,6 +1717,22 @@ function App() {
 
   const sortedChartData = economicAnalysis.sortedCategories;
   const exposureMatrix = economicAnalysis;
+
+  // Ensemble global de toutes les catégories pour le sélecteur de couleurs (indépendant du filtre propriétaire)
+  const allPaletteCategories = useMemo(() => {
+    const set = new Set(TARGET_CATEGORIES);
+    positions.forEach(p => {
+      let cat = p.category;
+      if (cat === 'Immobilier Brut' || cat === 'Dette Immobilière') cat = 'Immobilier';
+      if (cat && cat !== 'Dettes Conso') set.add(cat);
+      const ticker = (p.ticker || '').trim().toUpperCase();
+      const lt = ticker ? lookthroughMap[ticker] : null;
+      if (lt && lt.asset_allocation) {
+        Object.keys(lt.asset_allocation).forEach(k => set.add(k));
+      }
+    });
+    return Array.from(set);
+  }, [positions, lookthroughMap]);
 
   // Calcul rendement nominal et volatilité pondérés par l'allocation affichée
   const portfolioAssumptions = useMemo(() => {
@@ -1909,8 +1987,16 @@ function App() {
     return Array.from(map.entries()).map(([ticker, label]) => ({ ticker, label }));
   }, [positions, lookthroughMap]);
 
+  const configuredLtCount = Object.keys(lookthroughMap).length;
   const pendingModificationsCount = new Set([...Object.keys(dirtyValues), ...Object.keys(dirtyCurrency), ...Object.keys(dirtyMeta)]).size;
   const currentYear = new Date().getFullYear();
+
+  const newAccountPreviewEur = useMemo(() => {
+    const amt = Number(newAccount.value_eur);
+    if (!newAccount.value_eur || isNaN(amt) || newAccount.currency === 'EUR') return null;
+    const signed = newAccount.is_liability && amt > 0 ? -amt : amt;
+    return toEur(signed, newAccount.currency, fxRates);
+  }, [newAccount.value_eur, newAccount.currency, newAccount.is_liability, fxRates]);
 
   if (isLocked) {
     return (
@@ -2120,7 +2206,7 @@ function App() {
             <div className="filters-container" style={{marginBottom: '15px'}}>
               <div className="owner-filter">
                 {['Aubin', 'Oliwia'].map(owner => (
-                  <button key={owner} className={'owner-btn ' + (saisieOwner === owner ? 'active' : '')} onClick={() => { setSaisieOwner(owner); setOwnerFilter(owner); }}>{owner}</button>
+                  <button key={owner} className={'owner-btn ' + (saisieOwner === owner ? 'active' : '')} onClick={() => { setSaisieOwner(owner); setOwnerFilter(owner); setNewAccount(prev => ({ ...prev, owner })); }}>{owner}</button>
                 ))}
               </div>
             </div>
@@ -2143,13 +2229,11 @@ function App() {
               <label className="btn-export" style={{flex:1, marginBottom:0, cursor: 'pointer', borderColor: 'var(--green)', color: 'var(--green)'}}><Icon name="upload" size={15} /> CSV<input type="file" accept=".csv" onChange={handleImportCSV} style={{display: 'none'}} /></label>
             </div>
 
-            {(fxRates.PLN || fxRates.USD) && (
-              <p style={{fontSize: '0.78rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '15px'}}>
-                Taux actifs : {fxRates.PLN ? `1 EUR = ${fxRates.PLN.toFixed(4)} PLN` : ''}{fxRates.PLN && fxRates.USD ? ' • ' : ''}{fxRates.USD ? `1 EUR = ${fxRates.USD.toFixed(4)} USD` : ''}
-              </p>
-            )}
+            <p style={{fontSize: '0.78rem', color: 'var(--text-light)', textAlign: 'center', marginBottom: '15px'}}>
+              Taux actifs ({fxSourceLabel || 'OK'}) : 1 EUR = {fxRates.PLN.toFixed(4)} PLN • 1 EUR = {fxRates.USD.toFixed(4)} USD
+            </p>
             
-            <button onClick={() => setShowAddForm(!showAddForm)} className="btn-sync" style={{borderColor: 'var(--text-light)', color: 'var(--text-light)', marginBottom: '15px'}}>{showAddForm ? 'Fermer le formulaire' : '+ Ajouter un nouveau compte pour ' + saisieOwner}</button>
+            <button onClick={() => { setNewAccount(prev => ({ ...prev, owner: saisieOwner })); setShowAddForm(!showAddForm); }} className="btn-sync" style={{borderColor: 'var(--text-light)', color: 'var(--text-light)', marginBottom: '15px'}}>{showAddForm ? 'Fermer le formulaire' : '+ Ajouter un nouveau compte pour ' + saisieOwner}</button>
             {showAddForm && (
               <form onSubmit={handleAddAccount} className="add-form open">
                 <div className="add-form-grid">
@@ -2172,7 +2256,12 @@ function App() {
                     <label><input type="checkbox" checked={newAccount.is_professional} onChange={e => setNewAccount({...newAccount, is_professional: e.target.checked})}/> Pro</label>
                   </div>
                 </div>
-                <button type="submit" className="btn-gold" style={{marginTop: '10px'}}>Ajouter ce compte</button>
+                {newAccountPreviewEur !== null && (
+                  <div style={{fontSize: '0.78rem', color: 'var(--gold)', marginBottom: '8px', textAlign: 'right'}}>
+                    Contre-valeur enregistrée : <strong>{formatMoney(newAccountPreviewEur, 2)}</strong>
+                  </div>
+                )}
+                <button type="submit" className="btn-gold" style={{marginTop: '6px'}}>Ajouter ce compte</button>
               </form>
             )}
 
@@ -2293,136 +2382,151 @@ function App() {
               {positions.length > 0 && (<button type="submit" disabled={loading || hideBalances} className="btn-gold" style={{marginTop: '10px', marginBottom: '25px'}}>{loading ? 'Enregistrement...' : `Enregistrer les modifications${pendingModificationsCount > 0 ? ` (${pendingModificationsCount})` : ''}`}</button>)}
             </form>
 
-            {/* Gestionnaire Look-Through (Transparence ETF / Fonds) */}
-            <div className="card animate-in delay-2" style={{marginBottom: '20px'}}>
-              <div className="ap-label" style={{marginBottom: '8px'}}>Transparence des actifs (Look-Through)</div>
-              <p style={{fontSize: '0.78rem', color: 'var(--text-light)', marginBottom: '14px'}}>
-                Définissez la répartition économique réelle (classes d'actifs et devises sous-jacentes) de vos tickers pour activer la <strong>Vue Économique</strong> sur le Dashboard.
-              </p>
-
-              {allKnownTickers.map(item => {
-                const lt = lookthroughMap[item.ticker];
-                const isConfigured = lt && (Object.keys(lt.asset_allocation || {}).length > 0 || Object.keys(lt.currency_exposure || {}).length > 0);
-                return (
-                  <div key={item.ticker} className="lt-ticker-row">
-                    <div>
-                      <div style={{fontWeight: '700', color: 'var(--gold)', fontSize: '0.85rem'}}>{item.ticker}</div>
-                      <div style={{fontSize: '0.7rem', color: 'var(--text-light)'}}>
-                        {isConfigured
-                          ? Object.entries(lt.asset_allocation).map(([k, v]) => `${k} ${v}%`).join(' • ')
-                          : item.label}
-                      </div>
-                    </div>
-                    <div style={{display: 'flex', gap: '6px'}}>
-                      <button type="button" className="btn-apply-alloc" onClick={() => openLookthroughEditor(item.ticker, item.label)}>
-                        {isConfigured ? 'Modifier' : 'Configurer'}
-                      </button>
-                      {isConfigured && (
-                        <button type="button" className="btn-delete" onClick={() => deleteLookthrough(item.ticker)} title="Supprimer">
-                          <Icon name="trash" size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-
-              <div style={{display: 'flex', gap: '8px', marginTop: '12px'}}>
-                <input
-                  className="add-input"
-                  style={{padding: '8px 10px', fontSize: '0.8rem'}}
-                  placeholder="Ajouter un ticker (ex: NTSG.DE)"
-                  value={newLtTickerInput}
-                  onChange={e => setNewLtTickerInput(e.target.value.toUpperCase())}
-                />
-                <button
-                  type="button"
-                  className="btn-apply-alloc"
-                  onClick={() => { if (newLtTickerInput.trim()) { openLookthroughEditor(newLtTickerInput.trim()); setNewLtTickerInput(''); } }}
-                >
-                  + Éditer
-                </button>
+            {/* Menu déroulant : Transparence des actifs (Look-Through) */}
+            <div className="card animate-in delay-2" style={{padding: '20px', marginBottom: '15px'}}>
+              <div
+                className="update-header"
+                onClick={() => setIsLtExpanded(!isLtExpanded)}
+                style={{cursor: 'pointer', marginBottom: isLtExpanded ? '15px' : '0', borderBottom: isLtExpanded ? '1px solid var(--border-color)' : 'none', paddingBottom: isLtExpanded ? '10px' : '0'}}
+              >
+                <h3 className="serif" style={{fontSize: '1.1rem', color: 'var(--text-white)', display: 'flex', alignItems: 'center', gap: '10px'}}>
+                  <span style={{fontSize: '0.8rem', transform: isLtExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', color: 'var(--gold)'}}>▶</span>
+                  Transparence des actifs
+                </h3>
+                <div style={{fontSize: '0.8rem', fontWeight: '600', color: 'var(--gold)'}}>
+                  {configuredLtCount} configuré{configuredLtCount > 1 ? 's' : ''}
+                </div>
               </div>
 
-              {editingLtTicker && (
-                <div className="lt-editor animate-in">
-                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px'}}>
-                    <strong style={{color: 'var(--gold)', fontSize: '0.9rem'}}>Paramétrage : {editingLtTicker}</strong>
-                    <button type="button" style={{background: 'none', border: 'none', color: 'var(--text-light)', cursor: 'pointer'}} onClick={() => setEditingLtTicker(null)}>✕</button>
-                  </div>
+              {isLtExpanded && (
+                <div className="animate-in">
+                  <p style={{fontSize: '0.78rem', color: 'var(--text-light)', marginBottom: '14px'}}>
+                    Définissez la répartition économique réelle (classes d'actifs et devises sous-jacentes) de vos tickers pour la <strong>Vue Économique</strong> du Dashboard.
+                  </p>
 
-                  <div style={{fontSize: '0.72rem', color: 'var(--text-light)', marginBottom: '4px'}}>Modèles rapides :</div>
-                  <div className="preset-pills">
-                    {LT_PRESETS.map(p => (
-                      <button key={p.name} type="button" className="preset-pill" onClick={() => applyLtPreset(p)}>{p.name}</button>
-                    ))}
-                  </div>
-
-                  <div style={{fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-white)', marginTop: '12px'}}>1. Allocation par classe d'actifs (%)</div>
-                  <div className="lt-kv-grid">
-                    {TARGET_CATEGORIES.map(cat => (
-                      <div key={cat} className="lt-kv-item">
-                        <span style={{color: 'var(--text-light)'}}>{cat}</span>
-                        <input
-                          type="number"
-                          step="any"
-                          className="lt-pct-input"
-                          placeholder="0"
-                          value={ltDraft.asset[cat] !== undefined ? ltDraft.asset[cat] : ''}
-                          onChange={e => setLtDraft(prev => ({ ...prev, asset: { ...prev.asset, [cat]: e.target.value } }))}
-                        />
+                  {allKnownTickers.map(item => {
+                    const lt = lookthroughMap[item.ticker];
+                    const isConfigured = lt && (Object.keys(lt.asset_allocation || {}).length > 0 || Object.keys(lt.currency_exposure || {}).length > 0);
+                    return (
+                      <div key={item.ticker} className="lt-ticker-row">
+                        <div>
+                          <div style={{fontWeight: '700', color: 'var(--gold)', fontSize: '0.85rem'}}>{item.ticker}</div>
+                          <div style={{fontSize: '0.7rem', color: 'var(--text-light)'}}>
+                            {isConfigured
+                              ? Object.entries(lt.asset_allocation).map(([k, v]) => `${k} ${v}%`).join(' • ')
+                              : item.label}
+                          </div>
+                        </div>
+                        <div style={{display: 'flex', gap: '6px'}}>
+                          <button type="button" className="btn-apply-alloc" onClick={() => openLookthroughEditor(item.ticker, item.label)}>
+                            {isConfigured ? 'Modifier' : 'Configurer'}
+                          </button>
+                          {isConfigured && (
+                            <button type="button" className="btn-delete" onClick={() => deleteLookthrough(item.ticker)} title="Supprimer">
+                              <Icon name="trash" size={14} />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    ))}
+                    );
+                  })}
+
+                  <div style={{display: 'flex', gap: '8px', marginTop: '12px'}}>
+                    <input
+                      className="add-input"
+                      style={{padding: '8px 10px', fontSize: '0.8rem'}}
+                      placeholder="Ajouter un ticker (ex: NTSG.DE)"
+                      value={newLtTickerInput}
+                      onChange={e => setNewLtTickerInput(e.target.value.toUpperCase())}
+                    />
+                    <button
+                      type="button"
+                      className="btn-apply-alloc"
+                      onClick={() => { if (newLtTickerInput.trim()) { openLookthroughEditor(newLtTickerInput.trim()); setNewLtTickerInput(''); } }}
+                    >
+                      + Éditer
+                    </button>
                   </div>
 
-                  <div style={{fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-white)', marginTop: '12px'}}>2. Exposition aux devises sous-jacentes (%)</div>
-                  <div className="lt-kv-grid">
-                    {LT_CURRENCIES.map(ccy => (
-                      <div key={ccy} className="lt-kv-item">
-                        <span style={{color: 'var(--text-light)'}}>{ccy}</span>
-                        <input
-                          type="number"
-                          step="any"
-                          className="lt-pct-input"
-                          placeholder="0"
-                          value={ltDraft.ccy[ccy] !== undefined ? ltDraft.ccy[ccy] : ''}
-                          onChange={e => setLtDraft(prev => ({ ...prev, ccy: { ...prev.ccy, [ccy]: e.target.value } }))}
-                        />
+                  {editingLtTicker && (
+                    <div className="lt-editor animate-in">
+                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px'}}>
+                        <strong style={{color: 'var(--gold)', fontSize: '0.9rem'}}>Paramétrage : {editingLtTicker}</strong>
+                        <button type="button" style={{background: 'none', border: 'none', color: 'var(--text-light)', cursor: 'pointer'}} onClick={() => setEditingLtTicker(null)}>✕</button>
                       </div>
-                    ))}
-                  </div>
 
-                  <button type="button" onClick={saveLookthrough} className="btn-gold" style={{marginTop: '14px', padding: '12px', fontSize: '0.88rem'}}>
-                    Enregistrer la transparence ({editingLtTicker})
-                  </button>
+                      <div style={{fontSize: '0.72rem', color: 'var(--text-light)', marginBottom: '4px'}}>Modèles rapides :</div>
+                      <div className="preset-pills">
+                        {LT_PRESETS.map(p => (
+                          <button key={p.name} type="button" className="preset-pill" onClick={() => applyLtPreset(p)}>{p.name}</button>
+                        ))}
+                      </div>
+
+                      <div style={{fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-white)', marginTop: '12px'}}>1. Allocation par classe d'actifs (%)</div>
+                      <div className="lt-kv-grid">
+                        {TARGET_CATEGORIES.map(cat => (
+                          <div key={cat} className="lt-kv-item">
+                            <span style={{color: 'var(--text-light)'}}>{cat}</span>
+                            <input
+                              type="number"
+                              step="any"
+                              className="lt-pct-input"
+                              placeholder="0"
+                              value={ltDraft.asset[cat] !== undefined ? ltDraft.asset[cat] : ''}
+                              onChange={e => setLtDraft(prev => ({ ...prev, asset: { ...prev.asset, [cat]: e.target.value } }))}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-white)', marginTop: '12px'}}>2. Exposition aux devises sous-jacentes (%)</div>
+                      <div className="lt-kv-grid">
+                        {LT_CURRENCIES.map(ccy => (
+                          <div key={ccy} className="lt-kv-item">
+                            <span style={{color: 'var(--text-light)'}}>{ccy}</span>
+                            <input
+                              type="number"
+                              step="any"
+                              className="lt-pct-input"
+                              placeholder="0"
+                              value={ltDraft.ccy[ccy] !== undefined ? ltDraft.ccy[ccy] : ''}
+                              onChange={e => setLtDraft(prev => ({ ...prev, ccy: { ...prev.ccy, [ccy]: e.target.value } }))}
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <button type="button" onClick={saveLookthrough} className="btn-gold" style={{marginTop: '14px', padding: '12px', fontSize: '0.88rem'}}>
+                        Enregistrer la transparence ({editingLtTicker})
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {sortedChartData.length > 0 && (
-              <div className="card animate-in delay-3">
-                <div className="ap-label" style={{marginBottom: '15px'}}>Apparence des graphiques</div>
-                <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '15px'}}>
-                  Personnalisation des couleurs des catégories pour le graphique en anneau (sauvegardée sur le compte).
-                </p>
-                {sortedChartData.map(d => {
-                  const catName = d[0];
-                  const defaultColor = '#888888';
-                  return (
-                    <div key={catName} className="color-picker-row">
-                      <span style={{fontSize: '0.9rem', color: 'var(--text-white)'}}>{catName}</span>
-                      <input 
-                        type="color" 
-                        className="color-input" 
-                        value={customColors[catName] || defaultColor} 
-                        onChange={(e) => updateCustomColor(catName, e.target.value)} 
-                      />
-                    </div>
-                  );
-                })}
-                <button type="button" onClick={resetChartColors} className="btn-reset-colors">Réinitialiser les couleurs du thème</button>
-              </div>
-            )}
+            <div className="card animate-in delay-3">
+              <div className="ap-label" style={{marginBottom: '15px'}}>Apparence des graphiques</div>
+              <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '15px'}}>
+                Personnalisation des couleurs de l'ensemble des classes d'actifs pour le graphique en anneau (sauvegardée sur le compte).
+              </p>
+              {allPaletteCategories.map((catName, idx) => {
+                const defaultPalette = ['#E9C46A', '#2A9D8F', '#E76F51', '#264653', '#F4A261', '#8AB17D', '#457B9D', '#D4A373', '#94A3B8'];
+                const currentColor = customColors[catName] || defaultPalette[idx % defaultPalette.length];
+                return (
+                  <div key={catName} className="color-picker-row">
+                    <span style={{fontSize: '0.9rem', color: 'var(--text-white)'}}>{catName}</span>
+                    <input 
+                      type="color" 
+                      className="color-input" 
+                      value={currentColor} 
+                      onChange={(e) => updateCustomColor(catName, e.target.value)} 
+                    />
+                  </div>
+                );
+              })}
+              <button type="button" onClick={resetChartColors} className="btn-reset-colors">Réinitialiser les couleurs du thème</button>
+            </div>
           </div>
         )}
         {view === 'projection' && (
