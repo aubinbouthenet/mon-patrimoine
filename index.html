@@ -95,10 +95,6 @@ if (window.location.search.includes('debug=1')) {
   .legend-color { width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
   .legend-name { color: var(--text-light); display: flex; align-items: center; flex: 1; }
   .legend-percent { color: var(--text-white); font-weight: 600; }
-
-  .fx-bar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; margin: 12px 0; background: var(--border-color); }
-  .fx-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
-  .fx-chip { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; }
   
   .matrix-card { padding: 15px 10px !important; }
   .matrix-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 0.65rem; table-layout: auto; }
@@ -291,16 +287,6 @@ const TARGET_CATEGORIES = ['Actions', 'Fonds euros', 'Livrets', 'SCPI', 'Private
 const SUPPORTED_CURRENCIES = ['EUR', 'PLN', 'USD'];
 const LT_CURRENCIES = ['EUR', 'USD', 'PLN', 'JPY', 'GBP', 'CHF', 'Autres'];
 const DEFAULT_FX_RATES = { EUR: 1, PLN: 4.30, USD: 1.08 };
-
-const FX_COLORS = {
-  'EUR': '#2A9D8F',
-  'USD': '#E9C46A',
-  'PLN': '#E76F51',
-  'JPY': '#8AB17D',
-  'GBP': '#457B9D',
-  'CHF': '#B5838D',
-  'Autres': '#64748B'
-};
 
 const LT_PRESETS = [
   {
@@ -848,7 +834,6 @@ function App() {
     let foundUsd = null;
     let source = '';
 
-    // 1. Tentative via table Supabase forex_rates (tolérance multi-schémas)
     try {
       const { data, error } = await supabase.from('forex_rates').select('*').order('date', { ascending: false }).limit(10);
       if (!error && Array.isArray(data) && data.length > 0) {
@@ -869,7 +854,6 @@ function App() {
       }
     } catch (_) {}
 
-    // 2. Fallback APIs publiques CORS si manquant
     if (!foundPln || !foundUsd) {
       const endpoints = [
         'https://api.frankfurter.dev/v1/latest?base=EUR&symbols=PLN,USD',
@@ -1434,7 +1418,6 @@ function App() {
     if (oldCcy === newCcy) return;
     setDirtyCurrency(prev => ({ ...prev, [p.id]: newCcy }));
 
-    // Si l'utilisateur n'a pas encore modifié le montant manuellement, convertit la valeur EUR existante vers la nouvelle devise
     if (dirtyValues[p.id] === undefined) {
       const currentEur = getNumEurVal(p);
       let convertedNative = currentEur;
@@ -1634,7 +1617,6 @@ function App() {
   // Analyse unifiée Nominale vs Économique (Look-Through)
   const economicAnalysis = useMemo(() => {
     const chartMap = {};
-    const ccyMap = {};
     const matrix = {};
     const envelopes = new Set();
 
@@ -1642,9 +1624,7 @@ function App() {
       const ticker = (p.ticker || '').trim().toUpperCase();
       const lt = viewMode === 'economic' && ticker ? lookthroughMap[ticker] : null;
       const hasAssetLt = lt && lt.asset_allocation && Object.keys(lt.asset_allocation).length > 0;
-      const hasCcyLt = lt && lt.currency_exposure && Object.keys(lt.currency_exposure).length > 0;
 
-      // 1. Ventilation Classes d'Actifs & Matrice d'Exposition
       if (hasAssetLt && p.value_eur > 0) {
         envelopes.add(p.envelope);
         Object.entries(lt.asset_allocation).forEach(([catKey, pctVal]) => {
@@ -1668,19 +1648,6 @@ function App() {
           matrix[cat][p.envelope] = (matrix[cat][p.envelope] || 0) + p.value_eur;
         }
       }
-
-      // 2. Ventilation Devises (sur les actifs bruts positifs)
-      if (p.value_eur > 0) {
-        if (hasCcyLt) {
-          Object.entries(lt.currency_exposure).forEach(([ccyKey, pctVal]) => {
-            const slice = p.value_eur * (Number(pctVal) / 100);
-            ccyMap[ccyKey] = (ccyMap[ccyKey] || 0) + slice;
-          });
-        } else {
-          const holdingCcy = p.currency || 'EUR';
-          ccyMap[holdingCcy] = (ccyMap[holdingCcy] || 0) + p.value_eur;
-        }
-      }
     });
 
     const sortedCategories = Object.entries(chartMap)
@@ -1689,11 +1656,6 @@ function App() {
 
     const totalEconomicAssets = sortedCategories.reduce((sum, [, v]) => sum + v, 0);
     const leverageRatio = totalActifs > 0 ? totalEconomicAssets / totalActifs : 1;
-
-    const sortedCurrencies = Object.entries(ccyMap)
-      .filter(([, v]) => v > 0)
-      .sort((a, b) => b[1] - a[1]);
-    const totalCcyExposure = sortedCurrencies.reduce((sum, [, v]) => sum + v, 0);
 
     const activeEnvelopes = Array.from(envelopes).sort();
     const activeCategories = TARGET_CATEGORIES.filter(cat => matrix[cat] && Object.values(matrix[cat]).some(v => v > 0));
@@ -1706,8 +1668,6 @@ function App() {
       sortedCategories,
       totalEconomicAssets,
       leverageRatio,
-      sortedCurrencies,
-      totalCcyExposure,
       matrix,
       activeEnvelopes,
       activeCategories,
@@ -1718,7 +1678,6 @@ function App() {
   const sortedChartData = economicAnalysis.sortedCategories;
   const exposureMatrix = economicAnalysis;
 
-  // Ensemble global de toutes les catégories pour le sélecteur de couleurs (indépendant du filtre propriétaire)
   const allPaletteCategories = useMemo(() => {
     const set = new Set(TARGET_CATEGORIES);
     positions.forEach(p => {
@@ -1734,7 +1693,6 @@ function App() {
     return Array.from(set);
   }, [positions, lookthroughMap]);
 
-  // Calcul rendement nominal et volatilité pondérés par l'allocation affichée
   const portfolioAssumptions = useMemo(() => {
     const positiveEntries = sortedChartData.filter(([, val]) => val > 0);
     const totalPos = positiveEntries.reduce((sum, [, val]) => sum + val, 0);
@@ -1765,7 +1723,6 @@ function App() {
     };
   }, [sortedChartData]);
 
-  // Simulation Monte-Carlo avancée (40 ans)
   const fireSimulation = useMemo(() => {
     const years = 40;
     const simulations = 500;
@@ -1972,7 +1929,6 @@ function App() {
     return totalB - totalA;
   });
 
-  // Liste unifiée des tickers du portefeuille + ceux déjà configurés en Look-Through
   const allKnownTickers = useMemo(() => {
     const map = new Map();
     positions.forEach(p => {
@@ -2073,45 +2029,6 @@ function App() {
               </div>
 
               <div className="card animate-in delay-2">
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                  <div className="ap-label">Exposition Devises ({viewMode === 'economic' ? 'Sous-jacents' : 'Détention'})</div>
-                  <div style={{fontSize: '0.72rem', color: 'var(--text-light)'}}>
-                    {fxRates.PLN ? `PLN ${fxRates.PLN.toFixed(2)}` : ''}{fxRates.PLN && fxRates.USD ? ' • ' : ''}{fxRates.USD ? `USD ${fxRates.USD.toFixed(2)}` : ''}
-                  </div>
-                </div>
-                {economicAnalysis.sortedCurrencies.length > 0 && (
-                  <>
-                    <div className="fx-bar">
-                      {economicAnalysis.sortedCurrencies.map(([ccy, val]) => {
-                        const pct = economicAnalysis.totalCcyExposure > 0 ? (val / economicAnalysis.totalCcyExposure) * 100 : 0;
-                        return (
-                          <div
-                            key={ccy}
-                            style={{ width: pct + '%', backgroundColor: FX_COLORS[ccy] || '#94A3B8' }}
-                            title={`${ccy}: ${pct.toFixed(1)}%`}
-                          />
-                        );
-                      })}
-                    </div>
-                    <div className="fx-grid">
-                      {economicAnalysis.sortedCurrencies.map(([ccy, val]) => {
-                        const pct = economicAnalysis.totalCcyExposure > 0 ? (val / economicAnalysis.totalCcyExposure) * 100 : 0;
-                        return (
-                          <div key={ccy} className="fx-chip">
-                            <span style={{display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '600'}}>
-                              <span style={{width: '8px', height: '8px', borderRadius: '50%', backgroundColor: FX_COLORS[ccy] || '#94A3B8'}}></span>
-                              {ccy}
-                            </span>
-                            <span style={{color: 'var(--text-light)'}}>{formatCompactMoney(val)} ({pct.toFixed(1)}%)</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="card animate-in delay-2">
                 <div className="ap-label" style={{marginBottom: '10px'}}>Top 5 des positions</div>
                 <div className="top-list">
                   {topHoldings.map((p, index) => (
@@ -2120,9 +2037,7 @@ function App() {
                         <div className="top-rank">{index + 1}</div>
                         <div>
                           <div style={{fontWeight: '500'}}>{p.account_name}</div>
-                          <div style={{fontSize: '0.7rem', color: 'var(--text-light)'}}>
-                            {p.envelope}{p.currency && p.currency !== 'EUR' ? ` • ${Number(p.native_amount).toLocaleString('fr-FR')} ${p.currency}` : ''}
-                          </div>
+                          <div style={{fontSize: '0.7rem', color: 'var(--text-light)'}}>{p.envelope}</div>
                         </div>
                       </div>
                       <div style={{fontWeight: 'bold', color: 'var(--gold)'}}>
@@ -2382,7 +2297,6 @@ function App() {
               {positions.length > 0 && (<button type="submit" disabled={loading || hideBalances} className="btn-gold" style={{marginTop: '10px', marginBottom: '25px'}}>{loading ? 'Enregistrement...' : `Enregistrer les modifications${pendingModificationsCount > 0 ? ` (${pendingModificationsCount})` : ''}`}</button>)}
             </form>
 
-            {/* Menu déroulant : Transparence des actifs (Look-Through) */}
             <div className="card animate-in delay-2" style={{padding: '20px', marginBottom: '15px'}}>
               <div
                 className="update-header"
