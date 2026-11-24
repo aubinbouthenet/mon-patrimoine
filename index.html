@@ -167,10 +167,16 @@ if (window.location.search.includes('debug=1')) {
   .preset-pill { background: var(--gold-trans); border: 1px solid var(--border-color); color: var(--gold); padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; cursor: pointer; }
 
   .target-bar-container { margin-bottom: 15px; }
-  .target-bar-label { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 5px; }
+  .target-bar-label { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 5px; align-items: center; gap: 6px; }
   .target-bar-bg { height: 12px; background: var(--border-color); border-radius: 6px; overflow: hidden; position: relative; }
   .target-bar-actual { height: 100%; background: var(--gold); border-radius: 6px; position: absolute; top:0; left:0; transition: background-color 0.4s; }
   .target-bar-target { height: 100%; background: var(--text-light); opacity: 0.3; border-radius: 6px; position: absolute; top:0; left:0; }
+  .target-meta-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+  .target-meta-input { padding: 6px 8px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-white); font-size: 0.74rem; outline: none; }
+  .target-meta-input:focus { border-color: var(--gold); }
+  .rebalance-order-row { padding: 10px 0; border-bottom: 1px solid var(--border-color); }
+  .rebalance-order-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .rebalance-pill { font-size: 0.66rem; font-weight: 600; color: var(--gold); background: var(--gold-trans); border: 1px solid var(--border-color); padding: 2px 6px; border-radius: 6px; margin-left: 6px; }
   .total-indicator { text-align: center; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; padding: 10px; border-radius: 8px; background: var(--input-bg); }
   .total-indicator.ok { color: var(--green); border: 1px solid var(--green); }
   .total-indicator.not-ok { color: var(--red); border: 1px solid var(--red); }
@@ -260,7 +266,9 @@ const { useState, useEffect, useRef, useMemo, memo } = React;
 const SUPABASE_URL = 'https://geykxuqyspwzocvwzqjj.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_AsJvkk-erLkE5-pUbxiNnw_h2mmuuRN';
 const USER_EMAIL = 'admin@patrimoine.app';
-const OFFLINE_CACHE_KEY = 'patrimoine_offline_snapshot_v1';
+const OFFLINE_CACHE_KEY = 'patrimoine_offline_snapshot_v2';
+const DIRTY_DRAFT_KEY = 'patrimoine_dirty_draft_v2';
+const SESSION_ACTIVE_KEY = 'patrimoine_session_active';
 
 if (!window.supabase) throw new Error('Supabase CDN absent');
 
@@ -275,7 +283,13 @@ try {
 function saveOfflineSnapshot(partial) {
   try {
     const prev = JSON.parse(localStorage.getItem(OFFLINE_CACHE_KEY) || '{}');
-    localStorage.setItem(OFFLINE_CACHE_KEY, JSON.stringify({ ...prev, ...partial, updatedAt: Date.now() }));
+    const mergedHistory = partial.historyByKey
+      ? { ...(prev.historyByKey || {}), ...partial.historyByKey }
+      : prev.historyByKey;
+    localStorage.setItem(
+      OFFLINE_CACHE_KEY,
+      JSON.stringify({ ...prev, ...partial, historyByKey: mergedHistory, updatedAt: Date.now() })
+    );
   } catch (_) {}
 }
 
@@ -286,6 +300,21 @@ function loadOfflineSnapshot() {
   } catch (_) {
     return null;
   }
+}
+
+function getPosKey(p) {
+  return `${p.owner}|${p.envelope}|${p.account_name}|${p.category || ''}`;
+}
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function() {
+    a |= 0;
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 class ErrorBoundary extends React.Component {
@@ -309,30 +338,13 @@ const ENVELOPPES_LIST = [ 'Compte Courant / Livret', 'Compte Bancaire', 'PEA', '
 const CATEGORIES_LIST = [ 'Actions', 'Fonds euros', 'Livrets', 'SCPI', 'Private equity', 'Fonds diversifiés', 'Obligataire', 'Immobilier Brut', 'Dette Immobilière', 'Dettes Conso', 'Autre' ];
 const TARGET_CATEGORIES = ['Actions', 'Fonds euros', 'Livrets', 'SCPI', 'Private equity', 'Fonds diversifiés', 'Obligataire', 'Immobilier'];
 const SUPPORTED_CURRENCIES = ['EUR', 'PLN', 'USD'];
-const LT_CURRENCIES = ['EUR', 'USD', 'PLN', 'JPY', 'GBP', 'CHF', 'Autres'];
 const DEFAULT_FX_RATES = { EUR: 1, PLN: 4.30, USD: 1.08 };
 
 const LT_PRESETS = [
-  {
-    name: 'MSCI World (100% Act.)',
-    asset: { Actions: 100 },
-    ccy: { USD: 70, EUR: 12, JPY: 6, GBP: 4, Autres: 8 }
-  },
-  {
-    name: 'S&P 500 (100% USD)',
-    asset: { Actions: 100 },
-    ccy: { USD: 100 }
-  },
-  {
-    name: 'NTSG 90/60 (Levier 1.5x)',
-    asset: { Actions: 90, Obligataire: 60 },
-    ccy: { USD: 65, EUR: 15, JPY: 6, Autres: 14 }
-  },
-  {
-    name: 'Émergents (100% Act.)',
-    asset: { Actions: 100 },
-    ccy: { USD: 20, Autres: 80 }
-  }
+  { name: 'Actions 100%', asset: { Actions: 100 } },
+  { name: 'NTSG 90/60 (Levier 1.5x)', asset: { Actions: 90, Obligataire: 60 } },
+  { name: 'Fonds 60/40', asset: { Actions: 60, Obligataire: 40 } },
+  { name: 'Obligataire 100%', asset: { Obligataire: 100 } }
 ];
 
 const CATEGORY_ASSUMPTIONS = {
@@ -346,6 +358,35 @@ const CATEGORY_ASSUMPTIONS = {
   'Livrets': { ret: 0.025, vol: 0.002 },
   'Autre': { ret: 0.040, vol: 0.080 }
 };
+
+function defaultTargetEntry(cat) {
+  return {
+    pct: 0,
+    eligible: cat !== 'Immobilier',
+    envelope: '',
+    ticker: ''
+  };
+}
+
+function normalizeTargetsMap(rawMap) {
+  const out = {};
+  TARGET_CATEGORIES.forEach(cat => {
+    const val = rawMap && rawMap[cat];
+    if (typeof val === 'number') {
+      out[cat] = { ...defaultTargetEntry(cat), pct: val };
+    } else if (val && typeof val === 'object') {
+      out[cat] = {
+        pct: Number(val.pct ?? val.target_percentage ?? 0),
+        eligible: val.eligible !== undefined ? Boolean(val.eligible) : (val.rebalance_eligible !== undefined ? Boolean(val.rebalance_eligible) : cat !== 'Immobilier'),
+        envelope: val.envelope ?? val.target_envelope ?? '',
+        ticker: (val.ticker ?? val.target_ticker ?? '').toUpperCase()
+      };
+    } else {
+      out[cat] = defaultTargetEntry(cat);
+    }
+  });
+  return out;
+}
 
 const Icon = ({ name, size = 24 }) => {
   const icons = {
@@ -379,7 +420,7 @@ const HistoryChart = memo(({ history, color, hideBalances }) => {
     const gradient = ctx.createLinearGradient(0, 0, 0, 180);
     gradient.addColorStop(0, color + '44');
     gradient.addColorStop(1, color + '00');
-    const instance = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ data: dataPoints, borderColor: color, borderWidth: 2, backgroundColor: gradient, fill: true, tension: 0.3, pointRadius: history.length === 1 ? 4 : 0, pointHoverRadius: 5 }] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 800, easing: 'easeOutQuart' }, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { enabled: !hideBalances, callbacks: { label: (ctx) => ctx.parsed.y.toLocaleString('fr-FR') + ' €' } } }, scales: { x: { display: false }, y: { display: false } } } });
+    const instance = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ data: dataPoints, borderColor: color, borderWidth: 2, backgroundColor: gradient, fill: true, tension: 0.3, pointRadius: history.length <= 2 ? 4 : 0, pointHoverRadius: 5 }] }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 600, easing: 'easeOutQuart' }, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { enabled: !hideBalances, callbacks: { label: (ctx) => ctx.parsed.y.toLocaleString('fr-FR') + ' €' } } }, scales: { x: { display: false }, y: { display: false } } } });
     return () => instance.destroy();
   }, [history, color, hideBalances]);
   return <div className="history-chart-container"><canvas ref={chartRef}></canvas></div>;
@@ -435,10 +476,7 @@ const FireMonteCarloChart = memo(({ mcData, fireTargetLine, color, hideBalances 
         borderColor: color,
         borderWidth: 3,
         backgroundColor: color + '22',
-        fill: {
-          target: { value: 0 },
-          above: color + '11'
-        },
+        fill: { target: { value: 0 }, above: color + '11' },
         tension: 0.35,
         pointRadius: 0,
         pointHoverRadius: 4
@@ -474,24 +512,13 @@ const FireMonteCarloChart = memo(({ mcData, fireTargetLine, color, hideBalances 
       options: { 
         responsive: true, 
         maintainAspectRatio: false, 
-        animation: { duration: 700 }, 
+        animation: { duration: 400 }, 
         interaction: { intersect: false, mode: 'index' }, 
         plugins: { 
-          legend: { 
-            display: true, 
-            labels: { color: '#94A3B8', font: { size: 10 }, boxWidth: 12 } 
-          }, 
-          tooltip: { 
-            enabled: !hideBalances, 
-            callbacks: { 
-              label: (ctx) => ` ${ctx.dataset.label}: ${Math.round(ctx.parsed.y).toLocaleString('fr-FR')} €` 
-            } 
-          } 
+          legend: { display: true, labels: { color: '#94A3B8', font: { size: 10 }, boxWidth: 12 } }, 
+          tooltip: { enabled: !hideBalances, callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${Math.round(ctx.parsed.y).toLocaleString('fr-FR')} €` } } 
         }, 
-        scales: { 
-          x: { display: false }, 
-          y: { display: false } 
-        } 
+        scales: { x: { display: false }, y: { display: false } } 
       } 
     });
     return () => instance.destroy();
@@ -500,15 +527,16 @@ const FireMonteCarloChart = memo(({ mcData, fireTargetLine, color, hideBalances 
 });
 
 function App() {
-  const initialOffline = useMemo(() => loadOfflineSnapshot(), []);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [session, setSession] = useState(null);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [positions, setPositions] = useState(() => (initialOffline && Array.isArray(initialOffline.positions)) ? initialOffline.positions : []);
-  const [historyData, setHistoryData] = useState(() => (initialOffline && Array.isArray(initialOffline.historyData)) ? initialOffline.historyData : []);
-  const [logs, setLogs] = useState(() => (initialOffline && initialOffline.logs) ? initialOffline.logs : {});
+
+  // Aucun préchargement des données financières en mémoire tant que la biométrie n'est pas déverrouillée
+  const [positions, setPositions] = useState([]);
+  const [historyData, setHistoryData] = useState([]);
+  const [logs, setLogs] = useState({});
   const [timeRange, setTimeRange] = useState('YTD');
   const [view, setView] = useState('dashboard');
   const [ownerFilter, setOwnerFilter] = useState('Tous');
@@ -521,7 +549,7 @@ function App() {
   
   const [hideBalances, setHideBalances] = useState(false);
   const [saisieOwner, setSaisieOwner] = useState('Aubin');
-  const [saisieMode, setSaisieMode] = useState('envelopes'); // 'envelopes' | 'table'
+  const [saisieMode, setSaisieMode] = useState('envelopes');
   const [customColors, setCustomColors] = useState(() => {
     try { return JSON.parse(localStorage.getItem('customChartColors')) || {}; } catch(e) { return {}; }
   });
@@ -533,6 +561,7 @@ function App() {
   const [fireDepense, setFireDepense] = useState(3000);
   const [fireSwr, setFireSwr] = useState(3.5);
   const [fireRealTerms, setFireRealTerms] = useState(true);
+  const [fireCoastHorizon, setFireCoastHorizon] = useState(30);
 
   const [saveTimeout, setSaveTimeout] = useState(null);
   const [fxRates, setFxRates] = useState(() => {
@@ -549,33 +578,44 @@ function App() {
   });
   const [fxSourceLabel, setFxSourceLabel] = useState('');
 
-  const [lookthroughMap, setLookthroughMap] = useState(() => (initialOffline && initialOffline.lookthroughMap) ? initialOffline.lookthroughMap : {});
+  const [lookthroughMap, setLookthroughMap] = useState({});
   const [isLtExpanded, setIsLtExpanded] = useState(false);
   const [editingLtTicker, setEditingLtTicker] = useState(null);
-  const [ltDraft, setLtDraft] = useState({ ticker: '', label: '', asset: {}, ccy: {} });
+  const [ltDraft, setLtDraft] = useState({ ticker: '', label: '', asset: {} });
   const [newLtTickerInput, setNewLtTickerInput] = useState('');
 
+  // Brouillons indexés par clé composite stable (getPosKey) avec persistance conjointe valeur + devise
   const [dirtyValues, setDirtyValues] = useState(() => {
     try {
       localStorage.removeItem('patrimoine_draft');
-      const saved = localStorage.getItem('patrimoine_dirty_draft');
-      return saved ? JSON.parse(saved) : {};
-    } catch(e) { return {}; }
+      localStorage.removeItem('patrimoine_dirty_draft');
+      const saved = JSON.parse(localStorage.getItem(DIRTY_DRAFT_KEY) || '{}');
+      return saved && saved.values ? saved.values : {};
+    } catch (_) { return {}; }
   });
-  const [dirtyCurrency, setDirtyCurrency] = useState({});
+  const [dirtyCurrency, setDirtyCurrency] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(DIRTY_DRAFT_KEY) || '{}');
+      return saved && saved.currencies ? saved.currencies : {};
+    } catch (_) { return {}; }
+  });
   const [dirtyMeta, setDirtyMeta] = useState({});
 
   const [expandedSaisieEnv, setExpandedSaisieEnv] = useState(null);
   const [syncLoading, setSyncLoading] = useState(false);
   const [fxSyncLoading, setFxSyncLoading] = useState(false);
-  const [syncingId, setSyncingId] = useState(null);
+  const [syncingKey, setSyncingKey] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newAccount, setNewAccount] = useState({ owner: 'Aubin', envelope: 'PEA', account_name: '', category: 'Actions', currency: 'EUR', value_eur: '', is_liability: false, is_professional: false });
-  const [targets, setTargets] = useState(() => (initialOffline && initialOffline.targets) ? initialOffline.targets : {});
+
+  // Lot 3 : Cibles enrichies (pct, eligible, envelope, ticker) + cours de rééquilibrage
+  const [targets, setTargets] = useState(() => normalizeTargetsMap({}));
   const [editTargetsMode, setEditTargetsMode] = useState(false);
-  const [tempTargets, setTempTargets] = useState(() => (initialOffline && initialOffline.targets) ? initialOffline.targets : {});
+  const [tempTargets, setTempTargets] = useState(() => normalizeTargetsMap({}));
   const [showRebalance, setShowRebalance] = useState(false);
   const [rebalanceAmount, setRebalanceAmount] = useState(1000);
+  const [rebalancePrices, setRebalancePrices] = useState({});
+  const [rebalancePriceLoading, setRebalancePriceLoading] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -598,9 +638,13 @@ function App() {
     return Math.round((num / rate) * 100) / 100;
   };
 
-  const getEffectiveCurrency = (p) => (dirtyCurrency[p.id] !== undefined ? dirtyCurrency[p.id] : (p.currency || 'EUR'));
+  const getEffectiveCurrency = (p) => {
+    const k = getPosKey(p);
+    return dirtyCurrency[k] !== undefined ? dirtyCurrency[k] : (p.currency || 'EUR');
+  };
   const getRawNativeVal = (p) => {
-    if (dirtyValues[p.id] !== undefined) return dirtyValues[p.id];
+    const k = getPosKey(p);
+    if (dirtyValues[k] !== undefined) return dirtyValues[k];
     if (p.native_amount !== null && p.native_amount !== undefined) return p.native_amount;
     return p.value_eur;
   };
@@ -619,12 +663,8 @@ function App() {
     if (hideBalances) return '••••';
     if (value === 0) return '0';
     const absValue = Math.abs(value);
-    if (absValue >= 1000000) {
-      return (value / 1000000).toFixed(1).replace('.0', '') + 'M';
-    }
-    if (absValue >= 1000) {
-      return Math.round(value / 1000) + 'k';
-    }
+    if (absValue >= 1000000) return (value / 1000000).toFixed(1).replace('.0', '') + 'M';
+    if (absValue >= 1000) return Math.round(value / 1000) + 'k';
     return Math.round(value).toString();
   };
 
@@ -646,7 +686,7 @@ function App() {
       window.crypto.getRandomValues(userID);
 
       const publicKeyCredentialCreationOptions = {
-        challenge: challenge,
+        challenge,
         rp: { name: "Mon Patrimoine", id: window.location.hostname },
         user: { id: userID, name: USER_EMAIL, displayName: "Admin" },
         pubKeyCredParams: [{ alg: -7, type: "public-key" }],
@@ -656,7 +696,6 @@ function App() {
       };
 
       const credential = await navigator.credentials.create({ publicKey: publicKeyCredentialCreationOptions });
-      
       if (credential) {
         localStorage.setItem('bioEnabled', 'true');
         localStorage.setItem('bioCredId', btoa(String.fromCharCode(...new Uint8Array(credential.rawId))));
@@ -673,22 +712,19 @@ function App() {
     try {
       const credIdBase64 = localStorage.getItem('bioCredId');
       if (!credIdBase64) return;
-      
       const credId = Uint8Array.from(atob(credIdBase64), c => c.charCodeAt(0));
       const challenge = new Uint8Array(32);
       window.crypto.getRandomValues(challenge);
 
-      const publicKeyCredentialRequestOptions = {
-        challenge: challenge,
-        allowCredentials: [{ id: credId, type: 'public-key' }],
-        timeout: 60000,
-        userVerification: "required"
-      };
-
-      const assertion = await navigator.credentials.get({ publicKey: publicKeyCredentialRequestOptions });
-      if (assertion) {
-        setIsLocked(false);
-      }
+      const assertion = await navigator.credentials.get({
+        publicKey: {
+          challenge,
+          allowCredentials: [{ id: credId, type: 'public-key' }],
+          timeout: 60000,
+          userVerification: "required"
+        }
+      });
+      if (assertion) setIsLocked(false);
     } catch (err) {
       console.error(err);
     }
@@ -696,9 +732,7 @@ function App() {
 
   useEffect(() => {
     if (isLocked) {
-      const timer = setTimeout(() => {
-        unlockWithBiometrics();
-      }, 200);
+      const timer = setTimeout(() => { unlockWithBiometrics(); }, 200);
       return () => clearTimeout(timer);
     }
   }, [isLocked]);
@@ -754,47 +788,77 @@ function App() {
   
   useEffect(() => {
     try {
-      if (Object.keys(dirtyValues).length > 0) {
-        localStorage.setItem('patrimoine_dirty_draft', JSON.stringify(dirtyValues));
+      if (Object.keys(dirtyValues).length > 0 || Object.keys(dirtyCurrency).length > 0) {
+        localStorage.setItem(DIRTY_DRAFT_KEY, JSON.stringify({ values: dirtyValues, currencies: dirtyCurrency }));
       } else {
-        localStorage.removeItem('patrimoine_dirty_draft');
+        localStorage.removeItem(DIRTY_DRAFT_KEY);
       }
-    } catch(e) {}
-  }, [dirtyValues]);
+    } catch (_) {}
+  }, [dirtyValues, dirtyCurrency]);
 
   useEffect(() => { 
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
+        try { localStorage.setItem(SESSION_ACTIVE_KEY, 'true'); } catch (_) {}
         setSession(data.session);
-      } else if (!navigator.onLine && initialOffline && Array.isArray(initialOffline.positions) && initialOffline.positions.length > 0) {
+      } else if (!navigator.onLine && localStorage.getItem(SESSION_ACTIVE_KEY) === 'true') {
         setSession({ user: { email: USER_EMAIL }, offline: true });
       } else {
         setSession(null);
       }
     }).catch(() => {
-      if (initialOffline && Array.isArray(initialOffline.positions) && initialOffline.positions.length > 0) {
+      if (!navigator.onLine && localStorage.getItem(SESSION_ACTIVE_KEY) === 'true') {
         setSession({ user: { email: USER_EMAIL }, offline: true });
+      } else {
+        setSession(null);
       }
     });
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (nextSession) setSession(nextSession);
+      if (nextSession) {
+        try { localStorage.setItem(SESSION_ACTIVE_KEY, 'true'); } catch (_) {}
+        setSession(nextSession);
+      }
     });
     return () => authListener.subscription.unsubscribe();
   }, []);
-  
-  useEffect(() => { 
-    if (session && !session.offline && !isLocked && isOnline) { 
+
+  // Chargement du cache local UNIQUEMENT après authentification + déverrouillage biométrique
+  useEffect(() => {
+    if (!session || isLocked) return;
+
+    const snap = loadOfflineSnapshot();
+    if (snap) {
+      if (Array.isArray(snap.positions) && positions.length === 0) setPositions(snap.positions);
+      if (snap.targets) {
+        const norm = normalizeTargetsMap(snap.targets);
+        setTargets(norm);
+        setTempTargets(norm);
+      }
+      if (snap.logs && Object.keys(logs).length === 0) setLogs(snap.logs);
+      if (snap.lookthroughMap && Object.keys(lookthroughMap).length === 0) setLookthroughMap(snap.lookthroughMap);
+    }
+
+    if (!session.offline && isOnline) {
       fetchPreferences();
-      fetchPositions(); 
-      fetchTargets(); 
-      fetchLogs(); 
+      fetchPositions();
+      fetchTargets();
+      fetchLogs();
       fetchFxRates();
       fetchLookthrough();
-    } 
+    }
   }, [session, isLocked, isOnline]);
 
   useEffect(() => {
-    if (session && !session.offline && !isLocked && isOnline) {
+    if (!session || isLocked) return;
+    const histKey = `${ownerFilter}|${showPro}`;
+    const snap = loadOfflineSnapshot();
+    if (snap && snap.historyByKey && Array.isArray(snap.historyByKey[histKey])) {
+      setHistoryData(snap.historyByKey[histKey]);
+    } else if (!isOnline || session.offline) {
+      setHistoryData([]);
+    }
+
+    if (!session.offline && isOnline) {
       fetchHistory();
     }
   }, [session, ownerFilter, showPro, isLocked, isOnline]);
@@ -811,7 +875,8 @@ function App() {
         inflation: fireInflation,
         depense: fireDepense,
         swr: fireSwr,
-        realTerms: fireRealTerms
+        realTerms: fireRealTerms,
+        coastHorizon: fireCoastHorizon
       },
       updated_at: new Date().toISOString()
     };
@@ -836,22 +901,23 @@ function App() {
           if (data.fire_params.depense !== undefined) setFireDepense(data.fire_params.depense);
           if (data.fire_params.swr !== undefined) setFireSwr(data.fire_params.swr);
           if (data.fire_params.realTerms !== undefined) setFireRealTerms(data.fire_params.realTerms);
+          if (data.fire_params.coastHorizon !== undefined) setFireCoastHorizon(data.fire_params.coastHorizon);
         }
       }
-    } catch (e) {}
+    } catch (_) {}
   }
 
   const updateCustomColor = (catName, color) => {
     const newColors = { ...customColors, [catName]: color };
     setCustomColors(newColors);
-    try { localStorage.setItem('customChartColors', JSON.stringify(newColors)); } catch(e) {}
+    try { localStorage.setItem('customChartColors', JSON.stringify(newColors)); } catch(_) {}
     savePreferences(newColors, undefined);
   };
 
   const resetChartColors = () => {
     if (!window.confirm("Réinitialiser toutes les couleurs du graphique selon le thème actuel ?")) return;
     setCustomColors({});
-    try { localStorage.removeItem('customChartColors'); } catch(e) {}
+    try { localStorage.removeItem('customChartColors'); } catch(_) {}
     savePreferences({}, undefined);
   };
 
@@ -863,7 +929,8 @@ function App() {
       inflation: updates.inflation !== undefined ? updates.inflation : fireInflation,
       depense: updates.depense !== undefined ? updates.depense : fireDepense,
       swr: updates.swr !== undefined ? updates.swr : fireSwr,
-      realTerms: updates.realTerms !== undefined ? updates.realTerms : fireRealTerms
+      realTerms: updates.realTerms !== undefined ? updates.realTerms : fireRealTerms,
+      coastHorizon: updates.coastHorizon !== undefined ? updates.coastHorizon : fireCoastHorizon
     };
 
     if (updates.epargne !== undefined) setFireEpargne(updates.epargne);
@@ -873,6 +940,7 @@ function App() {
     if (updates.depense !== undefined) setFireDepense(updates.depense);
     if (updates.swr !== undefined) setFireSwr(updates.swr);
     if (updates.realTerms !== undefined) setFireRealTerms(updates.realTerms);
+    if (updates.coastHorizon !== undefined) setFireCoastHorizon(updates.coastHorizon);
 
     if (saveTimeout) clearTimeout(saveTimeout);
     const timeout = setTimeout(() => {
@@ -894,13 +962,6 @@ function App() {
           if (!foundUsd && Number(row.eur_usd) > 0) foundUsd = Number(row.eur_usd);
           if (!foundPln && Number(row.pln) > 0) foundPln = Number(row.pln);
           if (!foundUsd && Number(row.usd) > 0) foundUsd = Number(row.usd);
-
-          const code = String(row.currency || row.target_currency || row.pair || row.symbol || '').toUpperCase();
-          const val = Number(row.rate || row.value || row.close);
-          if (val > 0) {
-            if (!foundPln && code.includes('PLN')) foundPln = val;
-            if (!foundUsd && code.includes('USD')) foundUsd = val;
-          }
         }
         if (foundPln || foundUsd) source = 'Supabase';
       }
@@ -959,7 +1020,7 @@ function App() {
         setLookthroughMap(map);
         saveOfflineSnapshot({ lookthroughMap: map });
       }
-    } catch (e) {}
+    } catch (_) {}
   }
 
   function openLookthroughEditor(ticker, defaultLabel = '') {
@@ -971,17 +1032,12 @@ function App() {
     setLtDraft({
       ticker: cleanTicker,
       label: existing ? existing.label : defaultLabel,
-      asset: existing && existing.asset_allocation ? { ...existing.asset_allocation } : {},
-      ccy: existing && existing.currency_exposure ? { ...existing.currency_exposure } : {}
+      asset: existing && existing.asset_allocation ? { ...existing.asset_allocation } : {}
     });
   }
 
   function applyLtPreset(preset) {
-    setLtDraft(prev => ({
-      ...prev,
-      asset: { ...preset.asset },
-      ccy: { ...preset.ccy }
-    }));
+    setLtDraft(prev => ({ ...prev, asset: { ...preset.asset } }));
   }
 
   async function saveLookthrough() {
@@ -991,18 +1047,14 @@ function App() {
       const num = Number(v);
       if (!isNaN(num) && num > 0) cleanAsset[k] = num;
     });
-    const cleanCcy = {};
-    Object.entries(ltDraft.ccy).forEach(([k, v]) => {
-      const num = Number(v);
-      if (!isNaN(num) && num > 0) cleanCcy[k] = num;
-    });
 
     setLoading(true);
+    const existing = lookthroughMap[ltDraft.ticker.toUpperCase()];
     const payload = {
       ticker: ltDraft.ticker.toUpperCase(),
       label: ltDraft.label || null,
       asset_allocation: cleanAsset,
-      currency_exposure: cleanCcy,
+      currency_exposure: existing ? existing.currency_exposure : {},
       updated_at: new Date().toISOString()
     };
     const { error } = await supabase.from('asset_lookthrough').upsert([payload], { onConflict: 'ticker' });
@@ -1037,11 +1089,11 @@ function App() {
 
     const today = new Date().toISOString().split('T')[0];
     const updates = [];
-    const updatedIds = [];
+    const updatedKeys = [];
 
     fxPositions.forEach(p => {
       const newEur = toEur(Number(p.native_amount), p.currency, latestRates);
-      updatedIds.push(p.id);
+      updatedKeys.push(getPosKey(p));
       updates.push({
         date: today,
         owner: p.owner,
@@ -1062,8 +1114,8 @@ function App() {
     if (error) {
       alert('Erreur synchronisation FX : ' + error.message);
     } else {
-      setDirtyValues(prev => { const next = { ...prev }; updatedIds.forEach(id => delete next[id]); return next; });
-      setDirtyCurrency(prev => { const next = { ...prev }; updatedIds.forEach(id => delete next[id]); return next; });
+      setDirtyValues(prev => { const next = { ...prev }; updatedKeys.forEach(k => delete next[k]); return next; });
+      setDirtyCurrency(prev => { const next = { ...prev }; updatedKeys.forEach(k => delete next[k]); return next; });
       await fetchPositions();
       await fetchHistory();
       await fetchLogs();
@@ -1080,14 +1132,30 @@ function App() {
     } else if (data) {
       setPositions(data);
       saveOfflineSnapshot({ positions: data });
+
+      const byKey = {};
+      data.forEach(p => { byKey[getPosKey(p)] = p; });
+
       setDirtyValues(prev => {
         const next = { ...prev };
         let changed = false;
-        Object.keys(next).forEach(id => {
-          const pos = data.find(p => p.id === id);
+        Object.keys(next).forEach(k => {
+          const pos = byKey[k];
           const baseNative = pos ? (pos.native_amount ?? pos.value_eur) : null;
-          if (!pos || Number(next[id]) === Number(baseNative)) {
-            delete next[id];
+          if (!pos || Number(next[k]) === Number(baseNative)) {
+            delete next[k];
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+      setDirtyCurrency(prev => {
+        const next = { ...prev };
+        let changed = false;
+        Object.keys(next).forEach(k => {
+          const pos = byKey[k];
+          if (!pos || next[k] === (pos.currency || 'EUR')) {
+            delete next[k];
             changed = true;
           }
         });
@@ -1098,24 +1166,33 @@ function App() {
   }
 
   async function fetchHistory() {
+    const histKey = `${ownerFilter}|${showPro}`;
     const { data, error } = await supabase.rpc('get_wealth_history', {
       p_owner: ownerFilter,
       p_include_pro: showPro
     });
     if (!error && data) {
       setHistoryData(data);
-      saveOfflineSnapshot({ historyData: data });
+      saveOfflineSnapshot({ historyByKey: { [histKey]: data } });
     }
   }
 
   async function fetchTargets() {
     const { data, error } = await supabase.from('target_allocations').select('*');
     if (!error && data) {
-      const t = {};
-      data.forEach(row => t[row.category] = row.target_percentage);
-      setTargets(t);
-      setTempTargets(t);
-      saveOfflineSnapshot({ targets: t });
+      const raw = {};
+      data.forEach(row => {
+        raw[row.category] = {
+          pct: Number(row.target_percentage || 0),
+          eligible: row.rebalance_eligible !== undefined && row.rebalance_eligible !== null ? Boolean(row.rebalance_eligible) : row.category !== 'Immobilier',
+          envelope: row.target_envelope || '',
+          ticker: (row.target_ticker || '').toUpperCase()
+        };
+      });
+      const normalized = normalizeTargetsMap(raw);
+      setTargets(normalized);
+      setTempTargets(normalized);
+      saveOfflineSnapshot({ targets: normalized });
     }
   }
 
@@ -1125,12 +1202,12 @@ function App() {
       .select('created_at, date, owner, envelope, account_name, category, currency, native_amount, value_eur')
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
-      .limit(300);
+      .limit(800);
 
     if (!error && data) {
       const byAccount = {};
       data.forEach(row => {
-        const key = `${row.owner}|${row.envelope}|${row.account_name}|${row.category || ''}`;
+        const key = getPosKey(row);
         if (!byAccount[key]) byAccount[key] = [];
         byAccount[key].push(row);
       });
@@ -1182,41 +1259,39 @@ function App() {
         const updates = [];
         
         for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            const separator = line.includes(';') ? ';' : ',';
-            const cols = line.split(separator).map(c => c.trim());
+          const line = lines[i];
+          const separator = line.includes(';') ? ';' : ',';
+          const cols = line.split(separator).map(c => c.trim());
+          
+          if (cols.length >= 5) {
+            const owner = cols[0];
+            const envelope = cols[1];
+            const account_name = cols[2];
+            const category = cols[3];
+            const rawAmount = parseFloat(cols[4].replace(',', '.'));
+            const ccy = cols[5] && SUPPORTED_CURRENCIES.includes(cols[5].toUpperCase()) ? cols[5].toUpperCase() : 'EUR';
             
-            if (cols.length >= 5) {
-                const owner = cols[0];
-                const envelope = cols[1];
-                const account_name = cols[2];
-                const category = cols[3];
-                const rawAmount = parseFloat(cols[4].replace(',', '.'));
-                const ccy = cols[5] && SUPPORTED_CURRENCIES.includes(cols[5].toUpperCase()) ? cols[5].toUpperCase() : 'EUR';
-                
-                if ((owner === 'Aubin' || owner === 'Oliwia') && !isNaN(rawAmount)) {
-                    updates.push({
-                        date: today, owner, envelope, account_name, category,
-                        currency: ccy,
-                        native_amount: rawAmount,
-                        value_eur: toEur(rawAmount, ccy, fxRates),
-                        is_liability: false, is_professional: false
-                    });
-                }
+            if ((owner === 'Aubin' || owner === 'Oliwia') && !isNaN(rawAmount)) {
+              updates.push({
+                date: today, owner, envelope, account_name, category,
+                currency: ccy,
+                native_amount: rawAmount,
+                value_eur: toEur(rawAmount, ccy, fxRates),
+                is_liability: false, is_professional: false
+              });
             }
+          }
         }
         
         if (updates.length === 0) throw new Error("Aucune ligne valide trouvée. Format attendu : Propriétaire,Enveloppe,Nom du compte,Catégorie,Montant[,Devise]");
-        
         if (!window.confirm(`Importer ${updates.length} lignes depuis le CSV ?`)) return;
         
         setLoading(true);
         const { error } = await supabase.from('positions').upsert(updates, { onConflict: 'date,owner,envelope,account_name,category' });
-        
         if (error) alert('Erreur Supabase : ' + error.message);
         else {
-            alert(`✅ ${updates.length} comptes importés avec succès !`);
-            fetchPositions(); fetchHistory(); fetchLogs();
+          alert(`✅ ${updates.length} comptes importés avec succès !`);
+          fetchPositions(); fetchHistory(); fetchLogs();
         }
       } catch (err) { alert('Erreur de lecture CSV : ' + err.message); }
       setLoading(false);
@@ -1240,7 +1315,7 @@ function App() {
         const data = await response.json();
         prices = data.prices || {};
       }
-    } catch (edgeErr) {}
+    } catch (_) {}
 
     if (Object.keys(prices).length === 0) {
       mode = 'client-fallback';
@@ -1295,7 +1370,7 @@ function App() {
     const newPositions = [...positions];
     const today = new Date().toISOString().split('T')[0];
     const updates = [];
-    const syncedIds = [];
+    const syncedKeys = [];
 
     etfPositions.forEach(p => {
       const price = prices[p.ticker.trim()];
@@ -1303,11 +1378,12 @@ function App() {
         const ccy = getEffectiveCurrency(p);
         const newNative = Math.round(p.quantity * price * 100) / 100;
         const newEur = toEur(newNative, ccy, fxRates);
+        const pKey = getPosKey(p);
         updatedCount++;
-        syncedIds.push(p.id);
+        syncedKeys.push(pKey);
         details += `- ${p.account_name} (${p.ticker}): ${price.toFixed(2)} ${ccy}\n`;
         
-        const posIndex = newPositions.findIndex(np => np.id === p.id);
+        const posIndex = newPositions.findIndex(np => getPosKey(np) === pKey);
         if (posIndex > -1) {
           newPositions[posIndex].native_amount = newNative;
           newPositions[posIndex].value_eur = newEur;
@@ -1324,34 +1400,28 @@ function App() {
     });
 
     setPositions(newPositions);
-    setDirtyValues(prev => { const next = { ...prev }; syncedIds.forEach(id => delete next[id]); return next; });
-    setDirtyCurrency(prev => { const next = { ...prev }; syncedIds.forEach(id => delete next[id]); return next; });
-    setDirtyMeta(prev => { const next = { ...prev }; syncedIds.forEach(id => delete next[id]); return next; });
+    setDirtyValues(prev => { const next = { ...prev }; syncedKeys.forEach(k => delete next[k]); return next; });
+    setDirtyCurrency(prev => { const next = { ...prev }; syncedKeys.forEach(k => delete next[k]); return next; });
+    setDirtyMeta(prev => { const next = { ...prev }; syncedKeys.forEach(k => delete next[k]); return next; });
 
     if (updates.length > 0) {
       await supabase.from('positions').upsert(updates, { onConflict: 'date,owner,envelope,account_name,category' });
+      fetchPositions();
       fetchHistory();
       fetchLogs();
     }
 
     setSyncLoading(false);
-    
-    if (updatedCount > 0) {
-      alert(`✅ ${updatedCount} lignes mises à jour et sauvegardées (${mode}) !\n\n${details}`);
-    } else {
-      alert("Aucun cours trouvé pour ces tickers.");
-    }
+    if (updatedCount > 0) alert(`✅ ${updatedCount} lignes mises à jour et sauvegardées (${mode}) !\n\n${details}`);
+    else alert("Aucun cours trouvé pour ces tickers.");
   }
 
   async function syncSingleEtf(p) {
-    if (!p.ticker || p.ticker.trim() === '') {
-      return alert("Renseignez d'abord un Ticker (ex: CW8.PA).");
-    }
-    if (!p.quantity) {
-      return alert("Renseignez d'abord le nombre de Parts.");
-    }
+    if (!p.ticker || p.ticker.trim() === '') return alert("Renseignez d'abord un Ticker (ex: CW8.PA).");
+    if (!p.quantity) return alert("Renseignez d'abord le nombre de Parts.");
     
-    setSyncingId(p.id);
+    const pKey = getPosKey(p);
+    setSyncingKey(pKey);
     const { prices, mode } = await fetchTickersPrices([p.ticker.trim()]);
     const price = prices[p.ticker.trim()];
     
@@ -1359,10 +1429,10 @@ function App() {
       const ccy = getEffectiveCurrency(p);
       const newNative = Math.round(p.quantity * price * 100) / 100;
       const newEur = toEur(newNative, ccy, fxRates);
-      setPositions(prev => prev.map(item => item.id === p.id ? { ...item, currency: ccy, native_amount: newNative, value_eur: newEur } : item));
-      setDirtyValues(prev => { const next = { ...prev }; delete next[p.id]; return next; });
-      setDirtyCurrency(prev => { const next = { ...prev }; delete next[p.id]; return next; });
-      setDirtyMeta(prev => { const next = { ...prev }; delete next[p.id]; return next; });
+      setPositions(prev => prev.map(item => getPosKey(item) === pKey ? { ...item, currency: ccy, native_amount: newNative, value_eur: newEur } : item));
+      setDirtyValues(prev => { const next = { ...prev }; delete next[pKey]; return next; });
+      setDirtyCurrency(prev => { const next = { ...prev }; delete next[pKey]; return next; });
+      setDirtyMeta(prev => { const next = { ...prev }; delete next[pKey]; return next; });
 
       const today = new Date().toISOString().split('T')[0];
       await supabase.from('positions').upsert([{ 
@@ -1372,13 +1442,35 @@ function App() {
         ticker: p.ticker.trim(), quantity: Number(p.quantity) 
       }], { onConflict: 'date,owner,envelope,account_name,category' });
 
+      fetchPositions();
       fetchHistory();
       fetchLogs();
       alert(`✅ ${p.account_name} mis à jour et sauvegardé (${mode}) !\n\nPrix : ${price.toFixed(2)} ${ccy}\nNouveau total : ${formatMoney(newEur)}`);
     } else {
       alert(`Erreur : Impossible de récupérer le cours pour ${p.ticker}`);
     }
-    setSyncingId(null);
+    setSyncingKey(null);
+  }
+
+  async function refreshRebalancePrices() {
+    const tickers = Array.from(
+      new Set(
+        TARGET_CATEGORIES
+          .map(cat => (targets[cat]?.ticker || '').trim().toUpperCase())
+          .filter(Boolean)
+      )
+    );
+    if (tickers.length === 0) {
+      return alert("Aucun ticker cible configuré. Cliquez sur Modifier pour associer un ticker à vos catégories éligibles.");
+    }
+    setRebalancePriceLoading(true);
+    const { prices } = await fetchTickersPrices(tickers);
+    const upperPrices = {};
+    Object.entries(prices).forEach(([k, v]) => { upperPrices[k.toUpperCase()] = v; });
+    setRebalancePrices(prev => ({ ...prev, ...upperPrices }));
+    setRebalancePriceLoading(false);
+    const count = Object.keys(upperPrices).length;
+    if (count === 0) alert("Impossible de récupérer les cours pour les tickers cibles configurés.");
   }
 
   async function handleRenamePosition(p) {
@@ -1400,10 +1492,8 @@ function App() {
   async function handleAddEtf(envName, contractName, ownerName) {
     const newName = prompt("Nom de la ligne (ex: CW8) :");
     if (!newName) return;
-    
     const newCategory = prompt("Catégorie (Actions, Fonds diversifiés, etc.) :", "Actions");
     if (!newCategory) return;
-
     const newTicker = prompt("Code Ticker Yahoo (ex: CW8.PA) :") || '';
     const newParts = prompt("Nombre de parts (ex: 10) :") || 0;
 
@@ -1413,18 +1503,11 @@ function App() {
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
     const payload = { 
-      date: today, 
-      owner: ownerName, 
-      envelope: envName, 
-      account_name: baseName + ' - ' + cleanName, 
-      category: newCategory,
-      currency: 'EUR',
-      native_amount: 0,
-      value_eur: 0, 
-      is_liability: false, 
-      is_professional: false,
-      ticker: newTicker.toUpperCase(),
-      quantity: Number(newParts)
+      date: today, owner: ownerName, envelope: envName, 
+      account_name: baseName + ' - ' + cleanName, category: newCategory,
+      currency: 'EUR', native_amount: 0, value_eur: 0, 
+      is_liability: false, is_professional: false,
+      ticker: newTicker.toUpperCase(), quantity: Number(newParts)
     };
     const { error } = await supabase.from('positions').insert([payload]);
     if (error) alert('Erreur : ' + error.message);
@@ -1457,7 +1540,14 @@ function App() {
         await supabase.from('positions').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         await supabase.from('positions').insert(data.positions);
         if (data.targets) {
-          const updates = TARGET_CATEGORIES.map(cat => ({ category: cat, target_percentage: Number(data.targets[cat] || 0) }));
+          const norm = normalizeTargetsMap(data.targets);
+          const updates = TARGET_CATEGORIES.map(cat => ({
+            category: cat,
+            target_percentage: Number(norm[cat].pct || 0),
+            rebalance_eligible: Boolean(norm[cat].eligible),
+            target_envelope: norm[cat].envelope || null,
+            target_ticker: norm[cat].ticker || null
+          }));
           await supabase.from('target_allocations').upsert(updates, { onConflict: 'category' });
         }
         if (data.asset_lookthrough && Array.isArray(data.asset_lookthrough) && data.asset_lookthrough.length > 0) {
@@ -1474,16 +1564,18 @@ function App() {
     reader.readAsText(file);
   }
 
-  function handleInputChange(id, rawValue) {
-    setDirtyValues(prev => ({ ...prev, [id]: rawValue }));
+  function handleInputChange(p, rawValue) {
+    const k = getPosKey(p);
+    setDirtyValues(prev => ({ ...prev, [k]: rawValue }));
   }
 
   function handleCurrencyChange(p, newCcy) {
+    const k = getPosKey(p);
     const oldCcy = getEffectiveCurrency(p);
     if (oldCcy === newCcy) return;
-    setDirtyCurrency(prev => ({ ...prev, [p.id]: newCcy }));
+    setDirtyCurrency(prev => ({ ...prev, [k]: newCcy }));
 
-    if (dirtyValues[p.id] === undefined) {
+    if (dirtyValues[k] === undefined) {
       const currentEur = getNumEurVal(p);
       let convertedNative = currentEur;
       if (newCcy !== 'EUR' && fxRates[newCcy]) {
@@ -1491,29 +1583,28 @@ function App() {
       } else if (newCcy === 'EUR') {
         convertedNative = Math.round(currentEur * 100) / 100;
       }
-      setDirtyValues(prev => ({ ...prev, [p.id]: convertedNative }));
+      setDirtyValues(prev => ({ ...prev, [k]: convertedNative }));
     }
   }
 
-  function quickAdd(id, amount) {
-    const p = positions.find(item => item.id === id);
-    if (!p) return;
+  function quickAdd(p, amount) {
+    const k = getPosKey(p);
     const current = getNumNativeVal(p);
-    setDirtyValues(prev => ({ ...prev, [id]: current + amount }));
+    setDirtyValues(prev => ({ ...prev, [k]: current + amount }));
   }
 
   function handleContractTotalChange(accountName, categories, newTotalNative) {
     const oldTotalNative = categories.reduce((sum, acc) => sum + getNumNativeVal(acc), 0);
     const newTotalNum = Number(newTotalNative);
     if (oldTotalNative === 0) {
-      setDirtyValues(prev => ({ ...prev, [categories[0].id]: newTotalNum }));
+      setDirtyValues(prev => ({ ...prev, [getPosKey(categories[0])]: newTotalNum }));
       return;
     }
     const ratio = newTotalNum / oldTotalNative;
     setDirtyValues(prev => {
       const updated = { ...prev };
       categories.forEach(acc => {
-        updated[acc.id] = Math.round(getNumNativeVal(acc) * ratio);
+        updated[getPosKey(acc)] = Math.round(getNumNativeVal(acc) * ratio);
       });
       return updated;
     });
@@ -1524,7 +1615,7 @@ function App() {
     setDirtyValues({});
     setDirtyCurrency({});
     setDirtyMeta({});
-    try { localStorage.removeItem('patrimoine_dirty_draft'); } catch(e) {}
+    try { localStorage.removeItem(DIRTY_DRAFT_KEY); } catch(_) {}
     fetchPositions();
   }
 
@@ -1533,26 +1624,53 @@ function App() {
     setLoading(true); setError('');
     const { error } = await supabase.auth.signInWithPassword({ email: USER_EMAIL, password: password });
     if (error) setError('Mot de passe incorrect');
-    else if (bioEnabled) setIsLocked(true);
+    else {
+      try { localStorage.setItem(SESSION_ACTIVE_KEY, 'true'); } catch (_) {}
+      if (bioEnabled) setIsLocked(true);
+    }
     setLoading(false);
   }
-  async function handleLogout() { await supabase.auth.signOut(); setSession(null); }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    try {
+      localStorage.removeItem(SESSION_ACTIVE_KEY);
+      localStorage.removeItem(OFFLINE_CACHE_KEY);
+      localStorage.removeItem('patrimoine_offline_snapshot_v1');
+      localStorage.removeItem(DIRTY_DRAFT_KEY);
+      localStorage.removeItem('patrimoine_dirty_draft');
+      localStorage.removeItem('patrimoine_draft');
+    } catch (_) {}
+    setPositions([]);
+    setHistoryData([]);
+    setLogs({});
+    setTargets(normalizeTargetsMap({}));
+    setTempTargets(normalizeTargetsMap({}));
+    setLookthroughMap({});
+    setDirtyValues({});
+    setDirtyCurrency({});
+    setDirtyMeta({});
+    setSession(null);
+  }
   
   async function handleSave(e) {
     e.preventDefault();
     
-    const modifiedIds = Array.from(new Set([...Object.keys(dirtyValues), ...Object.keys(dirtyCurrency), ...Object.keys(dirtyMeta)]));
-    if (modifiedIds.length === 0) {
+    const modifiedKeys = Array.from(new Set([...Object.keys(dirtyValues), ...Object.keys(dirtyCurrency), ...Object.keys(dirtyMeta)]));
+    if (modifiedKeys.length === 0) {
       alert('Aucune modification locale à enregistrer.');
       return;
     }
 
+    const posByKey = {};
+    positions.forEach(p => { posByKey[getPosKey(p)] = p; });
+
     const anomalies = [];
-    modifiedIds.forEach(id => {
-      const original = positions.find(p => p.id === id);
-      if (original && original.value_eur !== 0 && (dirtyValues[id] !== undefined || dirtyCurrency[id] !== undefined)) {
-        const finalCcy = dirtyCurrency[id] !== undefined ? dirtyCurrency[id] : (original.currency || 'EUR');
-        const finalNative = dirtyValues[id] !== undefined ? Number(dirtyValues[id] || 0) : Number(original.native_amount ?? original.value_eur ?? 0);
+    modifiedKeys.forEach(k => {
+      const original = posByKey[k];
+      if (original && original.value_eur !== 0 && (dirtyValues[k] !== undefined || dirtyCurrency[k] !== undefined)) {
+        const finalCcy = dirtyCurrency[k] !== undefined ? dirtyCurrency[k] : (original.currency || 'EUR');
+        const finalNative = dirtyValues[k] !== undefined ? Number(dirtyValues[k] || 0) : Number(original.native_amount ?? original.value_eur ?? 0);
         const newEur = toEur(finalNative, finalCcy, fxRates);
         const diff = Math.abs(newEur - original.value_eur);
         const pct = diff / Math.abs(original.value_eur);
@@ -1568,11 +1686,11 @@ function App() {
     
     setLoading(true);
     const today = new Date().toISOString().split('T')[0];
-    const newPositions = modifiedIds.map(id => {
-      const original = positions.find(p => p.id === id);
+    const newPositions = modifiedKeys.map(k => {
+      const original = posByKey[k];
       if (!original) return null;
-      const finalCcy = dirtyCurrency[id] !== undefined ? dirtyCurrency[id] : (original.currency || 'EUR');
-      const finalNative = dirtyValues[id] !== undefined ? Number(dirtyValues[id] || 0) : Number(original.native_amount ?? original.value_eur ?? 0);
+      const finalCcy = dirtyCurrency[k] !== undefined ? dirtyCurrency[k] : (original.currency || 'EUR');
+      const finalNative = dirtyValues[k] !== undefined ? Number(dirtyValues[k] || 0) : Number(original.native_amount ?? original.value_eur ?? 0);
       const finalEur = toEur(finalNative, finalCcy, fxRates);
       return { 
         date: today, 
@@ -1596,7 +1714,7 @@ function App() {
       setDirtyValues({});
       setDirtyCurrency({});
       setDirtyMeta({});
-      try { localStorage.removeItem('patrimoine_dirty_draft'); } catch(e) {}
+      try { localStorage.removeItem(DIRTY_DRAFT_KEY); } catch(_) {}
       alert(`${newPositions.length} modification(s) enregistrée(s) !`);
       setView('dashboard');
       fetchPositions(); fetchHistory(); fetchLogs();
@@ -1604,9 +1722,10 @@ function App() {
     setLoading(false);
   }
 
-  function updatePositionEtf(id, field, value) {
-    setPositions(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
-    setDirtyMeta(prev => ({ ...prev, [id]: true }));
+  function updatePositionEtf(p, field, value) {
+    const k = getPosKey(p);
+    setPositions(prev => prev.map(item => getPosKey(item) === k ? { ...item, [field]: value } : item));
+    setDirtyMeta(prev => ({ ...prev, [k]: true }));
   }
 
   async function handleAddAccount(e) {
@@ -1642,11 +1761,12 @@ function App() {
   async function handleDeleteAccount(account) {
     if (!window.confirm('Supprimer définitivement "' + account.account_name + '" (et son historique) ?\n\nConseil : si le compte a simplement été soldé ou vendu, mettez sa valeur à 0 € plutôt que de le supprimer.')) return;
     setLoading(true);
+    const k = getPosKey(account);
     const { error } = await supabase.from('positions').delete().match({ owner: account.owner, envelope: account.envelope, account_name: account.account_name, category: account.category || '' });
     if (error) alert('Erreur : ' + error.message);
     else {
-      setDirtyValues(prev => { const next = { ...prev }; delete next[account.id]; return next; });
-      setDirtyCurrency(prev => { const next = { ...prev }; delete next[account.id]; return next; });
+      setDirtyValues(prev => { const next = { ...prev }; delete next[k]; return next; });
+      setDirtyCurrency(prev => { const next = { ...prev }; delete next[k]; return next; });
       fetchPositions(); fetchHistory(); fetchLogs();
     }
     setLoading(false);
@@ -1655,19 +1775,40 @@ function App() {
   async function saveTargets() {
     if (Math.round(currentTargetTotal) !== 100) return alert('Le total doit être exactement de 100%.');
     setLoading(true);
-    const updates = TARGET_CATEGORIES.map(cat => ({ category: cat, target_percentage: Number(tempTargets[cat] || 0) }));
+    const updates = TARGET_CATEGORIES.map(cat => ({
+      category: cat,
+      target_percentage: Number(tempTargets[cat]?.pct || 0),
+      rebalance_eligible: Boolean(tempTargets[cat]?.eligible),
+      target_envelope: (tempTargets[cat]?.envelope || '').trim() || null,
+      target_ticker: (tempTargets[cat]?.ticker || '').trim().toUpperCase() || null
+    }));
     const { error } = await supabase.from('target_allocations').upsert(updates, { onConflict: 'category' });
     if (error) alert('Erreur : ' + error.message);
-    else { setTargets(tempTargets); setEditTargetsMode(false); }
+    else {
+      const normalized = normalizeTargetsMap(tempTargets);
+      setTargets(normalized);
+      saveOfflineSnapshot({ targets: normalized });
+      setEditTargetsMode(false);
+    }
     setLoading(false);
   }
 
   function handleTargetSliderChange(cat, value) {
     const newValue = Number(value);
-    const oldValue = Number(tempTargets[cat] || 0);
+    const oldValue = Number(tempTargets[cat]?.pct || 0);
     const diff = newValue - oldValue;
     if (diff > 0 && currentTargetTotal + diff > 100) return;
-    setTempTargets({...tempTargets, [cat]: newValue});
+    setTempTargets(prev => ({
+      ...prev,
+      [cat]: { ...prev[cat], pct: newValue }
+    }));
+  }
+
+  function handleTargetFieldChange(cat, field, value) {
+    setTempTargets(prev => ({
+      ...prev,
+      [cat]: { ...prev[cat], [field]: value }
+    }));
   }
 
   const filteredPositions = positions.filter(p => {
@@ -1681,10 +1822,20 @@ function App() {
 
   const economicAnalysis = useMemo(() => {
     const chartMap = {};
+    const nominalMap = {};
     const matrix = {};
     const envelopes = new Set();
 
     filteredPositions.forEach(p => {
+      // Base nominale (sert de dénominateur de fonds propres pour préserver le levier en Vue Économique)
+      let nomCat = p.category;
+      if (nomCat === 'Immobilier Brut') nomCat = 'Immobilier';
+      if (nomCat === 'Dette Immobilière') {
+        nominalMap['Immobilier'] = (nominalMap['Immobilier'] || 0) + p.value_eur;
+      } else if (p.value_eur > 0 || nomCat === 'Immobilier') {
+        nominalMap[nomCat] = (nominalMap[nomCat] || 0) + p.value_eur;
+      }
+
       const ticker = (p.ticker || '').trim().toUpperCase();
       const lt = viewMode === 'economic' && ticker ? lookthroughMap[ticker] : null;
       const hasAssetLt = lt && lt.asset_allocation && Object.keys(lt.asset_allocation).length > 0;
@@ -1718,8 +1869,11 @@ function App() {
       .filter(([, v]) => v > 0)
       .sort((a, b) => b[1] - a[1]);
 
+    const nominalEquityTotal = Object.values(nominalMap)
+      .filter(v => v > 0)
+      .reduce((sum, v) => sum + v, 0);
     const totalEconomicAssets = sortedCategories.reduce((sum, [, v]) => sum + v, 0);
-    const leverageRatio = totalActifs > 0 ? totalEconomicAssets / totalActifs : 1;
+    const leverageRatio = nominalEquityTotal > 0 ? totalEconomicAssets / nominalEquityTotal : 1;
 
     const activeEnvelopes = Array.from(envelopes).sort();
     const activeCategories = TARGET_CATEGORIES.filter(cat => matrix[cat] && Object.values(matrix[cat]).some(v => v > 0));
@@ -1730,6 +1884,7 @@ function App() {
 
     return {
       sortedCategories,
+      nominalEquityTotal,
       totalEconomicAssets,
       leverageRatio,
       matrix,
@@ -1737,7 +1892,7 @@ function App() {
       activeCategories,
       rowTotals
     };
-  }, [filteredPositions, viewMode, lookthroughMap, totalActifs]);
+  }, [filteredPositions, viewMode, lookthroughMap]);
 
   const sortedChartData = economicAnalysis.sortedCategories;
   const exposureMatrix = economicAnalysis;
@@ -1757,17 +1912,21 @@ function App() {
     return Array.from(set);
   }, [positions, lookthroughMap]);
 
+  // Calibrage FIRE préservant l'effet de levier en Vue Économique (coût de financement ~3% sur le levier excédentaire)
   const portfolioAssumptions = useMemo(() => {
     const positiveEntries = sortedChartData.filter(([, val]) => val > 0);
-    const totalPos = positiveEntries.reduce((sum, [, val]) => sum + val, 0);
-    if (totalPos <= 0) return { expectedReturn: 7.0, volatility: 15.0 };
+    const baseEquity = economicAnalysis.nominalEquityTotal;
+    if (baseEquity <= 0 || positiveEntries.length === 0) return { expectedReturn: 7.0, volatility: 15.0 };
 
     const weights = positiveEntries.map(([cat, val]) => {
       const assumption = CATEGORY_ASSUMPTIONS[cat] || CATEGORY_ASSUMPTIONS['Autre'];
-      return { cat, w: val / totalPos, ret: assumption.ret, vol: assumption.vol };
+      return { cat, w: val / baseEquity, ret: assumption.ret, vol: assumption.vol };
     });
 
-    const expRet = weights.reduce((sum, item) => sum + item.w * item.ret, 0);
+    const totalW = weights.reduce((sum, item) => sum + item.w, 0);
+    const grossRet = weights.reduce((sum, item) => sum + item.w * item.ret, 0);
+    const financingDrag = Math.max(0, totalW - 1) * 0.03;
+    const expRet = Math.max(0.01, grossRet - financingDrag);
 
     let variance = 0;
     for (let i = 0; i < weights.length; i++) {
@@ -1782,11 +1941,12 @@ function App() {
     }
 
     return {
-      expectedReturn: Number((expRet * 100).toFixed(1)),
-      volatility: Number((Math.sqrt(variance) * 100).toFixed(1))
+      expectedReturn: Number(Math.min(15, expRet * 100).toFixed(1)),
+      volatility: Number(Math.min(25, Math.sqrt(variance) * 100).toFixed(1))
     };
-  }, [sortedChartData]);
+  }, [sortedChartData, economicAnalysis.nominalEquityTotal]);
 
+  // Simulation Monte-Carlo déterministe (PRNG Mulberry32) sur 40 ans
   const fireSimulation = useMemo(() => {
     const years = 40;
     const simulations = 500;
@@ -1794,6 +1954,7 @@ function App() {
     const sigma = fireVolatilite / 100;
     const infl = fireInflation / 100;
     const swr = fireSwr / 100;
+    const coastH = Number(fireCoastHorizon) || 30;
 
     const monthlyDrift = (mu - 0.5 * sigma * sigma) / 12;
     const monthlyVol = sigma / Math.sqrt(12);
@@ -1802,6 +1963,7 @@ function App() {
     const fireTargetConstant = swr > 0 ? (Number(fireDepense) * 12) / swr : 0;
     const realReturnAnnual = ((1 + mu) / (1 + infl)) - 1;
 
+    const rand = mulberry32(20261124);
     const seriesResults = Array(years + 1).fill(0).map(() => []);
     const fireReachedYears = [];
     const coastFireYears = [];
@@ -1813,7 +1975,7 @@ function App() {
       let fireReached = currentNominal >= fireTargetConstant;
       let fireYear = fireReached ? 0 : null;
 
-      const coastFactor0 = Math.pow(Math.max(0.01, 1 + realReturnAnnual), 30);
+      const coastFactor0 = Math.pow(Math.max(0.01, 1 + realReturnAnnual), coastH);
       let coastYear = (currentNominal * coastFactor0 >= fireTargetConstant) ? 0 : null;
 
       seriesResults[0].push(currentNominal);
@@ -1821,8 +1983,8 @@ function App() {
       for (let year = 1; year <= years; year++) {
         for (let month = 1; month <= 12; month++) {
           inflFactor *= monthlyInfl;
-          const u1 = Math.max(1e-12, Math.random());
-          const u2 = Math.random();
+          const u1 = Math.max(1e-12, rand());
+          const u2 = rand();
           const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
           const growth = Math.exp(monthlyDrift + monthlyVol * z);
 
@@ -1845,7 +2007,7 @@ function App() {
           fireYear = year;
         }
         if (coastYear === null) {
-          const remainingCoastYears = Math.max(0, 30 - year);
+          const remainingCoastYears = Math.max(0, coastH - year);
           const coastProjected = realEndOfYear * Math.pow(Math.max(0.01, 1 + realReturnAnnual), remainingCoastYears);
           if (coastProjected >= fireTargetConstant) {
             coastYear = year;
@@ -1887,10 +2049,11 @@ function App() {
       medianCoastYear: medianCoastYear <= years ? medianCoastYear : null,
       survivalRate: (survivedCount / simulations) * 100
     };
-  }, [totalNet, fireEpargne, fireRendement, fireVolatilite, fireInflation, fireDepense, fireSwr, fireRealTerms]);
+  }, [totalNet, fireEpargne, fireRendement, fireVolatilite, fireInflation, fireDepense, fireSwr, fireRealTerms, fireCoastHorizon]);
 
   const filteredHistory = useMemo(() => {
     if (!historyData || !historyData.length) return [];
+    if (timeRange === '1J') return historyData.slice(-2);
     const now = new Date();
     const cutoff = new Date();
     switch (timeRange) {
@@ -1920,58 +2083,85 @@ function App() {
     return [...filteredPositions].sort((a,b) => b.value_eur - a.value_eur).slice(0, 5);
   }, [filteredPositions]);
 
+  // Prix unitaires implicites en EUR déduits des positions existantes (value_eur / quantity)
+  const impliedTickerPrices = useMemo(() => {
+    const map = {};
+    positions.forEach(p => {
+      const t = (p.ticker || '').trim().toUpperCase();
+      const qty = Number(p.quantity || 0);
+      const val = Number(p.value_eur || 0);
+      if (t && qty > 0 && val > 0) {
+        map[t] = val / qty;
+      }
+    });
+    return map;
+  }, [positions]);
+
   const totalCategorized = sortedChartData.reduce((sum, d) => sum + d[1], 0);
   const actualPctData = {};
   sortedChartData.forEach(d => { if (TARGET_CATEGORIES.includes(d[0])) { actualPctData[d[0]] = totalCategorized > 0 ? (d[1] / totalCategorized) * 100 : 0; } });
-  const targetPctData = {};
-  TARGET_CATEGORIES.forEach(cat => { targetPctData[cat] = Number(targets[cat] || 0); });
-  const currentTargetTotal = Object.values(tempTargets).reduce((sum, val) => sum + Number(val || 0), 0);
+  const currentTargetTotal = TARGET_CATEGORIES.reduce((sum, cat) => sum + Number(tempTargets[cat]?.pct || 0), 0);
 
-  const rebalanceData = useMemo(() => {
-    if (!showRebalance) return [];
+  // Lot 3 : Rééquilibrage Cash-Flow Only sur catégories éligibles + calcul d'ordres entiers
+  const rebalancePlan = useMemo(() => {
+    if (!showRebalance) return { orders: [], excluded: [], totalLeftover: 0, hasOrdersWithShares: false };
     let amountLeft = Number(rebalanceAmount);
-    const result = [];
     const newTotal = totalCategorized + amountLeft;
-    
-    const gaps = TARGET_CATEGORIES.map(cat => {
+
+    const eligibleCats = TARGET_CATEGORIES.filter(cat => targets[cat]?.eligible && Number(targets[cat]?.pct || 0) > 0);
+    const excluded = TARGET_CATEGORIES.filter(cat => !targets[cat]?.eligible && Number(targets[cat]?.pct || 0) > 0);
+
+    const allocMap = {};
+    const gaps = eligibleCats.map(cat => {
       const currentVal = sortedChartData.find(d => d[0] === cat)?.[1] || 0;
-      const targetPct = Number(targets[cat] || 0) / 100;
-      const targetValue = newTotal * targetPct;
-      return { cat, gap: targetValue - currentVal };
+      const targetPct = Number(targets[cat]?.pct || 0) / 100;
+      return { cat, gap: (newTotal * targetPct) - currentVal };
     });
 
     const deficits = gaps.filter(g => g.gap > 0).sort((a, b) => b.gap - a.gap);
-
-    if (deficits.length === 0) {
-        TARGET_CATEGORIES.forEach(cat => {
-            const pct = Number(targets[cat] || 0) / 100;
-            result.push({ cat, amount: amountLeft * pct });
-        });
-        return result.filter(r => r.amount > 0.5);
-    }
-
     deficits.forEach(d => {
-        if (amountLeft <= 0) return;
-        const amountToAdd = Math.min(amountLeft, d.gap);
-        result.push({ cat: d.cat, amount: amountToAdd });
-        amountLeft -= amountToAdd;
+      if (amountLeft <= 0) return;
+      const add = Math.min(amountLeft, d.gap);
+      allocMap[d.cat] = (allocMap[d.cat] || 0) + add;
+      amountLeft -= add;
     });
 
-    if (amountLeft > 0) {
-        const totalTargetPct = TARGET_CATEGORIES.reduce((sum, cat) => sum + Number(targets[cat] || 0), 0);
-        if (totalTargetPct > 0) {
-            TARGET_CATEGORIES.forEach(cat => {
-                const pct = Number(targets[cat] || 0) / totalTargetPct;
-                const extraAmount = amountLeft * pct;
-                const existing = result.find(r => r.cat === cat);
-                if (existing) existing.amount += extraAmount;
-                else result.push({ cat, amount: extraAmount });
-            });
-        }
+    if (amountLeft > 0.5 && eligibleCats.length > 0) {
+      const sumEligiblePct = eligibleCats.reduce((sum, cat) => sum + Number(targets[cat]?.pct || 0), 0);
+      if (sumEligiblePct > 0) {
+        eligibleCats.forEach(cat => {
+          const share = Number(targets[cat]?.pct || 0) / sumEligiblePct;
+          allocMap[cat] = (allocMap[cat] || 0) + amountLeft * share;
+        });
+      }
     }
 
-    return result.filter(r => r.amount > 0.5).sort((a,b) => b.amount - a.amount);
-  }, [showRebalance, rebalanceAmount, sortedChartData, targets, totalCategorized]);
+    let totalLeftover = 0;
+    let hasOrdersWithShares = false;
+    const orders = Object.entries(allocMap)
+      .filter(([, amt]) => amt > 0.5)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, amount]) => {
+        const cfg = targets[cat] || {};
+        const ticker = (cfg.ticker || '').trim().toUpperCase();
+        const envelope = cfg.envelope || '';
+        const unitPrice = ticker ? (rebalancePrices[ticker] || impliedTickerPrices[ticker] || null) : null;
+        let shares = null;
+        let orderCost = null;
+        let leftover = null;
+
+        if (unitPrice && unitPrice > 0) {
+          shares = Math.floor(amount / unitPrice);
+          orderCost = shares * unitPrice;
+          leftover = amount - orderCost;
+          totalLeftover += leftover;
+          hasOrdersWithShares = true;
+        }
+        return { cat, amount, envelope, ticker, unitPrice, shares, orderCost, leftover };
+      });
+
+    return { orders, excluded, totalLeftover, hasOrdersWithShares };
+  }, [showRebalance, rebalanceAmount, sortedChartData, targets, totalCategorized, rebalancePrices, impliedTickerPrices]);
 
   const isOliwia = ownerFilter === 'Oliwia';
   const isAubin = ownerFilter === 'Aubin';
@@ -2052,6 +2242,10 @@ function App() {
 
   return (
     <div className="app-container">
+      <datalist id="known-tickers-list">
+        {allKnownTickers.map(item => <option key={item.ticker} value={item.ticker}>{item.label}</option>)}
+      </datalist>
+
       <header className="header animate-in">
         <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
           <h2 className="serif">Mon Patrimoine</h2>
@@ -2105,7 +2299,7 @@ function App() {
                 <div className="ap-label" style={{marginBottom: '10px'}}>Top 5 des positions</div>
                 <div className="top-list">
                   {topHoldings.map((p, index) => (
-                    <div key={p.id} className="top-item">
+                    <div key={getPosKey(p)} className="top-item">
                       <div style={{display: 'flex', alignItems: 'center'}}>
                         <div className="top-rank">{index + 1}</div>
                         <div>
@@ -2183,8 +2377,12 @@ function App() {
             </div>
           ) : (
             <div className="card" style={{textAlign: 'center', padding: '40px 20px'}}>
-              <p style={{color: 'var(--red)', marginBottom: '10px', fontWeight: 'bold'}}>Erreur de chargement</p>
-              <p style={{color: 'var(--text-light)', fontSize: '0.85rem'}}>{error || 'La base de données Supabase est vide.'}</p>
+              <p style={{color: error ? 'var(--red)' : 'var(--gold)', marginBottom: '10px', fontWeight: 'bold'}}>
+                {error ? 'Erreur de chargement' : 'Chargement des positions...'}
+              </p>
+              <p style={{color: 'var(--text-light)', fontSize: '0.85rem'}}>
+                {error || 'Récupération depuis Supabase en cours.'}
+              </p>
             </div>
           )
         )}
@@ -2197,6 +2395,7 @@ function App() {
                   <button key={owner} className={'owner-btn ' + (saisieOwner === owner ? 'active' : '')} onClick={() => { setSaisieOwner(owner); setOwnerFilter(owner); setNewAccount(prev => ({ ...prev, owner })); }}>{owner}</button>
                 ))}
               </div>
+              <label className="pro-toggle"><input type="checkbox" checked={showPro} onChange={(e) => setShowPro(e.target.checked)} />Inclure le Pro</label>
             </div>
 
             <div className="segmented-toggle" style={{marginBottom: '15px'}}>
@@ -2283,16 +2482,17 @@ function App() {
                         </thead>
                         <tbody>
                           {unlistedSaisiePositions.map(p => {
-                            const isDirty = dirtyValues[p.id] !== undefined || dirtyCurrency[p.id] !== undefined;
+                            const pKey = getPosKey(p);
+                            const isDirty = dirtyValues[pKey] !== undefined || dirtyCurrency[pKey] !== undefined;
                             const effCcy = getEffectiveCurrency(p);
                             const effEur = getNumEurVal(p);
                             const deltaEur = effEur - Number(p.value_eur || 0);
 
                             return (
-                              <tr key={p.id}>
+                              <tr key={pKey}>
                                 <td>
                                   <div style={{fontWeight: '600', color: 'var(--text-white)', fontSize: '0.82rem'}}>{p.account_name}</div>
-                                  <div style={{fontSize: '0.68rem', color: 'var(--text-light)'}}>{p.envelope} • {p.category}</div>
+                                  <div style={{fontSize: '0.68rem', color: 'var(--text-light)'}}>{p.envelope} • {p.category}{p.is_professional ? ' • Pro' : ''}</div>
                                 </td>
                                 <td style={{textAlign: 'right'}}>
                                   <div className="input-wrapper">
@@ -2300,7 +2500,7 @@ function App() {
                                       type="number"
                                       step="any"
                                       value={hideBalances ? '••••' : getRawNativeVal(p)}
-                                      onChange={e => handleInputChange(p.id, e.target.value)}
+                                      onChange={e => handleInputChange(p, e.target.value)}
                                       className={'table-input ' + (isDirty ? 'dirty' : '')}
                                       readOnly={hideBalances}
                                     />
@@ -2385,39 +2585,40 @@ function App() {
                                     <thead><tr><th>Support</th><th>Ticker</th><th style={{textAlign: 'right'}}>Solde natif</th></tr></thead>
                                     <tbody>
                                       {positionsList.map(p => {
+                                        const pKey = getPosKey(p);
                                         const rowName = p.account_name.includes(' - ')
                                           ? p.account_name.split(' - ')[1]
                                           : (p.category || 'Général');
-                                        const isDirty = dirtyValues[p.id] !== undefined || dirtyCurrency[p.id] !== undefined;
+                                        const isDirty = dirtyValues[pKey] !== undefined || dirtyCurrency[pKey] !== undefined;
                                         const effCcy = getEffectiveCurrency(p);
                                         const effEur = getNumEurVal(p);
 
                                         return (
-                                          <tr key={p.id}>
+                                          <tr key={pKey}>
                                             <td style={{color: 'var(--gold)'}}>
                                               <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
                                                 {rowName}
                                                 <button type="button" className="btn-edit-name" onClick={() => handleRenamePosition(p)} title="Renommer ce support">✏️</button>
                                               </div>
-                                              <div style={{fontSize: '0.65rem', color: 'var(--text-light)'}}>{p.category}</div>
+                                              <div style={{fontSize: '0.65rem', color: 'var(--text-light)'}}>{p.category}{p.is_professional ? ' • Pro' : ''}</div>
                                             </td>
                                             <td style={{textAlign: 'right'}}>
                                               <div className="etf-row">
-                                                <input className="small-input" placeholder="Ticker" value={p.ticker || ''} onChange={e => updatePositionEtf(p.id, 'ticker', e.target.value.toUpperCase())} title="Code Yahoo (ex: CW8.PA)" />
-                                                <input className="small-input" type="number" step="any" placeholder="Parts" value={p.quantity || ''} onChange={e => updatePositionEtf(p.id, 'quantity', e.target.value)} title="Nombre de parts" />
-                                                <button type="button" className="btn-sync-single" onClick={() => syncSingleEtf(p)} disabled={syncingId === p.id || !isOnline} title="Synchroniser et sauvegarder">
+                                                <input className="small-input" placeholder="Ticker" value={p.ticker || ''} onChange={e => updatePositionEtf(p, 'ticker', e.target.value.toUpperCase())} title="Code Yahoo ou Symbole IBKR" />
+                                                <input className="small-input" type="number" step="any" placeholder="Parts" value={p.quantity || ''} onChange={e => updatePositionEtf(p, 'quantity', e.target.value)} title="Nombre de parts" />
+                                                <button type="button" className="btn-sync-single" onClick={() => syncSingleEtf(p)} disabled={syncingKey === pKey || !isOnline} title="Synchroniser et sauvegarder">
                                                   <Icon name="refresh" size={14} />
                                                 </button>
                                               </div>
                                             </td>
                                             <td style={{textAlign: 'right'}}>
                                               <div className="input-wrapper">
-                                                <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, -1000)} disabled={hideBalances}>-</button>
-                                                <input type="number" step="any" value={hideBalances ? '••••' : getRawNativeVal(p)} onChange={e => handleInputChange(p.id, e.target.value)} className={'table-input ' + (isDirty ? 'dirty' : '')} readOnly={hideBalances} />
+                                                <button type="button" className="quick-btn" onClick={() => quickAdd(p, -1000)} disabled={hideBalances}>-</button>
+                                                <input type="number" step="any" value={hideBalances ? '••••' : getRawNativeVal(p)} onChange={e => handleInputChange(p, e.target.value)} className={'table-input ' + (isDirty ? 'dirty' : '')} readOnly={hideBalances} />
                                                 <select className="ccy-select" value={effCcy} onChange={e => handleCurrencyChange(p, e.target.value)} disabled={hideBalances}>
                                                   {SUPPORTED_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                                                 </select>
-                                                <button type="button" className="quick-btn" onClick={() => quickAdd(p.id, 1000)} disabled={hideBalances}>+</button>
+                                                <button type="button" className="quick-btn" onClick={() => quickAdd(p, 1000)} disabled={hideBalances}>+</button>
                                                 <button type="button" onClick={() => handleDeleteAccount(p)} className="btn-delete" title="Supprimer" disabled={hideBalances || !isOnline}><Icon name="trash" size={15} /></button>
                                               </div>
                                               {effCcy !== 'EUR' && (
@@ -2463,12 +2664,12 @@ function App() {
               {isLtExpanded && (
                 <div className="animate-in">
                   <p style={{fontSize: '0.78rem', color: 'var(--text-light)', marginBottom: '14px'}}>
-                    Définissez la répartition économique réelle (classes d'actifs et devises sous-jacentes) de vos tickers pour la <strong>Vue Économique</strong> du Dashboard.
+                    Définissez la répartition économique réelle par classe d'actifs de vos ETF (notamment multi-actifs ou à levier) pour la <strong>Vue Économique</strong> du Dashboard.
                   </p>
 
                   {allKnownTickers.map(item => {
                     const lt = lookthroughMap[item.ticker];
-                    const isConfigured = lt && (Object.keys(lt.asset_allocation || {}).length > 0 || Object.keys(lt.currency_exposure || {}).length > 0);
+                    const isConfigured = lt && Object.keys(lt.asset_allocation || {}).length > 0;
                     return (
                       <div key={item.ticker} className="lt-ticker-row">
                         <div>
@@ -2524,7 +2725,7 @@ function App() {
                         ))}
                       </div>
 
-                      <div style={{fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-white)', marginTop: '12px'}}>1. Allocation par classe d'actifs (%)</div>
+                      <div style={{fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-white)', marginTop: '12px'}}>Allocation par classe d'actifs (%)</div>
                       <div className="lt-kv-grid">
                         {TARGET_CATEGORIES.map(cat => (
                           <div key={cat} className="lt-kv-item">
@@ -2541,24 +2742,7 @@ function App() {
                         ))}
                       </div>
 
-                      <div style={{fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-white)', marginTop: '12px'}}>2. Exposition aux devises sous-jacentes (%)</div>
-                      <div className="lt-kv-grid">
-                        {LT_CURRENCIES.map(ccy => (
-                          <div key={ccy} className="lt-kv-item">
-                            <span style={{color: 'var(--text-light)'}}>{ccy}</span>
-                            <input
-                              type="number"
-                              step="any"
-                              className="lt-pct-input"
-                              placeholder="0"
-                              value={ltDraft.ccy[ccy] !== undefined ? ltDraft.ccy[ccy] : ''}
-                              onChange={e => setLtDraft(prev => ({ ...prev, ccy: { ...prev.ccy, [ccy]: e.target.value } }))}
-                            />
-                          </div>
-                        ))}
-                      </div>
-
-                      <button type="button" onClick={saveLookthrough} className="btn-gold" style={{marginTop: '14px', padding: '12px', fontSize: '0.88rem'}}>
+                      <button type="button" onClick={saveLookthrough} disabled={!isOnline} className="btn-gold" style={{marginTop: '14px', padding: '12px', fontSize: '0.88rem'}}>
                         Enregistrer la transparence ({editingLtTicker})
                       </button>
                     </div>
@@ -2601,7 +2785,9 @@ function App() {
 
               <div className="fire-alloc-banner">
                 <div>
-                  <div style={{fontSize: '0.72rem', color: 'var(--text-light)'}}>Profil de votre allocation ({viewMode === 'economic' ? 'Économique' : 'Nominale'})</div>
+                  <div style={{fontSize: '0.72rem', color: 'var(--text-light)'}}>
+                    Profil de votre allocation ({viewMode === 'economic' ? `Économique ${(economicAnalysis.leverageRatio * 100).toFixed(0)}%` : 'Nominale'})
+                  </div>
                   <div style={{fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-white)', marginTop: '2px'}}>
                     Rendement : {portfolioAssumptions.expectedReturn} % • Volatilité : {portfolioAssumptions.volatility} %
                   </div>
@@ -2685,7 +2871,16 @@ function App() {
                   <div className="fire-box-sub">Arrêt épargne & début rente</div>
                 </div>
                 <div className="fire-box">
-                  <div className="fire-box-label">Coast FIRE (horizon 30 ans)</div>
+                  <div className="fire-box-label" style={{display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '5px'}}>
+                    <span>Coast FIRE</span>
+                    <select
+                      value={fireCoastHorizon}
+                      onChange={e => updateFireSettings({ coastHorizon: Number(e.target.value) })}
+                      style={{background: 'var(--input-bg)', color: 'var(--gold)', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '0.68rem', padding: '1px 4px'}}
+                    >
+                      {[15, 20, 25, 30, 35].map(h => <option key={h} value={h}>{h} ans</option>)}
+                    </select>
+                  </div>
                   <div className="fire-box-value">
                     {fireSimulation.medianCoastYear === 0
                       ? 'Déjà atteint'
@@ -2723,17 +2918,55 @@ function App() {
           <div className="animate-in">
             {editTargetsMode ? (
               <div className="card">
-                <div className="ap-label" style={{marginBottom: '10px'}}>Définir les cibles (%)</div>
+                <div className="ap-label" style={{marginBottom: '10px'}}>Définir les cibles & règles DCA</div>
                 <div className={'total-indicator ' + (Math.round(currentTargetTotal) === 100 ? 'ok' : 'not-ok')}>Total : {currentTargetTotal.toFixed(0)}% / 100%</div>
-                {TARGET_CATEGORIES.map(cat => (
-                  <div className="slider-container" key={cat}>
-                    <div className="slider-header"><span className="slider-label">{cat}</span><span className="slider-value">{tempTargets[cat] || 0} %</span></div>
-                    <input type="range" min="0" max="100" step="1" value={tempTargets[cat] || 0} onChange={e => handleTargetSliderChange(cat, e.target.value)} />
-                  </div>
-                ))}
+                {TARGET_CATEGORIES.map(cat => {
+                  const cfg = tempTargets[cat] || defaultTargetEntry(cat);
+                  return (
+                    <div className="slider-container" key={cat} style={{paddingBottom: '12px', borderBottom: '1px solid var(--border-color)'}}>
+                      <div className="slider-header">
+                        <span className="slider-label" style={{fontWeight: '600', color: 'var(--text-white)'}}>{cat}</span>
+                        <span className="slider-value">{cfg.pct || 0} %</span>
+                      </div>
+                      <input type="range" min="0" max="100" step="1" value={cfg.pct || 0} onChange={e => handleTargetSliderChange(cat, e.target.value)} />
+                      <div className="target-meta-row">
+                        <label style={{display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.74rem', color: 'var(--text-light)', cursor: 'pointer'}}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(cfg.eligible)}
+                            onChange={e => handleTargetFieldChange(cat, 'eligible', e.target.checked)}
+                            style={{accentColor: 'var(--gold)'}}
+                          />
+                          Éligible DCA
+                        </label>
+                        {cfg.eligible && (
+                          <>
+                            <select
+                              className="target-meta-input"
+                              style={{flex: 1, minWidth: '100px'}}
+                              value={cfg.envelope || ''}
+                              onChange={e => handleTargetFieldChange(cat, 'envelope', e.target.value)}
+                            >
+                              <option value="">Enveloppe (optionnel)</option>
+                              {ENVELOPPES_LIST.map(env => <option key={env} value={env}>{env}</option>)}
+                            </select>
+                            <input
+                              className="target-meta-input"
+                              style={{width: '105px'}}
+                              list="known-tickers-list"
+                              placeholder="Ticker (ex: CW8.PA)"
+                              value={cfg.ticker || ''}
+                              onChange={e => handleTargetFieldChange(cat, 'ticker', e.target.value.toUpperCase())}
+                            />
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
                 <div style={{display: 'flex', gap: '10px', marginTop: '20px'}}>
                   <button onClick={() => { setEditTargetsMode(false); setTempTargets(targets); }} className="btn-export" style={{flex:1, marginBottom:0}}>Annuler</button>
-                  <button onClick={saveTargets} className="btn-gold" style={{flex:2}} disabled={Math.round(currentTargetTotal) !== 100}>Enregistrer</button>
+                  <button onClick={saveTargets} className="btn-gold" style={{flex:2}} disabled={Math.round(currentTargetTotal) !== 100 || !isOnline}>Enregistrer</button>
                 </div>
               </div>
             ) : (
@@ -2744,20 +2977,55 @@ function App() {
                 </div>
                 {showRebalance && (
                   <div className="card" style={{border: '1px solid var(--gold)'}}>
-                    <div className="ap-label" style={{marginBottom: '15px'}}>Plan d'investissement (Cash-Flow Only)</div>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '8px'}}>
+                      <div className="ap-label">Plan d'investissement (Cash-Flow Only)</div>
+                      <button type="button" onClick={refreshRebalancePrices} disabled={rebalancePriceLoading || !isOnline} className="btn-apply-alloc">
+                        {rebalancePriceLoading ? 'Prix...' : '↻ Actualiser prix'}
+                      </button>
+                    </div>
                     <div className="slider-container">
                       <div className="slider-header"><span className="slider-label">Montant à investir</span><span className="slider-value">{formatMoney(rebalanceAmount)}</span></div>
                       <input type="range" min="0" max="50000" step="100" value={rebalanceAmount} onChange={e => setRebalanceAmount(e.target.value)} disabled={hideBalances} />
                     </div>
-                    <div style={{background: 'var(--input-bg)', padding: '15px', borderRadius: '12px'}}>
-                      <p style={{fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: '10px'}}>Répartition recommandée sans cession d'actifs existants :</p>
-                      {rebalanceData.map(item => (
-                        <div key={item.cat} style={{display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '5px'}}>
-                          <span>{item.cat}</span>
-                          <span style={{color: 'var(--green)', fontWeight: 'bold'}}>+{formatMoney(item.amount)}</span>
+                    <div style={{background: 'var(--input-bg)', padding: '14px', borderRadius: '12px'}}>
+                      <p style={{fontSize: '0.78rem', color: 'var(--text-light)', marginBottom: '10px'}}>
+                        Ordres recommandés sans cession d'actifs existants :
+                      </p>
+                      {rebalancePlan.orders.map(item => (
+                        <div key={item.cat} className="rebalance-order-row">
+                          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem'}}>
+                            <span style={{fontWeight: '600', color: 'var(--text-white)'}}>
+                              {item.cat}
+                              {item.envelope && <span className="rebalance-pill">{getShortEnvelopeName(item.envelope)}</span>}
+                            </span>
+                            <span style={{color: 'var(--green)', fontWeight: 'bold'}}>+{formatMoney(item.amount)}</span>
+                          </div>
+                          {item.ticker && item.shares !== null && (
+                            <div style={{fontSize: '0.73rem', color: 'var(--gold)', marginTop: '4px'}}>
+                              ➜ Acheter <strong>{item.shares} part{item.shares > 1 ? 's' : ''}</strong> de <strong>{item.ticker}</strong> ({formatMoney(item.unitPrice, 2)}/part) • Coût : {formatMoney(item.orderCost)} • Reliquat : {formatMoney(item.leftover)}
+                            </div>
+                          )}
+                          {item.ticker && item.shares === null && (
+                            <div style={{fontSize: '0.72rem', color: 'var(--text-light)', marginTop: '4px'}}>
+                              Ticker cible : {item.ticker} (cliquez sur « Actualiser prix » pour calculer le nombre de parts)
+                            </div>
+                          )}
                         </div>
                       ))}
-                      {rebalanceData.length === 0 && <p style={{fontSize:'0.8rem', textAlign:'center'}}>L'allocation actuelle correspond déjà à la cible.</p>}
+                      {rebalancePlan.orders.length === 0 && (
+                        <p style={{fontSize:'0.8rem', textAlign:'center', color: 'var(--text-light)'}}>Aucune catégorie éligible à rééquilibrer.</p>
+                      )}
+                      {rebalancePlan.hasOrdersWithShares && (
+                        <div style={{marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--border-color)', fontSize: '0.75rem', color: 'var(--text-light)', display: 'flex', justifyContent: 'space-between'}}>
+                          <span>Reliquat espèces cumulé après ordres entiers :</span>
+                          <strong style={{color: 'var(--text-white)'}}>{formatMoney(rebalancePlan.totalLeftover)}</strong>
+                        </div>
+                      )}
+                      {rebalancePlan.excluded.length > 0 && (
+                        <div style={{marginTop: '8px', fontSize: '0.7rem', color: 'var(--text-light)'}}>
+                          Hors flux DCA : {rebalancePlan.excluded.join(', ')}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -2765,11 +3033,16 @@ function App() {
                   <div className="ap-label" style={{marginBottom: '20px'}}>Cible vs Réel</div>
                   {TARGET_CATEGORIES.map(cat => {
                     const actual = actualPctData[cat] || 0;
-                    const target = targetPctData[cat] || 0;
+                    const cfg = targets[cat] || defaultTargetEntry(cat);
+                    const target = Number(cfg.pct || 0);
                     return (
                       <div className="target-bar-container" key={cat}>
                         <div className="target-bar-label">
-                          <span>{cat}</span>
+                          <span>
+                            {cat}
+                            {!cfg.eligible && target > 0 && <span style={{fontSize: '0.68rem', color: 'var(--text-light)', marginLeft: '6px'}}>(hors DCA)</span>}
+                            {cfg.eligible && cfg.ticker && <span className="rebalance-pill">{cfg.ticker}</span>}
+                          </span>
                           <span style={{color: actual > target + 5 ? 'var(--gold)' : actual < target - 5 ? 'var(--red)' : 'var(--text-light)'}}>Réel: {actual.toFixed(1)}% / Cible: {target.toFixed(0)}%</span>
                         </div>
                         <div className="target-bar-bg">
@@ -2802,7 +3075,7 @@ function App() {
                   <div key={date} style={{marginBottom: '20px', background: 'var(--input-bg)', padding: '15px', borderRadius: '12px'}}>
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'}}>
                       <div style={{fontSize: '0.9rem', color: 'var(--gold)', fontWeight: 'bold', textTransform: 'capitalize'}}>{formattedDate}</div>
-                      <button onClick={() => deleteHistoryDay(date)} className="btn-delete-history">Supprimer ce jour</button>
+                      <button onClick={() => deleteHistoryDay(date)} disabled={!isOnline} className="btn-delete-history">Supprimer ce jour</button>
                     </div>
                     <div>
                       {items.map((item, idx) => (
