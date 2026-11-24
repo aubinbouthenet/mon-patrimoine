@@ -1,8 +1,5 @@
-const CACHE_NAME = 'patrimoine-shell-v1';
-const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './manifest.json',
+const CACHE_NAME = 'patrimoine-shell-v2';
+const CDN_ASSETS = [
   'https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js',
   'https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js',
   'https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js',
@@ -12,7 +9,7 @@ const ASSETS_TO_CACHE = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE)).catch(() => {})
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(CDN_ASSETS)).catch(() => {})
   );
   self.skipWaiting();
 });
@@ -29,12 +26,26 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
-  if (req.url.includes('supabase.co') || req.url.includes('frankfurter') || req.url.includes('er-api.com')) {
+
+  const url = new URL(req.url);
+  if (
+    url.hostname.includes('supabase.co') ||
+    url.hostname.includes('frankfurter') ||
+    url.hostname.includes('er-api.com') ||
+    url.hostname.includes('allorigins.win') ||
+    url.hostname.includes('codetabs.com')
+  ) {
     return;
   }
-  event.respondWith(
-    caches.match(req).then((cached) => {
-      const networkFetch = fetch(req)
+
+  // Network-First pour l'application (index.html / manifest.json) : toujours à jour après un commit GitHub
+  const isAppShell =
+    req.mode === 'navigate' ||
+    url.origin === self.location.origin;
+
+  if (isAppShell) {
+    event.respondWith(
+      fetch(req)
         .then((res) => {
           if (res && res.status === 200) {
             const clone = res.clone();
@@ -42,8 +53,22 @@ self.addEventListener('fetch', (event) => {
           }
           return res;
         })
-        .catch(() => cached);
-      return cached || networkFetch;
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // Cache-First pour les bibliothèques CDN versionnées et polices
+  event.respondWith(
+    caches.match(req).then((cached) => {
+      if (cached) return cached;
+      return fetch(req).then((res) => {
+        if (res && res.status === 200) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+        }
+        return res;
+      });
     })
   );
 });
